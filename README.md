@@ -1,4 +1,4 @@
-
+https://inamu-legends.onrender.com/
 # games
 
 # 🥤 いなむーレジェンズ (Inamu Legends)
