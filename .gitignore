@@ -1,0 +1,12 @@
+node_modules/
+*.log
+.env
+.DS_Store
+Thumbs.db
+node/
+*.bat
+*.vbs
+launch.vbs
+start.bat
+join_server.bat
+unblock_first.bat

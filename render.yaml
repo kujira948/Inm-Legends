@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: inamu-legends
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST_NAME
+        value: いなむーレジェンズ公式サーバー

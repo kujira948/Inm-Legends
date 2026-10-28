@@ -1,0 +1,3523 @@
+/**
+ * いなむーレジェンズ - メインロジック
+ */
+
+const CONFIG = {
+    SCREEN_WIDTH: 576, // 18 cols * 32px
+    SCREEN_HEIGHT: 288, // 9 rows * 32px
+    GRID_ROWS: 9,
+    GRID_COLS: 18,
+    FPS: 30,
+    TILE_SIZE: 32,
+    PLAYER_SPEED: 4, // px per frame
+};
+
+// ===============================================================
+// ☁️ クラウドデータ同期システム
+// ユーザートークンを使ってサーバーとELO・デッキ・図鑑を同期
+// ===============================================================
+const CloudSyncManager = {
+    token: null,
+    isCloud: false,  // クラウドサーバー接続中かどうか
+
+    // トークンの初期化（localStorage から取得、なければ生成）
+    initToken() {
+        let t = localStorage.getItem('inamu_user_token');
+        if (!t) {
+            t = 'u_' + Math.random().toString(36).substr(2, 12) + Date.now().toString(36);
+            localStorage.setItem('inamu_user_token', t);
+        }
+        this.token = t;
+    },
+
+    // サーバーからユーザーデータを読み込み
+    async load() {
+        this.initToken();
+        try {
+            const res = await fetch('/api/userdata', {
+                headers: { 'x-user-token': this.token }
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            return data;
+        } catch (e) {
+            return null; // サーバー未接続時はローカルデータを使用
+        }
+    },
+
+    // サーバーにユーザーデータを保存
+    async save(patch) {
+        if (!this.token) this.initToken();
+        try {
+            await fetch('/api/userdata', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-user-token': this.token
+                },
+                body: JSON.stringify(patch)
+            });
+        } catch (e) {
+            // サーバー未接続時は無視（ローカルに保存済み）
+        }
+    },
+
+    // ELOの更新（ローカル + サーバー）
+    async updateElo(delta) {
+        let elo = parseInt(localStorage.getItem('inamu_elo') || '1200');
+        elo = Math.max(0, Math.min(9999, elo + delta));
+        localStorage.setItem('inamu_elo', elo.toString());
+        const name = localStorage.getItem('inamu_player_name') || 'ゲスト';
+        await this.save({ elo, name });
+        return elo;
+    },
+
+    // デッキの保存（ローカル + サーバー）
+    async saveDeck(deck) {
+        localStorage.setItem('inamu_deck', JSON.stringify(deck));
+        await this.save({ deck });
+    },
+
+    // 発見済みキメラの保存（ローカル + サーバー）
+    async saveDiscoveredChimeras(list) {
+        localStorage.setItem('inamu_discovered_chimeras', JSON.stringify(list));
+        await this.save({ discoveredChimeras: list });
+    },
+
+    // 起動時にクラウドからデータをロードしてローカルとマージ
+    async syncOnStart() {
+        this.initToken();
+        const cloudData = await this.load();
+        if (!cloudData) return; // ローカルモード
+
+        // サーバーのデータでローカルをアップデート（サーバー優先）
+        const localElo = parseInt(localStorage.getItem('inamu_elo') || '1200');
+        const cloudElo = cloudData.elo || 1200;
+        // より高いELOを採用（どちらかを失わないように）
+        const bestElo = Math.max(localElo, cloudElo);
+        localStorage.setItem('inamu_elo', bestElo.toString());
+
+        if (cloudData.deck && Array.isArray(cloudData.deck) && cloudData.deck.length === 6) {
+            localStorage.setItem('inamu_deck', JSON.stringify(cloudData.deck));
+        }
+        if (cloudData.discoveredChimeras && Array.isArray(cloudData.discoveredChimeras)) {
+            const local = JSON.parse(localStorage.getItem('inamu_discovered_chimeras') || '[]');
+            const merged = [...new Set([...local, ...cloudData.discoveredChimeras])];
+            localStorage.setItem('inamu_discovered_chimeras', JSON.stringify(merged));
+        }
+
+        // ランキングUIを更新
+        this.updateRankingDisplay();
+    },
+
+    // ランキング取得・表示
+    async updateRankingDisplay() {
+        try {
+            const res = await fetch('/api/ranking');
+            if (!res.ok) return;
+            const ranking = await res.json();
+            const el = document.getElementById('ranking-list');
+            if (!el) return;
+            el.innerHTML = ranking.map((r, i) =>
+                `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #333;">
+                    <span style="color:${i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#fff'}">
+                        ${i + 1}. ${r.name}
+                    </span>
+                    <span style="color:#0df;font-weight:bold;">${r.elo}</span>
+                </div>`
+            ).join('');
+        } catch (e) {}
+    }
+};
+
+const SoundManager = {
+    ctx: null,
+    masterGain: null,
+    volume: 0.8,
+    muted: false,
+    init() {
+        if (this.ctx) return;
+        try {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime);
+            this.masterGain.connect(this.ctx.destination);
+        } catch (e) {}
+    },
+    setVolume(val) {
+        this.volume = Math.max(0, Math.min(1, val));
+        if (this.masterGain && this.ctx) {
+            this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime);
+        }
+    },
+    setMute(mute) {
+        this.muted = !!mute;
+        if (this.masterGain && this.ctx) {
+            this.masterGain.gain.setValueAtTime(this.muted ? 0 : this.volume, this.ctx.currentTime);
+        }
+    },
+    resume() {
+        if (this.ctx && this.ctx.state === 'suspended') {
+            try { this.ctx.resume(); } catch (e) {}
+        }
+    },
+    getDest() {
+        this.init();
+        return this.masterGain || (this.ctx ? this.ctx.destination : null);
+    },
+    playSummon() {
+        this.init(); this.resume();
+        if (!this.ctx || this.muted) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(this.getDest());
+        osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+    },
+    playFire() {
+        this.init(); this.resume();
+        if (!this.ctx || this.muted) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+        osc.connect(gain); gain.connect(this.getDest());
+        osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+    },
+    playHit() {
+        this.init(); this.resume();
+        if (!this.ctx || this.muted) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+        osc.connect(gain); gain.connect(this.getDest());
+        osc.start(); osc.stop(this.ctx.currentTime + 0.05);
+    },
+    playExplosion() {
+        this.init(); this.resume();
+        if (!this.ctx || this.muted) return;
+        const bufferSize = this.ctx.sampleRate * 0.3;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass'; filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+        noise.connect(filter); filter.connect(gain); gain.connect(this.getDest());
+        noise.start(); noise.stop(this.ctx.currentTime + 0.3);
+    },
+    playVictory() {
+        this.init(); this.resume();
+        if (!this.ctx || this.muted) return;
+        [440, 554, 659, 880].forEach((f, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.frequency.setValueAtTime(f, this.ctx.currentTime + i * 0.1);
+            gain.gain.setValueAtTime(0, this.ctx.currentTime + i * 0.1);
+            gain.gain.linearRampToValueAtTime(0.1, this.ctx.currentTime + i * 0.1 + 0.05);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + i * 0.1 + 0.3);
+            osc.connect(gain); gain.connect(this.getDest());
+            osc.start(this.ctx.currentTime + i * 0.1); osc.stop(this.ctx.currentTime + i * 0.1 + 0.3);
+        });
+    }
+};
+
+// アセット (プログラム生成)
+const ASSETS = {};
+
+// ユニット定義を先に宣言（スプライト生成で使うため）
+// ユニット定義（稲は全体的にマイルドに弱体化、新種を多数追加）
+const UNIT_TYPES = {
+    // 🌾 稲（タレット型・弱体化調整）
+    RICE_BASIC: { id: 'rice_1', name: 'ライス プリムス', cost: 10, hp: 16, type: 'rice', cooldown: 2.6, fireType: '8dir', power: 4, desc: '基本となる稲。周囲8方向に米粒を放つ。' },
+    RICE_SPREAD: { id: 'rice_2', name: 'フェッヒャー ライス', cost: 12, hp: 15, type: 'rice', cooldown: 3.4, fireType: 'circle6', power: 4, desc: '円形に6発の弾を放つ扇の稲。広範囲をカバー。' },
+    RICE_SEEKER: { id: 'rice_3', name: 'イェーガー ライス', cost: 14, hp: 14, type: 'rice', cooldown: 3.0, fireType: 'single', action: 'homing', power: 7, desc: '敵を追尾する狩人の稲。' },
+    RICE_BURST: { id: 'rice_4', name: 'シュトゥルム ライス', cost: 15, hp: 15, type: 'rice', cooldown: 1.2, fireType: 'burst', power: 4, desc: '3連射を放つ嵐の稲。' },
+    RICE_LASER: { id: 'rice_5', name: 'ルクス ライス', cost: 18, hp: 16, type: 'rice', cooldown: 3.8, fireType: 'single', action: 'laser', power: 22, desc: '【新種】一直線に貫く光の稲。高速レーザーを照射。' },
+    RICE_POISON: { id: 'rice_p', name: 'ギフト ライス', cost: 13, hp: 18, type: 'rice', cooldown: 3.2, fireType: 'circle6', action: 'poison', power: 5, desc: '【新種】毒胞子を撒き散らす稲。触れた敵弾を弱体化。' },
+    RICE_FROST: { id: 'rice_f', name: 'フロスト ライス', cost: 16, hp: 18, type: 'rice', cooldown: 3.5, fireType: '8dir', action: 'frost', power: 6, desc: '【新種】氷結の冷気を放つ稲。冷気弾で敵弾を相殺。' },
+    RICE_SNIPER: { id: 'rice_s', name: 'プレツィザ ライス', cost: 20, hp: 12, type: 'rice', cooldown: 4.5, fireType: 'single', action: 'sniper', power: 30, desc: '【新種】敵本体を遠距離から直接撃ち抜く狙撃の稲。' },
+
+    // 🛡️ 稲・盾（耐久調整）
+    RICE_SHIELD_WOOD: { id: 'rice_6', name: 'ホルツ シルト', cost: 8, hp: 70, type: 'rice', cooldown: 999, fireType: 'none', desc: '木製の素朴な盾。低コストで戦線を支える。' },
+    RICE_SHIELD_IRON: { id: 'rice_7', name: 'アイゼン シルト', cost: 15, hp: 130, type: 'rice', cooldown: 999, fireType: 'none', desc: '重厚な鉄の盾。強固な守りを提供。' },
+    RICE_SHIELD_MAGIC: { id: 'rice_8', name: 'アウラ シルト', cost: 24, hp: 200, type: 'rice', cooldown: 999, fireType: 'none', desc: '輝く魔力の盾。究極の耐久力を誇る障壁。' },
+
+    // 🥤 コーラ（手動投擲・新種追加）
+    COLA_STRAIGHT: { id: 'cola_1', name: 'コーラ ブリッツ', cost: 8, hp: 50, type: 'cola', action: 'straight', power: 25, desc: '直線的に突き進む電撃のコーラ。' },
+    COLA_BOUNCE: { id: 'cola_2', name: 'コーラ ジャンパー', cost: 12, hp: 45, type: 'cola', action: 'bounce', power: 20, desc: '壁を跳ね回る跳躍のコーラ。' },
+    COLA_SPLIT: { id: 'cola_3', name: 'コーラ フラグメント', cost: 14, hp: 40, type: 'cola', action: 'split', power: 18, desc: '分裂して降り注ぐ砕片のコーラ。' },
+    COLA_CHARGE: { id: 'cola_5', name: 'コーラ バルカン', cost: 16, hp: 55, type: 'cola', action: 'charge', power: 35, desc: '力を溜めて爆発させる火山のコーラ。' },
+    COLA_PIERCE: { id: 'cola_6', name: 'コーラ ランツェ', cost: 18, hp: 45, type: 'cola', action: 'pierce', power: 24, desc: '全てを貫く槍のコーラ。' },
+    COLA_SPREAD: { id: 'cola_7', name: 'コーラ ノヴァ', cost: 17, hp: 48, type: 'cola', action: 'spread', power: 20, desc: '着弾時に弾け飛ぶ新星のコーラ。' },
+    COLA_MEGATON: { id: 'cola_m', name: 'コーラ ギガント', cost: 22, hp: 70, type: 'cola', action: 'megaton', power: 50, desc: '【新種】超巨大な重量級コーラ。前線を圧殺する。' },
+    COLA_BLACK: { id: 'cola_b', name: 'コーラ ネビュラ', cost: 20, hp: 50, type: 'cola', action: 'blackhole', power: 28, desc: '【新種】周囲の敵弾を引き込み消滅させる重力コーラ。' },
+    COLA_MENTOS: { id: 'cola_g', name: 'コーラ ゲイザー', cost: 15, hp: 45, type: 'cola', action: 'geyser', power: 22, desc: '【新種】炭酸噴射で軌道を変えながら急加速する暴走コーラ。' },
+    COLA_ZERO: { id: 'cola_z', name: 'コーラ ゼロ', cost: 6, hp: 35, type: 'cola', action: 'zero', power: 16, desc: '【新種】超低コストで高速回転する零式コーラ。' },
+
+    // 🫧 ソーダ（マナ生成）
+    SODA_SMALL: { id: 'soda_1', name: 'ソーダ ブリーゼ', cost: 12, hp: 30, type: 'soda', manaGen: 0.02, desc: '穏やかな香りのソーダ。マナを微量生成。' },
+    SODA_MEDIUM: { id: 'soda_2', name: 'ソーダ クヴェレ', cost: 22, hp: 50, type: 'soda', manaGen: 0.05, desc: '湧き出す源泉のソーダ。マナを効率よく供給。' },
+    SODA_LARGE: { id: 'soda_3', name: 'ソーダ オツェアーン', cost: 35, hp: 80, type: 'soda', manaGen: 0.1, desc: '広大な大海のソーダ。マナの潮流を生む。' }
+};
+
+// シークレット特殊進化（キメラ合体）全20種の定義（強化・厳格レシピ）
+const SECRET_CHIMERAS = {
+    GATLING_SPRITE: {
+        id: 'chimera_gatling', name: '機神 ガトリング・スプライト',
+        pairHint: 'シュトゥルム ライス ＋ コーラ ジャンパー',
+        recipe: (t, s) => (t.typeKey === 'RICE_BURST' && s.typeKey === 'COLA_BOUNCE'),
+        hp: 95, power: 14, cooldown: 0.7, fireTypes: ['burst'], actions: ['bounce'],
+        desc: '【シークレットキメラ】連射の稲に跳弾コーラを完全抽出。超高速連射で跳弾マシンガンを撃ちまくる機動砲台。'
+    },
+    CLUSTER_METEOR: {
+        id: 'chimera_meteor', name: '彗星 クラスター・ミーティア',
+        pairHint: 'フェッヒャー ライス ＋ コーラ ノヴァ',
+        recipe: (t, s) => (t.typeKey === 'RICE_SPREAD' && s.typeKey === 'COLA_SPREAD'),
+        hp: 90, power: 22, cooldown: 1.5, fireTypes: ['circle6'], actions: ['spread'],
+        desc: '【シークレットキメラ】拡散の稲に爆散コーラを完全抽出。着弾時に大爆発を起こす星屑の彗星弾を円形発射。'
+    },
+    PHANTOM_HUNTER: {
+        id: 'chimera_phantom', name: '亡霊 イェーガー・ファントム',
+        pairHint: 'イェーガー ライス ＋ コーラ ランツェ',
+        recipe: (t, s) => (t.typeKey === 'RICE_SEEKER' && s.typeKey === 'COLA_PIERCE'),
+        hp: 85, power: 18, cooldown: 1.3, fireTypes: ['homing2'], actions: ['pierce', 'homing'], pierceCount: 3,
+        desc: '【シークレットキメラ】追尾の稲に貫通コーラを完全抽出。敵前線をすり抜けながら本体を執拗に追い詰める幽霊弾。'
+    },
+    VOLCANO_FORTRESS: {
+        id: 'chimera_volcano', name: '要塞 ヴォルケイノ・フォートレス',
+        pairHint: 'ホルツ シルト ＋ コーラ バルカン',
+        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_WOOD' && s.typeKey === 'COLA_CHARGE'),
+        hp: 210, power: 24, cooldown: 1.8, fireTypes: ['circle6'], actions: ['charge', 'spread'],
+        desc: '【シークレットキメラ】木の盾に火山コーラを完全抽出。圧倒的な耐久を誇り、チャージ火砕流弾を全周囲に噴出。'
+    },
+    NEBULA_HARVESTER: {
+        id: 'chimera_nebula', name: '暗黒 ネビュラ・ハーベスター',
+        pairHint: 'ギフト ライス ＋ コーラ ネビュラ',
+        recipe: (t, s) => (t.typeKey === 'RICE_POISON' && s.typeKey === 'COLA_BLACK'),
+        hp: 95, power: 15, cooldown: 1.6, fireTypes: ['8dir'], actions: ['blackhole'], manaGen: 0.08,
+        desc: '【シークレットキメラ】毒の稲に黒コーラを完全抽出。周囲の敵弾を引き込み消滅させ、自軍のマナに変換。'
+    },
+    ZERO_DRAGOON: {
+        id: 'chimera_dragoon', name: '雷轟 零式ドラグーン',
+        pairHint: 'プレツィザ ライス ＋ コーラ ゼロ',
+        recipe: (t, s) => (t.typeKey === 'RICE_SNIPER' && s.typeKey === 'COLA_ZERO'),
+        hp: 90, power: 28, cooldown: 1.4, fireTypes: ['single'], actions: ['pierce', 'sniper'], pierceCount: 5,
+        desc: '【シークレットキメラ】狙撃の稲に零式コーラを完全抽出。敵本陣へ向けて障害物を貫く超音速レールガンを射出。'
+    },
+    MEGALITH_TITAN: {
+        id: 'chimera_titan', name: '巨神 メガリス・タイタン',
+        pairHint: 'アイゼン シルト ＋ コーラ ギガント',
+        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_IRON' && s.typeKey === 'COLA_MEGATON'),
+        hp: 250, power: 26, cooldown: 2.2, fireTypes: ['burst'], actions: ['megaton'],
+        desc: '【シークレットキメラ】鉄盾に巨大コーラを完全抽出。圧倒的装甲と重力砲撃で敵前線を完全に圧殺する巨神。'
+    },
+    FROST_NOVA: {
+        id: 'chimera_frost', name: '極光 フロスト・ノヴァ',
+        pairHint: 'フロスト ライス ＋ コーラ ゲイザー',
+        recipe: (t, s) => (t.typeKey === 'RICE_FROST' && s.typeKey === 'COLA_MENTOS'),
+        hp: 90, power: 16, cooldown: 1.4, fireTypes: ['8dir'], actions: ['frost', 'geyser'],
+        desc: '【シークレットキメラ】氷結の稲にゲイザーコーラを完全抽出。急加速する8方向冷気弾を放ち、接触した敵弾を相殺。'
+    },
+    ZERO_FROST: {
+        id: 'chimera_zero_frost', name: '絶対零度 アブソリュート・ゼロ',
+        pairHint: 'フロスト ライス ＋ コーラ ノヴァ',
+        recipe: (t, s) => (t.typeKey === 'RICE_FROST' && s.typeKey === 'COLA_SPREAD'),
+        hp: 100, power: 20, cooldown: 1.5, fireTypes: ['circle6'], actions: ['frost', 'spread'],
+        desc: '【シークレットキメラ】氷結の稲に拡散コーラを完全抽出。敵弾を相殺した瞬間に周囲へカウンター爆散を起こす！'
+    },
+    AURA_GENESIS: {
+        id: 'chimera_genesis', name: '聖樹 アウラ・ジェネシス',
+        pairHint: 'アウラ シルト ＋ ソーダ オツェアーン',
+        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_MAGIC' && s.typeKey === 'SODA_LARGE'),
+        hp: 180, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.14,
+        desc: '【シークレットキメラ】魔力盾に大海ソーダを完全抽出。弾は撃たず、味方全体のHPを常時リジェネし大量のマナを生成。'
+    },
+    VOLTEC_LASER: {
+        id: 'chimera_voltec', name: '迅雷 ルクス・ヴォルテック',
+        pairHint: 'ルクス ライス ＋ コーラ ブリッツ',
+        recipe: (t, s) => (t.typeKey === 'RICE_LASER' && s.typeKey === 'COLA_STRAIGHT'),
+        hp: 85, power: 25, cooldown: 1.1, fireTypes: ['single'], actions: ['laser', 'straight'], pierceCount: 4,
+        desc: '【シークレットキメラ】光の稲に電撃コーラを完全抽出。全てを貫く極太の高圧雷光レーザーを一閃照射。'
+    },
+    HADES_POISON: {
+        id: 'chimera_hades', name: '冥府 ハデス・ポイズン',
+        pairHint: 'ギフト ライス ＋ コーラ ランツェ',
+        recipe: (t, s) => (t.typeKey === 'RICE_POISON' && s.typeKey === 'COLA_PIERCE'),
+        hp: 90, power: 19, cooldown: 1.3, fireTypes: ['circle6'], actions: ['poison', 'pierce'], pierceCount: 3,
+        desc: '【シークレットキメラ】毒の稲に貫通コーラを完全抽出。敵列を貫きながら触れた敵弾すべてを腐食弱体化させる。'
+    },
+    TYPHOON_GEYSER: {
+        id: 'chimera_typhoon', name: '暴風 タイフーン・ゲイザー',
+        pairHint: 'シュトゥルム ライス ＋ コーラ ゲイザー',
+        recipe: (t, s) => (t.typeKey === 'RICE_BURST' && s.typeKey === 'COLA_MENTOS'),
+        hp: 85, power: 17, cooldown: 0.8, fireTypes: ['burst'], actions: ['geyser'],
+        desc: '【シークレットキメラ】連射の稲にゲイザーコーラを完全抽出。激しく蛇行しながら急加速する暴走炭酸弾を3連射。'
+    },
+    EMPEROR_SHIELD: {
+        id: 'chimera_emperor', name: '天帝 エンペラー・シルト',
+        pairHint: 'アウラ シルト ＋ コーラ ギガント',
+        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_MAGIC' && s.typeKey === 'COLA_MEGATON'),
+        hp: 270, power: 22, cooldown: 2.2, fireTypes: ['burst'], actions: ['megaton', 'spread'],
+        desc: '【シークレットキメラ】魔力盾に巨大コーラを完全抽出。前線で不動の要塞となり、着弾時に巨大衝撃波を炸裂させる。'
+    },
+    MIRAGE_SNIPER: {
+        id: 'chimera_mirage', name: '幻影 ミラージュ・スナイパー',
+        pairHint: 'プレツィザ ライス ＋ コーラ ジャンパー',
+        recipe: (t, s) => (t.typeKey === 'RICE_SNIPER' && s.typeKey === 'COLA_BOUNCE'),
+        hp: 80, power: 26, cooldown: 1.5, fireTypes: ['single'], actions: ['sniper', 'bounce'],
+        desc: '【シークレットキメラ】狙撃の稲に跳弾コーラを完全抽出。壁を反射しながら敵プレイヤーの死角を突く幻影狙撃。'
+    },
+    FLORA_FRAGMENT: {
+        id: 'chimera_flora', name: '百花 プリムス・フラグメント',
+        pairHint: 'ライス プリムス ＋ コーラ フラグメント',
+        recipe: (t, s) => (t.typeKey === 'RICE_BASIC' && s.typeKey === 'COLA_SPLIT'),
+        hp: 85, power: 16, cooldown: 1.2, fireTypes: ['8dir'], actions: ['split'],
+        desc: '【シークレットキメラ】基本の稲に分裂コーラを完全抽出。放たれた全方向米粒が空中で一斉に花咲くように分裂。'
+    },
+    VORTEX_QUELLE: {
+        id: 'chimera_vortex', name: '深淵 ボルテックス・クヴェレ',
+        pairHint: 'ソーダ クヴェレ ＋ コーラ ネビュラ',
+        recipe: (t, s) => (t.typeKey === 'SODA_MEDIUM' && s.typeKey === 'COLA_BLACK'),
+        hp: 130, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.16,
+        desc: '【シークレットキメラ】源泉ソーダに黒コーラを完全抽出。弾は撃たず、敵弾を吸い込んで即座に大量マナへ変換。'
+    },
+    PROMINENCE_VULCAN: {
+        id: 'chimera_prominence', name: '紅蓮 プロミネンス・バルカン',
+        pairHint: 'ルクス ライス ＋ コーラ バルカン',
+        recipe: (t, s) => (t.typeKey === 'RICE_LASER' && s.typeKey === 'COLA_CHARGE'),
+        hp: 95, power: 30, cooldown: 1.7, fireTypes: ['single'], actions: ['laser', 'charge', 'spread'],
+        desc: '【シークレットキメラ】光の稲に火山コーラを完全抽出。チャージエネルギーを一気に解き放つ極大の熱線ブラスター。'
+    },
+    GAIA_HARVEST: {
+        id: 'chimera_gaia', name: '豊穣 ガイア・ハーベスト',
+        pairHint: 'ホルツ シルト ＋ ソーダ ブリーゼ',
+        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_WOOD' && s.typeKey === 'SODA_SMALL'),
+        hp: 160, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.08,
+        desc: '【シークレットキメラ】木の盾に微風ソーダを完全抽出。弾は撃たず、味方前線を強固に守りながらマナを継続供給。'
+    },
+    INAMU_THE_END: {
+        id: 'chimera_the_end', name: '太陽神 いなむー・ソル',
+        pairHint: '基本稲 → 電撃コーラ → ソーダ → 光の稲 の順で抽出',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_BASIC' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.length === 2 &&
+            t.extractionHistory[0] === 'COLA_STRAIGHT' &&
+            t.extractionHistory[1] === 'SODA_SMALL' &&
+            s.typeKey === 'RICE_LASER'
+        ),
+        hp: 160, power: 25, cooldown: 0.9, fireTypes: ['8dir', 'burst'], actions: ['bounce', 'spread'],
+        desc: '【真シークレット】稲・コーラ・ソーダ・光の稲を完全な順番で抽出した時のみ降臨する太陽の守護神。'
+    }
+};
+
+
+
+function generateSprites() {
+    const types = ['bullet', 'player_left', 'player_right', 'scarecrow', ...Object.keys(UNIT_TYPES)];
+
+    types.forEach(type => {
+        const c = document.createElement('canvas');
+        c.width = 32; c.height = 32;
+        const x = c.getContext('2d');
+        x.imageSmoothingEnabled = false;
+
+        if (type === 'bullet') {
+            x.fillStyle = '#fff'; x.beginPath(); x.arc(16, 16, 4, 0, Math.PI * 2); x.fill();
+        } else if (type === 'player_left') {
+            // 32x32 高精細ドット絵: いなむー戦士（緑/金）
+            // 影/オーラ
+            x.fillStyle = 'rgba(0, 255, 120, 0.2)';
+            x.beginPath(); x.ellipse(16, 30, 10, 3, 0, 0, Math.PI * 2); x.fill();
+            
+            // クローク/体 (32x32)
+            x.fillStyle = '#1e7b34';
+            x.fillRect(9, 14, 14, 14); // 胴体
+            x.fillStyle = '#2ecc71';
+            x.fillRect(11, 15, 10, 12); // 服のハイライト
+            x.fillStyle = '#f1c40f';
+            x.fillRect(15, 15, 2, 12); // 金の縦ライン飾り
+
+            // 頭/帽子
+            x.fillStyle = '#ffeaa7';
+            x.fillRect(11, 7, 10, 8); // 顔
+            x.fillStyle = '#2d3436';
+            x.fillRect(13, 10, 2, 3); // 左目
+            x.fillRect(17, 10, 2, 3); // 右目
+            x.fillStyle = '#fff';
+            x.fillRect(13, 10, 1, 1); // 目のハイライト
+            x.fillRect(17, 10, 1, 1);
+
+            // 稲の飾り羽帽子
+            x.fillStyle = '#27ae60';
+            x.fillRect(8, 4, 16, 4); // 帽子のつば
+            x.fillStyle = '#f39c12';
+            x.beginPath();
+            x.moveTo(20, 4); x.lineTo(26, -2); x.lineTo(24, 6); x.fill(); // 金の稲穂飾り
+
+            // 腕/手
+            x.fillStyle = '#27ae60';
+            x.fillRect(6, 16, 4, 8); // 左腕
+            x.fillRect(22, 16, 4, 8); // 右腕
+            x.fillStyle = '#ffeaa7';
+            x.fillRect(6, 23, 4, 3); // 手
+            x.fillRect(22, 23, 4, 3);
+
+            // 足/ブーツ
+            x.fillStyle = '#2c3e50';
+            x.fillRect(10, 27, 4, 5);
+            x.fillRect(18, 27, 4, 5);
+            x.fillStyle = '#f39c12';
+            x.fillRect(9, 29, 5, 3);
+            x.fillRect(18, 29, 5, 3);
+
+        } else if (type === 'player_right') {
+            // 32x32 高精細ドット絵: コーラ戦士（赤/濃茶）
+            // 影/オーラ
+            x.fillStyle = 'rgba(255, 50, 50, 0.2)';
+            x.beginPath(); x.ellipse(16, 30, 10, 3, 0, 0, Math.PI * 2); x.fill();
+
+            // クローク/体 (32x32)
+            x.fillStyle = '#8b0000';
+            x.fillRect(9, 14, 14, 14); // 胴体
+            x.fillStyle = '#e74c3c';
+            x.fillRect(11, 15, 10, 12); // 服
+            x.fillStyle = '#fff';
+            x.fillRect(12, 19, 8, 3); // コーラ風ロゴ白ライン
+
+            // 頭
+            x.fillStyle = '#ffeaa7';
+            x.fillRect(11, 7, 10, 8); // 顔
+            x.fillStyle = '#2d3436';
+            x.fillRect(13, 10, 2, 3); // 左目
+            x.fillRect(17, 10, 2, 3); // 右目
+            x.fillStyle = '#ff7675';
+            x.fillRect(13, 11, 2, 1); // 鋭い目つき
+
+            // 王冠/キャップ
+            x.fillStyle = '#c0392b';
+            x.fillRect(8, 4, 16, 4); // つば
+            x.fillStyle = '#bdc3c7';
+            x.fillRect(12, 1, 8, 4); // 王冠/キャップ
+            x.fillStyle = '#f1c40f';
+            x.fillRect(14, 2, 4, 2); // 金のエンブレム
+
+            // 腕/手
+            x.fillStyle = '#c0392b';
+            x.fillRect(6, 16, 4, 8);
+            x.fillRect(22, 16, 4, 8);
+            x.fillStyle = '#ffeaa7';
+            x.fillRect(6, 23, 4, 3);
+            x.fillRect(22, 23, 4, 3);
+
+            // 足/ブーツ
+            x.fillStyle = '#2c3e50';
+            x.fillRect(10, 27, 4, 5);
+            x.fillRect(18, 27, 4, 5);
+            x.fillStyle = '#962d22';
+            x.fillRect(9, 29, 5, 3);
+            x.fillRect(18, 29, 5, 3);
+
+        } else if (type === 'scarecrow') {
+            // 32x32 高精細ドット絵: 練習場のカカシ (Scarecrow)
+            // 影
+            x.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            x.beginPath(); x.ellipse(16, 30, 8, 3, 0, 0, Math.PI * 2); x.fill();
+
+            // 木の支柱 (十字架)
+            x.fillStyle = '#5c3a18';
+            x.fillRect(14, 4, 4, 28); // 縦の柱
+            x.fillRect(4, 13, 24, 4); // 横の柱
+            x.fillStyle = '#7a4f24';
+            x.fillRect(15, 4, 2, 28);
+            x.fillRect(4, 14, 24, 2);
+
+            // 麻袋の頭
+            x.fillStyle = '#d7b884';
+            x.beginPath(); x.arc(16, 10, 6, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#222';
+            // × × の目
+            x.fillRect(13, 9, 2, 2); x.fillRect(17, 9, 2, 2);
+            // 縫い目の口
+            x.fillRect(14, 13, 4, 1);
+
+            // 麦わら帽子
+            x.fillStyle = '#f39c12';
+            x.beginPath(); x.ellipse(16, 5, 11, 3, 0, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#d35400';
+            x.fillRect(11, 2, 10, 4); // 頭頂部
+            x.fillStyle = '#c0392b';
+            x.fillRect(11, 5, 10, 1); // 赤いリボン
+
+            // 服 (青いボロ布)
+            x.fillStyle = '#2980b9';
+            x.fillRect(10, 15, 12, 12);
+            x.fillStyle = '#3498db';
+            x.fillRect(11, 16, 5, 6);
+            // つぎはぎパッチ
+            x.fillStyle = '#e67e22';
+            x.fillRect(17, 19, 4, 4);
+            x.strokeStyle = '#fff'; x.lineWidth = 0.5; x.strokeRect(17, 19, 4, 4);
+
+            // 藁の飛び出し
+            x.fillStyle = '#f1c40f';
+            x.fillRect(3, 14, 3, 2);
+            x.fillRect(26, 14, 3, 2);
+            x.fillRect(13, 26, 6, 3);
+
+        } else if (UNIT_TYPES[type]) {
+            const u = UNIT_TYPES[type];
+
+            if (type.includes('SHIELD')) {
+                if (type.includes('WOOD')) {
+                    x.fillStyle = '#8b5a2b'; x.fillRect(6, 6, 20, 24);
+                    x.strokeStyle = '#5c3a18'; x.lineWidth = 2; x.strokeRect(6, 6, 20, 24);
+                    x.fillStyle = '#5c3a18'; x.fillRect(6, 14, 20, 2); x.fillRect(6, 22, 20, 2);
+                } else if (type.includes('IRON')) {
+                    x.fillStyle = '#888'; x.beginPath(); x.moveTo(6, 4); x.lineTo(26, 4); x.lineTo(28, 20); x.lineTo(16, 30); x.lineTo(4, 20); x.closePath(); x.fill();
+                    x.strokeStyle = '#444'; x.lineWidth = 2; x.stroke();
+                    x.fillStyle = '#aaa'; x.beginPath(); x.arc(16, 14, 6, 0, Math.PI * 2); x.fill();
+                } else if (type.includes('MAGIC')) {
+                    x.fillStyle = 'rgba(0, 200, 255, 0.4)'; x.beginPath(); x.arc(16, 16, 14, 0, Math.PI * 2); x.fill();
+                    x.strokeStyle = '#0ff'; x.lineWidth = 2; x.beginPath(); x.arc(16, 16, 14, 0, Math.PI * 2); x.stroke();
+                    x.fillStyle = '#fff'; x.beginPath(); x.moveTo(16, 8); x.lineTo(24, 16); x.lineTo(16, 24); x.lineTo(8, 16); x.closePath(); x.fill();
+                    x.strokeStyle = '#fff'; x.stroke();
+                }
+            } else if (u.type === 'rice') {
+                x.fillStyle = '#8b5a2b'; x.fillRect(15, 6, 2, 22); // 茎
+                x.fillStyle = '#228b22';
+
+                if (type.includes('SPREAD')) {
+                    x.beginPath(); x.moveTo(16, 26); x.lineTo(4, 10); x.lineTo(28, 10); x.fill(); // ワイド
+                    x.fillStyle = '#f80'; x.beginPath(); x.arc(16, 10, 6, 0, Math.PI); x.fill();
+                } else if (type.includes('SEEKER')) {
+                    x.fillRect(12, 18, 8, 4); x.fillStyle = '#0df'; x.beginPath(); x.arc(16, 8, 6, 0, Math.PI * 2); x.fill(); // レーダー調
+                    x.strokeStyle = '#fff'; x.lineWidth = 1; x.stroke();
+                } else if (type.includes('BURST')) {
+                    x.fillRect(10, 15, 12, 6); x.fillStyle = '#f00'; x.fillRect(12, 6, 3, 12); x.fillRect(17, 6, 3, 12); // 重武装
+                } else if (type.includes('LASER')) {
+                    // ルクス ライス（クリスタル光線）
+                    x.fillStyle = '#0ff'; x.fillRect(14, 4, 4, 20);
+                    x.fillStyle = '#fff'; x.beginPath(); x.moveTo(16, 2); x.lineTo(22, 12); x.lineTo(16, 22); x.lineTo(10, 12); x.fill();
+                    x.strokeStyle = '#0df'; x.lineWidth = 1; x.stroke();
+                } else if (type.includes('POISON')) {
+                    // ギフト ライス（毒胞子）
+                    x.fillStyle = '#8e44ad'; x.beginPath(); x.arc(16, 10, 8, 0, Math.PI * 2); x.fill();
+                    x.fillStyle = '#2ecc71'; x.fillRect(12, 8, 3, 3); x.fillRect(18, 12, 3, 3);
+                    x.fillStyle = '#9b59b6'; x.fillRect(13, 18, 6, 8);
+                } else if (type.includes('FROST')) {
+                    // フロスト ライス（氷結）
+                    x.fillStyle = '#74b9ff'; x.beginPath(); x.moveTo(16, 2); x.lineTo(24, 14); x.lineTo(16, 26); x.lineTo(8, 14); x.fill();
+                    x.fillStyle = '#dfe6e9'; x.fillRect(14, 6, 4, 16);
+                    x.strokeStyle = '#0984e3'; x.lineWidth = 1; x.stroke();
+                } else if (type.includes('SNIPER')) {
+                    // プレツィザ ライス（狙撃）
+                    x.fillStyle = '#2d3436'; x.fillRect(14, 2, 4, 24); // ロングバレル
+                    x.fillStyle = '#f1c40f'; x.fillRect(12, 16, 8, 10); // 金の台座
+                    x.fillStyle = '#ff7675'; x.fillRect(15, 4, 2, 2); // 照準スコープ
+                } else {
+                    x.fillRect(12, 18, 8, 4); x.fillStyle = '#fd0';
+                    x.beginPath(); x.moveTo(16, 4); x.lineTo(10, 14); x.lineTo(22, 14); x.fill(); // スタンダード穂
+                }
+            } else if (u.type === 'cola') {
+                let liquidColor = '#410'; let labelColor = '#f00'; let capColor = '#ccc';
+                if (type.includes('BOUNCE')) { liquidColor = '#050'; labelColor = '#0f0'; capColor = '#afa'; }
+                else if (type.includes('SPLIT')) { liquidColor = '#005'; labelColor = '#00f'; capColor = '#aaf'; }
+                else if (type.includes('CHARGE')) { liquidColor = '#600'; labelColor = '#ff0'; capColor = '#ff8'; }
+                else if (type.includes('PIERCE')) { liquidColor = '#530'; labelColor = '#f90'; capColor = '#fca'; }
+                else if (type.includes('SPREAD')) { liquidColor = '#055'; labelColor = '#0ff'; capColor = '#bff'; }
+                else if (type.includes('MEGATON')) { liquidColor = '#111'; labelColor = '#c0392b'; capColor = '#7f8c8d'; }
+                else if (type.includes('BLACK')) { liquidColor = '#0a001a'; labelColor = '#8e44ad'; capColor = '#9b59b6'; }
+                else if (type.includes('MENTOS')) { liquidColor = '#00cec9'; labelColor = '#ffffff'; capColor = '#e17055'; }
+                else if (type.includes('ZERO')) { liquidColor = '#2d3436'; labelColor = '#dfe6e9'; capColor = '#b2bec3'; }
+
+                if (type.includes('MEGATON')) {
+                    // ギガント（巨大重厚缶）
+                    x.fillStyle = 'rgba(255, 255, 255, 0.5)'; x.fillRect(6, 6, 20, 24);
+                    x.fillStyle = liquidColor; x.fillRect(7, 8, 18, 20);
+                    x.fillStyle = labelColor; x.fillRect(7, 13, 18, 10);
+                    x.fillStyle = '#ffd700'; x.font = 'bold 8px sans-serif'; x.fillText('G', 13, 21);
+                    x.fillStyle = capColor; x.fillRect(10, 4, 12, 3);
+                    x.strokeStyle = '#fff'; x.lineWidth = 1; x.strokeRect(6, 6, 20, 24);
+                } else if (type.includes('BLACK')) {
+                    // ネビュラ（重力黒コーラ）
+                    x.fillStyle = 'rgba(100, 0, 150, 0.4)'; x.fillRect(10, 10, 12, 18);
+                    x.fillStyle = liquidColor; x.fillRect(11, 12, 10, 15);
+                    x.fillStyle = '#8e44ad'; x.beginPath(); x.arc(16, 19, 4, 0, Math.PI * 2); x.fill();
+                    x.fillStyle = '#000'; x.beginPath(); x.arc(16, 19, 2, 0, Math.PI * 2); x.fill();
+                    x.fillStyle = capColor; x.fillRect(13, 7, 6, 3);
+                    x.strokeStyle = '#a29bfe'; x.lineWidth = 1; x.strokeRect(10, 10, 12, 18);
+                } else if (type.includes('MENTOS')) {
+                    // ゲイザー（メントスコーラ・噴射）
+                    x.fillStyle = 'rgba(255, 255, 255, 0.5)'; x.fillRect(10, 12, 12, 16);
+                    x.fillStyle = liquidColor; x.fillRect(11, 13, 10, 14);
+                    x.fillStyle = '#fff'; x.fillRect(11, 17, 10, 6);
+                    // 噴き出す泡
+                    x.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    x.beginPath(); x.arc(16, 8, 4, 0, Math.PI * 2); x.fill();
+                    x.beginPath(); x.arc(14, 4, 3, 0, Math.PI * 2); x.fill();
+                    x.beginPath(); x.arc(18, 5, 2, 0, Math.PI * 2); x.fill();
+                    x.strokeStyle = '#00cec9'; x.lineWidth = 1; x.strokeRect(10, 12, 12, 16);
+                } else {
+                    x.fillStyle = 'rgba(255, 255, 255, 0.4)'; x.fillRect(10, 10, 12, 18); // ボトル本体
+                    x.fillStyle = liquidColor; x.fillRect(11, 12, 10, 15); // 中身
+                    x.fillStyle = labelColor; x.fillRect(11, 16, 10, 6); // ラベル
+                    x.fillStyle = capColor; x.fillRect(13, 7, 6, 3); // キャップ
+                    x.strokeStyle = '#fff'; x.lineWidth = 1; x.strokeRect(10, 10, 12, 18);
+                }
+            } else if (u.type === 'soda') {
+                let baseColor = 'rgba(100, 200, 255, 0.4)';
+                if (type.includes('MEDIUM')) baseColor = 'rgba(100, 255, 200, 0.4)';
+                if (type.includes('LARGE')) baseColor = 'rgba(200, 200, 255, 0.5)';
+
+                x.fillStyle = baseColor; x.beginPath(); x.ellipse(16, 18, 8, 12, 0, 0, Math.PI * 2); x.fill(); // 缶/瓶
+                x.fillStyle = '#fff'; x.globalAlpha = 0.6;
+                x.fillRect(14, 12, 2, 2); x.fillRect(18, 18, 2, 2); x.fillRect(14, 24, 2, 2); // 泡
+                x.globalAlpha = 1.0;
+                x.fillStyle = '#05f'; x.fillRect(12, 6, 8, 3); // プルタブ
+            }
+        }
+        // すべてのスプライト（プレイヤー・カカシ・弾・各ユニット）を登録
+        ASSETS[type] = c;
+    });
+
+    // 🌟 シークレット特殊進化キメラ (全10種) の32x32ピクセルアート生成
+    Object.keys(SECRET_CHIMERAS).forEach(k => {
+        const chimera = SECRET_CHIMERAS[k];
+        const c = document.createElement('canvas');
+        c.width = 32; c.height = 32;
+        const x = c.getContext('2d');
+        x.imageSmoothingEnabled = false;
+
+        // 背景オーラ
+        x.fillStyle = 'rgba(255, 215, 0, 0.25)';
+        x.beginPath(); x.arc(16, 16, 15, 0, Math.PI * 2); x.fill();
+
+        if (chimera.id === 'chimera_gatling') {
+            // ガトリング・スプライト (重機関銃＋稲)
+            x.fillStyle = '#2c3e50'; x.fillRect(8, 10, 16, 14);
+            x.fillStyle = '#7f8c8d'; x.fillRect(4, 12, 8, 3); x.fillRect(4, 17, 8, 3); x.fillRect(4, 22, 8, 3);
+            x.fillStyle = '#2ecc71'; x.beginPath(); x.moveTo(16, 2); x.lineTo(24, 10); x.lineTo(16, 10); x.fill();
+            x.fillStyle = '#f1c40f'; x.fillRect(18, 6, 8, 6);
+        } else if (chimera.id === 'chimera_meteor') {
+            // クラスター・ミーティア (彗星爆破)
+            x.fillStyle = '#e74c3c'; x.beginPath(); x.arc(16, 16, 11, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#f39c12'; x.beginPath(); x.arc(16, 16, 7, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#fff'; x.beginPath(); x.arc(14, 13, 3, 0, Math.PI * 2); x.fill();
+            x.strokeStyle = '#c0392b'; x.lineWidth = 2; x.stroke();
+        } else if (chimera.id === 'chimera_phantom') {
+            // イェーガー・ファントム (幽霊狙撃)
+            x.fillStyle = 'rgba(155, 89, 182, 0.8)';
+            x.beginPath(); x.moveTo(16, 3); x.lineTo(28, 25); x.lineTo(16, 20); x.lineTo(4, 25); x.closePath(); x.fill();
+            x.fillStyle = '#00ffff'; x.fillRect(14, 10, 4, 4);
+        } else if (chimera.id === 'chimera_volcano') {
+            // ヴォルケイノ・フォートレス (要塞)
+            x.fillStyle = '#4a235a'; x.fillRect(4, 4, 24, 24);
+            x.fillStyle = '#e67e22'; x.fillRect(8, 8, 16, 16);
+            x.fillStyle = '#e74c3c'; x.fillRect(12, 12, 8, 8);
+            x.strokeStyle = '#f39c12'; x.lineWidth = 2; x.strokeRect(4, 4, 24, 24);
+        } else if (chimera.id === 'chimera_nebula') {
+            // ネビュラ・ハーベスター (特異点)
+            x.fillStyle = '#0b0c10'; x.beginPath(); x.arc(16, 16, 12, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#66fcf1'; x.beginPath(); x.arc(16, 16, 6, 0, Math.PI * 2); x.fill();
+            x.strokeStyle = '#c5a880'; x.lineWidth = 2; x.beginPath(); x.ellipse(16, 16, 14, 4, Math.PI / 4, 0, Math.PI * 2); x.stroke();
+        } else if (chimera.id === 'chimera_dragoon') {
+            // 零式ドラグーン (レールガン竜)
+            x.fillStyle = '#bdc3c7'; x.beginPath(); x.moveTo(16, 2); x.lineTo(30, 26); x.lineTo(16, 18); x.lineTo(2, 26); x.closePath(); x.fill();
+            x.fillStyle = '#3498db'; x.fillRect(14, 4, 4, 18);
+            x.fillStyle = '#f1c40f'; x.fillRect(12, 10, 8, 3);
+        } else if (chimera.id === 'chimera_titan') {
+            // メガリス・タイタン (巨神)
+            x.fillStyle = '#34495e'; x.fillRect(4, 4, 24, 24);
+            x.fillStyle = '#7f8c8d'; x.fillRect(7, 7, 18, 18);
+            x.fillStyle = '#e74c3c'; x.fillRect(12, 10, 8, 4); // バイザー
+            x.strokeStyle = '#f1c40f'; x.lineWidth = 2; x.strokeRect(4, 4, 24, 24);
+        } else if (chimera.id === 'chimera_frost') {
+            // フロスト・ノヴァ (極光)
+            x.fillStyle = 'rgba(116, 185, 255, 0.9)';
+            for (let i = 0; i < 6; i++) {
+                const ang = (Math.PI * 2 / 6) * i;
+                x.beginPath(); x.moveTo(16, 16); x.lineTo(16 + Math.cos(ang) * 14, 16 + Math.sin(ang) * 14);
+                x.lineWidth = 3; x.strokeStyle = '#74b9ff'; x.stroke();
+            }
+            x.fillStyle = '#fff'; x.beginPath(); x.arc(16, 16, 5, 0, Math.PI * 2); x.fill();
+        } else if (chimera.id === 'chimera_genesis') {
+            // アウラ・ジェネシス (生命樹)
+            x.fillStyle = '#27ae60'; x.beginPath(); x.arc(16, 12, 10, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#f1c40f'; x.fillRect(13, 8, 6, 6);
+            x.fillStyle = '#795548'; x.fillRect(13, 20, 6, 10);
+            x.strokeStyle = '#2ecc71'; x.lineWidth = 2; x.beginPath(); x.arc(16, 12, 12, 0, Math.PI * 2); x.stroke();
+        } else if (chimera.id === 'chimera_the_end') {
+            // 太陽神 いなむー・ソル (神話の太陽神)
+            const grad = x.createRadialGradient(16, 16, 2, 16, 16, 15);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.4, '#ffd700');
+            grad.addColorStop(1, '#ff4500');
+            x.fillStyle = grad;
+            x.beginPath(); x.arc(16, 16, 14, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#fff'; x.font = 'bold 12px sans-serif'; x.fillText('☀', 10, 20);
+            x.strokeStyle = '#ffd700'; x.lineWidth = 2; x.stroke();
+        } else if (chimera.id === 'chimera_zero_frost') {
+            // 絶対零度 アブソリュート・ゼロ
+            x.fillStyle = '#0984e3'; x.beginPath(); x.arc(16, 16, 12, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#dfe6e9'; x.fillRect(10, 10, 12, 12);
+            x.strokeStyle = '#00cec9'; x.lineWidth = 2; x.strokeRect(10, 10, 12, 12);
+        } else if (chimera.id === 'chimera_voltec') {
+            // 迅雷 ルクス・ヴォルテック
+            x.fillStyle = '#00cec9'; x.fillRect(12, 4, 8, 24);
+            x.fillStyle = '#ffeaa7'; x.fillRect(14, 2, 4, 28);
+            x.strokeStyle = '#fdcb6e'; x.lineWidth = 2; x.stroke();
+        } else if (chimera.id === 'chimera_hades') {
+            // 冥府 ハデス・ポイズン
+            x.fillStyle = '#2d3436'; x.beginPath(); x.arc(16, 16, 12, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#6c5ce7'; x.fillRect(13, 6, 6, 20);
+            x.fillStyle = '#a29bfe'; x.fillRect(8, 14, 16, 4);
+        } else if (chimera.id === 'chimera_typhoon') {
+            // 暴風 タイフーン・ゲイザー
+            x.fillStyle = '#81ecec'; x.beginPath(); x.ellipse(16, 16, 14, 8, Math.PI / 4, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#00cec9'; x.beginPath(); x.arc(16, 16, 6, 0, Math.PI * 2); x.fill();
+        } else if (chimera.id === 'chimera_emperor') {
+            // 天帝 エンペラー・シルト
+            x.fillStyle = '#f1c40f'; x.fillRect(4, 4, 24, 24);
+            x.fillStyle = '#2c3e50'; x.fillRect(7, 7, 18, 18);
+            x.fillStyle = '#e74c3c'; x.fillRect(12, 10, 8, 8);
+            x.strokeStyle = '#fff'; x.lineWidth = 2; x.strokeRect(4, 4, 24, 24);
+        } else if (chimera.id === 'chimera_mirage') {
+            // 幻影 ミラージュ・スナイパー
+            x.fillStyle = 'rgba(108, 92, 231, 0.7)'; x.beginPath(); x.moveTo(16, 2); x.lineTo(28, 28); x.lineTo(4, 28); x.closePath(); x.fill();
+            x.fillStyle = '#00d2d3'; x.fillRect(14, 6, 4, 16);
+        } else if (chimera.id === 'chimera_flora') {
+            // 百花 プリムス・フラグメント
+            x.fillStyle = '#ff7675'; x.beginPath(); x.arc(16, 16, 10, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#55efc4'; x.fillRect(14, 12, 4, 12);
+            x.fillStyle = '#ffeaa7'; x.beginPath(); x.arc(16, 16, 4, 0, Math.PI * 2); x.fill();
+        } else if (chimera.id === 'chimera_vortex') {
+            // 深淵 ボルテックス・クヴェレ
+            x.fillStyle = '#0984e3'; x.beginPath(); x.arc(16, 16, 13, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#2d3436'; x.beginPath(); x.arc(16, 16, 7, 0, Math.PI * 2); x.fill();
+            x.strokeStyle = '#74b9ff'; x.lineWidth = 2; x.beginPath(); x.arc(16, 16, 14, 0, Math.PI); x.stroke();
+        } else if (chimera.id === 'chimera_prominence') {
+            // 紅蓮 プロミネンス・バルカン
+            x.fillStyle = '#d63031'; x.beginPath(); x.arc(16, 16, 13, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#e17055'; x.fillRect(10, 10, 12, 12);
+            x.fillStyle = '#ffeaa7'; x.fillRect(13, 13, 6, 6);
+        } else if (chimera.id === 'chimera_gaia') {
+            // 豊穣 ガイア・ハーベスト
+            x.fillStyle = '#27ae60'; x.fillRect(6, 6, 20, 20);
+            x.fillStyle = '#795548'; x.fillRect(10, 10, 12, 12);
+            x.fillStyle = '#2ecc71'; x.beginPath(); x.arc(16, 16, 4, 0, Math.PI * 2); x.fill();
+        }
+
+        ASSETS[chimera.id] = c;
+    });
+}
+generateSprites();
+
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = CONFIG.SCREEN_WIDTH;
+canvas.height = CONFIG.SCREEN_HEIGHT;
+ctx.imageSmoothingEnabled = false;
+
+// 📷 カメラシステム（拡大・縮小・カメラ移動）
+const Camera = {
+    x: 0,
+    y: 0,
+    zoom: 1.0,
+    minZoom: 0.5,
+    maxZoom: 2.2,
+    isDragging: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    cameraStartX: 0,
+    cameraStartY: 0,
+
+    reset() {
+        this.x = 0;
+        this.y = 0;
+        this.zoom = 1.0;
+    },
+
+    zoomIn() {
+        this.setZoom(this.zoom * 1.15);
+    },
+
+    zoomOut() {
+        this.setZoom(this.zoom * 0.87);
+    },
+
+    zoomBy(factor) {
+        this.setZoom(this.zoom * factor);
+    },
+
+    setZoom(val) {
+        this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, val));
+    },
+
+    screenToWorld(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const cssX = (clientX - rect.left) * scaleX;
+        const cssY = (clientY - rect.top) * scaleY;
+
+        // キャンバス中心を基準とした逆変換
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const worldX = (cssX - cx) / this.zoom + cx - this.x;
+        const worldY = (cssY - cy) / this.zoom + cy - this.y;
+        return { x: worldX, y: worldY };
+    }
+};
+
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+let bgParticles = [];
+
+function resizeBg() {
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeBg);
+resizeBg();
+
+class Particle {
+    constructor() {
+        this.reset();
+        this.y = Math.random() * bgCanvas.height;
+    }
+    reset() {
+        this.x = Math.random() * bgCanvas.width;
+        this.y = -40;
+        this.speed = 1 + Math.random() * 2;
+        this.rot = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.05;
+        this.scale = 0.5 + Math.random() * 0.8;
+        const keys = Object.keys(ASSETS).filter(k => k !== 'bullet' && !k.startsWith('player_'));
+        this.typeKey = keys[Math.floor(Math.random() * keys.length)];
+    }
+    update() {
+        this.y += this.speed;
+        this.rot += this.rotSpeed;
+        if (this.y > bgCanvas.height + 40) this.reset();
+    }
+    draw() {
+        const spr = ASSETS[this.typeKey];
+        if (!spr) return;
+        bgCtx.save();
+        bgCtx.translate(this.x, this.y);
+        bgCtx.rotate(this.rot);
+        bgCtx.scale(this.scale, this.scale);
+        bgCtx.globalAlpha = 0.6; // 透明度を上げる
+        bgCtx.drawImage(spr, -16, -16);
+        bgCtx.restore();
+    }
+}
+
+// DPS 計測システム
+const DPSManager = {
+    totalDamage: 0,
+    startTime: null,
+    lastHitTime: null,
+    peakDPS: 0,
+    recentHits: [], // { time, damage }
+    
+    reset() {
+        this.totalDamage = 0;
+        this.startTime = null;
+        this.lastHitTime = null;
+        this.peakDPS = 0;
+        this.recentHits = [];
+        this.updateUI(0);
+    },
+    
+    recordDamage(amount) {
+        if (amount <= 0) return;
+        const now = performance.now();
+        if (!this.startTime) this.startTime = now;
+        this.lastHitTime = now;
+        this.totalDamage += amount;
+        this.recentHits.push({ time: now, damage: amount });
+        
+        // 3秒より古い履歴を削除
+        const cutoff = now - 3000;
+        this.recentHits = this.recentHits.filter(h => h.time >= cutoff);
+        
+        // 瞬間DPS計算（直近3秒）
+        const recentSum = this.recentHits.reduce((acc, h) => acc + h.damage, 0);
+        const windowDuration = Math.min(3, Math.max(0.2, (now - this.recentHits[0].time) / 1000));
+        const currentDPS = recentSum / windowDuration;
+        
+        if (currentDPS > this.peakDPS) {
+            this.peakDPS = currentDPS;
+        }
+        
+        this.updateUI(currentDPS);
+    },
+    
+    tick() {
+        if (!this.startTime) return;
+        const now = performance.now();
+        
+        // 直近ヒットから4秒以上経過したら0にする
+        if (this.lastHitTime && now - this.lastHitTime > 4000) {
+            this.recentHits = [];
+            this.updateUI(0);
+            return;
+        }
+
+        const cutoff = now - 3000;
+        this.recentHits = this.recentHits.filter(h => h.time >= cutoff);
+        
+        let currentDPS = 0;
+        if (this.recentHits.length > 0) {
+            const recentSum = this.recentHits.reduce((acc, h) => acc + h.damage, 0);
+            const windowDuration = Math.min(3, Math.max(0.2, (now - this.recentHits[0].time) / 1000));
+            currentDPS = recentSum / windowDuration;
+        }
+        
+        this.updateUI(currentDPS);
+    },
+    
+    updateUI(currentDPS = 0) {
+        const dpsValEl = document.getElementById('dps-value');
+        const dpsPeakEl = document.getElementById('dps-peak');
+        const dpsTotalEl = document.getElementById('dps-total-dmg');
+        const dpsTimeEl = document.getElementById('dps-time');
+        
+        if (dpsValEl) dpsValEl.textContent = currentDPS.toFixed(1);
+        if (dpsPeakEl) dpsPeakEl.textContent = this.peakDPS.toFixed(1);
+        if (dpsTotalEl) dpsTotalEl.textContent = Math.floor(this.totalDamage).toLocaleString();
+        
+        if (dpsTimeEl) {
+            const elapsed = this.startTime ? Math.floor((performance.now() - this.startTime) / 1000) : 0;
+            dpsTimeEl.textContent = `${elapsed}s`;
+        }
+    }
+};
+
+// 🎴 デッキ管理システム (最大10枠まで拡張)
+const MAX_DECK_SIZE = 10;
+const DEFAULT_DECK = ['RICE_BASIC', 'RICE_SEEKER', 'RICE_SHIELD_WOOD', 'COLA_STRAIGHT', 'COLA_BOUNCE', 'SODA_SMALL'];
+
+const DeckManager = {
+    currentDeck: [...DEFAULT_DECK],
+    tempDeck: [...DEFAULT_DECK],
+
+    init() {
+        try {
+            const saved = localStorage.getItem('inamu_deck');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length >= 1 && parsed.length <= MAX_DECK_SIZE && parsed.every(k => UNIT_TYPES[k])) {
+                    this.currentDeck = parsed;
+                }
+            }
+        } catch (e) {
+            this.currentDeck = [...DEFAULT_DECK];
+        }
+        gameState.deck = this.currentDeck;
+        gameState.selectedUnit = this.currentDeck[0] || 'RICE_BASIC';
+    },
+
+    openModal() {
+        this.tempDeck = [...this.currentDeck];
+        this.renderModal();
+        const modal = document.getElementById('deck-modal');
+        if (modal) modal.classList.remove('hidden');
+    },
+
+    closeModal() {
+        const modal = document.getElementById('deck-modal');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    save() {
+        if (this.tempDeck.length < 1 || this.tempDeck.length > MAX_DECK_SIZE) {
+            alert(`デッキは1〜${MAX_DECK_SIZE}枚で選択してください！`);
+            return;
+        }
+        this.currentDeck = [...this.tempDeck];
+        localStorage.setItem('inamu_deck', JSON.stringify(this.currentDeck));
+        gameState.deck = this.currentDeck;
+        if (!this.currentDeck.includes(gameState.selectedUnit)) {
+            gameState.selectedUnit = this.currentDeck[0];
+        }
+        // ☁️ クラウドにもデッキを同期
+        CloudSyncManager.saveDeck(this.currentDeck);
+        updateUnitUI();
+        this.closeModal();
+    },
+
+    reset() {
+        this.tempDeck = [...DEFAULT_DECK];
+        this.renderModal();
+    },
+
+    toggleUnit(key) {
+        const idx = this.tempDeck.indexOf(key);
+        if (idx >= 0) {
+            this.tempDeck.splice(idx, 1);
+        } else {
+            if (this.tempDeck.length >= MAX_DECK_SIZE) {
+                alert(`デッキ枠は最大${MAX_DECK_SIZE}枚です。入れ替えるカードをクリックして外してください。`);
+                return;
+            }
+            this.tempDeck.push(key);
+        }
+        this.renderModal();
+    },
+
+    removeAt(idx) {
+        if (this.tempDeck[idx]) {
+            this.tempDeck.splice(idx, 1);
+            this.renderModal();
+        }
+    },
+
+    renderModal() {
+        const slotsEl = document.getElementById('deck-current-slots');
+        const countEl = document.getElementById('deck-count');
+        const allEl = document.getElementById('deck-all-units');
+        if (!slotsEl || !allEl) return;
+
+        if (countEl) countEl.textContent = this.tempDeck.length;
+
+        // 現在の6スロット描画
+        slotsEl.innerHTML = '';
+        for (let i = 0; i < 6; i++) {
+            const key = this.tempDeck[i];
+            const slot = document.createElement('div');
+            slot.style.cssText = 'width: 60px; height: 60px; border: 2px solid ' + (key ? '#0df' : '#444') + '; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: ' + (key ? 'rgba(0,100,200,0.3)' : 'rgba(0,0,0,0.3)') + '; cursor: pointer; position: relative;';
+
+            if (key && UNIT_TYPES[key]) {
+                const u = UNIT_TYPES[key];
+                const spr = ASSETS[key];
+                let imgTag = spr ? `<img src="${spr.toDataURL()}" style="width: 28px; height: 28px; image-rendering: pixelated;">` : '';
+                const nameShort = u.name.replace(/ライス|コーラ|ソーダ|シールド|盾/g, '').trim();
+                slot.innerHTML = `
+                    <span style="position: absolute; top: 1px; left: 3px; font-size: 0.6rem; color: #ff0;">[${i+1}]</span>
+                    <span style="position: absolute; top: 1px; right: 3px; font-size: 0.6rem; color: #f55; font-weight: bold;">✕</span>
+                    ${imgTag}
+                    <div style="font-size: 0.55rem; color: #fff; margin-top: 2px; white-space: nowrap; overflow: hidden; max-width: 55px; text-overflow: ellipsis;">${nameShort}</div>
+                `;
+                slot.onclick = () => this.removeAt(i);
+            } else {
+                slot.innerHTML = `<span style="font-size: 0.7rem; color: #666;">空き [${i+1}]</span>`;
+            }
+            slotsEl.appendChild(slot);
+        }
+
+        // 全ユニット一覧描画
+        allEl.innerHTML = '';
+        Object.keys(UNIT_TYPES).forEach(key => {
+            const u = UNIT_TYPES[key];
+            const inDeck = this.tempDeck.includes(key);
+            const card = document.createElement('div');
+            card.style.cssText = 'width: 100px; padding: 6px; border: 2px solid ' + (inDeck ? '#0f0' : '#555') + '; border-radius: 6px; background: ' + (inDeck ? 'rgba(0, 100, 0, 0.4)' : '#222') + '; cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; transition: transform 0.1s;';
+
+            const spr = ASSETS[key];
+            let imgTag = spr ? `<img src="${spr.toDataURL()}" style="width: 32px; height: 32px; image-rendering: pixelated; margin-bottom: 3px;">` : '';
+
+            card.innerHTML = `
+                ${inDeck ? '<span style="position: absolute; top: 2px; right: 4px; font-size: 0.65rem; color: #0f0; font-weight: bold;">✔ 選択中</span>' : ''}
+                ${imgTag}
+                <div style="font-size: 0.7rem; font-weight: bold; color: #fff; line-height: 1.1;">${u.name}</div>
+                <div style="font-size: 0.65rem; color: #fb0; margin-top: 2px;">Cost: ${u.cost}</div>
+                <div style="font-size: 0.6rem; color: #aaa; margin-top: 2px; line-height: 1;">${u.type === 'rice' ? 'HP: '+u.hp : (u.type === 'cola' ? '威力: '+u.power : 'マナ: '+u.manaGen)}</div>
+            `;
+            card.onclick = () => this.toggleUnit(key);
+            allEl.appendChild(card);
+        });
+    }
+};
+
+// 🌋 ステージ中央エリアのギミック（削除・無効化済み）
+const FieldGimmickManager = {
+    fountains: [],
+    goldenSheaf: { active: false, hp: 0 },
+    portals: [],
+    particles: [],
+    reset() {},
+    update() {},
+    draw(ctx) {}
+};
+
+// 状態管理
+let gameState = {
+    isHost: false,
+    roomId: null,
+    playerSide: 'left', // 'left' or 'right'
+    players: {
+        left: { name: 'Player 1', y: 80, hp: 2000, maxHp: 2000, mana: 100, targetY: 80, throwTimer: 0 },
+        right: { name: 'Player 2', y: 80, hp: 2000, maxHp: 2000, mana: 100, targetY: 80, throwTimer: 0 }
+    },
+    isPractice: false,
+    deck: [...DEFAULT_DECK],
+    units: [],
+    summoningEffects: [], // 召喚アニメーション用
+    bullets: [],
+    manaTimer: 0,
+    selectedUnit: 'RICE_BASIC',
+    selectedCola: null, // 発射待機のコーラ
+    interactionMode: 'none', // 'place_rice', 'throw_cola'
+    mousePos: { x: 0, y: 0 },
+    isMatching: false,
+    prepTimer: 450, // 15秒 (30FPS * 15)
+    spaceFireCooldown: 0, // スペース発射クールダウン（フレーム数）
+    extractionMode: false,
+    extractionSelections: [], // 選択中のユニット: [target?, source?]
+    previewedUnit: null // プレビュー表示中のユニット
+};
+
+// オブジェクトプール (弾用)
+const bulletPool = [];
+
+// ネットワーク
+let socket = null;
+
+// UI 要素
+const menuOverlay = document.getElementById('menu');
+const gameUI = document.getElementById('game-ui');
+const btnCreate = document.getElementById('btn-create');
+const btnJoin = document.getElementById('btn-join');
+const roomInput = document.getElementById('room-code-input');
+const statusMsg = document.getElementById('status-message');
+
+
+let keysPressed = {};
+
+// 初期化
+function init() {
+    const savedName = localStorage.getItem('inamu_player_name');
+    if (savedName) document.getElementById('player-name').value = savedName;
+
+    const nameInput = document.getElementById('player-name');
+    if (nameInput) {
+        nameInput.addEventListener('input', () => {
+            savePlayerName();
+            sendRegisterPlayerName();
+        });
+    }
+
+    // デッキ初期化
+    DeckManager.init();
+
+    // ☁️ クラウドデータ同期（ELO・デッキ・キメラ図鑑）
+    CloudSyncManager.syncOnStart().then(() => {
+        // 同期後にデッキを再初期化（クラウドから更新された可能性があるため）
+        DeckManager.init();
+        updateUnitUI();
+    });
+
+    // サーバー情報取得
+    fetchServerInfo();
+
+    for (let i = 0; i < 50; i++) bgParticles.push(new Particle()); // 粒子を増やす
+
+    setupEventListeners();
+    connectToServer(); // 起動時に自動接続してホスト・他プレイヤー名を取得
+    gameLoop();
+}
+
+async function fetchServerInfo() {
+    try {
+        const res = await fetch('/api/server-info');
+        if (res.ok) {
+            const data = await res.json();
+            const urlEl = document.getElementById('my-server-url');
+            if (urlEl) urlEl.textContent = data.url;
+        }
+    } catch (e) {
+        const urlEl = document.getElementById('my-server-url');
+        if (urlEl) urlEl.textContent = `http://${window.location.host}`;
+    }
+}
+
+function setupEventListeners() {
+    const btnFindMatch = document.getElementById('btn-find-match');
+    const checkRated = document.getElementById('check-rated');
+
+    if (btnFindMatch) {
+        btnFindMatch.onclick = () => {
+            if (gameState.isMatching) {
+                cancelMatch();
+            } else {
+                savePlayerName();
+                gameState.isRated = checkRated ? checkRated.checked : false;
+                startMatchmaking();
+            }
+        };
+    }
+
+    // デッキ編成ボタン
+    const btnDeckBuilder = document.getElementById('btn-deck-builder');
+    if (btnDeckBuilder) {
+        btnDeckBuilder.addEventListener('click', () => DeckManager.openModal());
+    }
+    const btnSaveDeck = document.getElementById('btn-save-deck');
+    if (btnSaveDeck) {
+        btnSaveDeck.addEventListener('click', () => DeckManager.save());
+    }
+    const btnResetDeck = document.getElementById('btn-reset-deck');
+    if (btnResetDeck) {
+        btnResetDeck.addEventListener('click', () => DeckManager.reset());
+    }
+    const btnCloseDeck = document.getElementById('btn-close-deck');
+    if (btnCloseDeck) {
+        btnCloseDeck.addEventListener('click', () => DeckManager.closeModal());
+    }
+
+    window.addEventListener('keydown', (e) => {
+        keysPressed[e.key] = true;
+        handleInput(e);
+    });
+    window.addEventListener('keyup', (e) => {
+        keysPressed[e.key] = false;
+    });
+
+    canvas.addEventListener('click', handleCanvasClick);
+
+    // 抽出モードボタン
+    const btnToggleExtraction = document.getElementById('btn-toggle-fusion-mode');
+    if (btnToggleExtraction) {
+        btnToggleExtraction.addEventListener('click', toggleExtractionMode);
+    }
+
+    // プレビューパネル閉じるボタン
+    const btnPreviewClose = document.getElementById('unit-preview-close');
+    if (btnPreviewClose) {
+        btnPreviewClose.addEventListener('click', hideUnitPreview);
+    }
+
+    // Help menu
+    const btnHelp = document.getElementById('btn-help');
+    const helpMenu = document.getElementById('help-menu');
+    const btnCloseHelp = document.getElementById('btn-close-help');
+    if (btnHelp && helpMenu) {
+        btnHelp.addEventListener('click', () => helpMenu.classList.remove('hidden'));
+        btnCloseHelp.addEventListener('click', () => helpMenu.classList.add('hidden'));
+    }
+
+    // 統一された退出ボタン（通常戦・練習場共通）
+    const btnLeaveGame = document.getElementById('btn-leave-game');
+    if (btnLeaveGame) {
+        btnLeaveGame.addEventListener('click', () => {
+            if (gameState.isPractice) {
+                exitPracticeMode();
+            } else {
+                leaveRoom();
+            }
+        });
+    }
+
+    const btnEncyclopedia = document.getElementById('btn-encyclopedia');
+    const encyclopediaMenu = document.getElementById('encyclopedia-menu');
+    const btnCloseEncyclopedia = document.getElementById('btn-close-encyclopedia');
+    if (btnEncyclopedia && encyclopediaMenu) {
+        btnEncyclopedia.addEventListener('click', () => {
+            populateEncyclopedia();
+            encyclopediaMenu.classList.remove('hidden');
+        });
+        btnCloseEncyclopedia.addEventListener('click', () => encyclopediaMenu.classList.add('hidden'));
+    }
+
+    // 🍔 ハンバーガーメニュー & サイドバードロワー
+    const btnHamburger = document.getElementById('btn-hamburger');
+    const sidebarDrawer = document.getElementById('sidebar-drawer');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const btnCloseSidebar = document.getElementById('btn-close-sidebar');
+
+    const toggleSidebar = (open) => {
+        if (!sidebarDrawer) return;
+        const willOpen = open !== undefined ? open : !sidebarDrawer.classList.contains('open');
+        sidebarDrawer.classList.toggle('open', willOpen);
+        if (sidebarOverlay) sidebarOverlay.classList.toggle('open', willOpen);
+    };
+
+    if (btnHamburger) btnHamburger.addEventListener('click', () => toggleSidebar());
+    if (btnCloseSidebar) btnCloseSidebar.addEventListener('click', () => toggleSidebar(false));
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
+
+    // サイドバー内の操作方法・図鑑ボタン
+    const btnSidebarHelp = document.getElementById('btn-sidebar-help');
+    if (btnSidebarHelp && helpMenu) {
+        btnSidebarHelp.addEventListener('click', () => {
+            helpMenu.classList.remove('hidden');
+            toggleSidebar(false);
+        });
+    }
+    const btnSidebarEnc = document.getElementById('btn-sidebar-encyclopedia');
+    if (btnSidebarEnc && encyclopediaMenu) {
+        btnSidebarEnc.addEventListener('click', () => {
+            populateEncyclopedia();
+            encyclopediaMenu.classList.remove('hidden');
+            toggleSidebar(false);
+        });
+    }
+
+    // ⚙️ 設定（音量・ミュート）
+    const volumeSlider = document.getElementById('volume-se');
+    if (volumeSlider) {
+        volumeSlider.addEventListener('input', (e) => {
+            SoundManager.setVolume(parseFloat(e.target.value) / 100);
+        });
+    }
+    const checkMute = document.getElementById('check-mute-sound');
+    if (checkMute) {
+        checkMute.addEventListener('change', (e) => {
+            SoundManager.setMute(e.target.checked);
+        });
+    }
+
+    // 📷 カメラ操作ミニUI
+    const btnZoomIn = document.getElementById('btn-camera-zoom-in');
+    const btnZoomOut = document.getElementById('btn-camera-zoom-out');
+    const btnResetCam = document.getElementById('btn-camera-reset');
+    if (btnZoomIn) btnZoomIn.addEventListener('click', () => Camera.zoomIn());
+    if (btnZoomOut) btnZoomOut.addEventListener('click', () => Camera.zoomOut());
+    if (btnResetCam) btnResetCam.addEventListener('click', () => Camera.reset());
+
+    // DPS リセットボタン
+    const btnResetDPS = document.getElementById('btn-reset-dps');
+    if (btnResetDPS) {
+        btnResetDPS.addEventListener('click', () => {
+            DPSManager.reset();
+        });
+    }
+
+    const btnPracticeLocal = document.getElementById('btn-practice');
+    if (btnPracticeLocal) {
+        btnPracticeLocal.onclick = () => {
+            if (socket) {
+                try { socket.close(); } catch (e) {}
+                socket = null;
+            }
+            gameState.roomId = null;
+            gameState.isHost = false;
+            gameState.isMatching = false;
+
+            gameState.isPractice = true;
+            gameState.playerSide = 'left';
+            savePlayerName();
+            gameState.players.left.name = localStorage.getItem('inamu_player_name') || 'Player 1';
+            gameState.players.right.name = 'カカシ';
+            gameState.players.left.hp = 2000;
+            gameState.players.left.maxHp = 2000;
+            gameState.players.right.hp = 1000000; // かかしHP: 100万
+            gameState.players.right.maxHp = 1000000;
+            gameState.players.left.mana = 100;
+            gameState.units = [];
+            gameState.bullets = [];
+
+            DPSManager.reset();
+            const dpsPanel = document.getElementById('dps-panel');
+            if (dpsPanel) dpsPanel.classList.remove('hidden');
+
+            const roomDisp = document.getElementById('room-display');
+            if (roomDisp) roomDisp.innerText = `Room: Practice`;
+
+            Camera.reset(); // 練習場開始時にカメラ位置リセット
+            startGame();
+        };
+    }
+
+    // 📷 カメラ操作：マウス移動＆ドラッグパン
+    canvas.addEventListener('mousemove', (e) => {
+        if (Camera.isDragging) {
+            const dx = (e.clientX - Camera.dragStartX) / Camera.zoom;
+            const dy = (e.clientY - Camera.dragStartY) / Camera.zoom;
+            Camera.x = Camera.cameraStartX + dx;
+            Camera.y = Camera.cameraStartY + dy;
+        }
+        const wpos = Camera.screenToWorld(e.clientX, e.clientY);
+        gameState.mousePos.x = wpos.x;
+        gameState.mousePos.y = wpos.y;
+    });
+
+    // 右クリック(2) または 中クリック(1) または Shift+左クリックでカメラ移動
+    canvas.addEventListener('mousedown', (e) => {
+        if (e.button === 2 || e.button === 1 || (e.button === 0 && e.shiftKey)) {
+            Camera.isDragging = true;
+            Camera.dragStartX = e.clientX;
+            Camera.dragStartY = e.clientY;
+            Camera.cameraStartX = Camera.x;
+            Camera.cameraStartY = Camera.y;
+            e.preventDefault();
+        }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+        if (Camera.isDragging && (e.button === 2 || e.button === 1 || e.button === 0)) {
+            Camera.isDragging = false;
+        }
+    });
+
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // ホイールで拡大・縮小
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.15 : 0.87;
+        Camera.zoomBy(factor);
+    }, { passive: false });
+
+    updateUnitUI();
+
+    // チャット機能
+    const chatInput = document.getElementById('chat-input');
+    const btnChatSend = document.getElementById('btn-chat-send');
+    if (chatInput && btnChatSend) {
+        btnChatSend.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
+            e.stopPropagation(); // ゲーム操作に干渉させない
+        });
+        // 入力中はキーボード操作(移動など)を無視する
+        chatInput.addEventListener('focus', () => { keysPressed = {}; });
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    input.value = '';
+    const myName = gameState.players[gameState.playerSide].name || '名無し';
+    
+    // 練習場はローカル表示のみ
+    if (gameState.isPractice) {
+        appendChatMessage(myName, text, '#aaa');
+        return;
+    }
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'signal', action: 'chat',
+            name: myName, text: text,
+            side: gameState.playerSide
+        }));
+    // ホスト処理用（自分用ローカル表示）
+    }
+    appendChatMessage(myName, text, gameState.playerSide === 'left' ? '#0f0' : '#f55');
+}
+
+function appendChatMessage(name, text, color = '#fff') {
+    const messages = document.getElementById('chat-messages');
+    if (!messages) return;
+    const div = document.createElement('div');
+    div.innerHTML = `<span style="color: ${color}; font-weight: bold;">${name}:</span> ${text}`;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function savePlayerName() {
+    const nameInput = document.getElementById('player-name').value || 'いなむー';
+    localStorage.setItem('inamu_player_name', nameInput);
+    gameState.players[gameState.playerSide].name = nameInput;
+}
+
+function updateUnitUI() {
+    const selector = document.getElementById('unit-selector');
+    if (!selector) return;
+    selector.innerHTML = '';
+
+    const deck = (gameState.deck && gameState.deck.length > 0) ? gameState.deck : DEFAULT_DECK;
+
+    deck.forEach((key, idx) => {
+        const u = UNIT_TYPES[key];
+        if (!u) return;
+
+        const div = document.createElement('div');
+        div.className = `unit-slot ${gameState.selectedUnit === key ? 'selected' : ''}`;
+        div.style.position = 'relative';
+
+        const spr = ASSETS[key];
+        let imgHtml = '';
+        if (spr) {
+            imgHtml = `<img src="${spr.toDataURL()}" style="width: 26px; height: 26px; image-rendering: pixelated; margin-bottom: 2px; flex-shrink: 0;">`;
+        }
+
+        // 表示名を抜粋 (不要な接頭辞を削除)
+        const displayName = u.name.replace(/ライス|コーラ|ソーダ|シールド|盾|アイゼン|アウラ/g, '').trim();
+        const shortcutKey = idx < 9 ? (idx + 1) : 0; // 1〜9, 0
+
+        div.innerHTML = `
+            <span style="position: absolute; top: 1px; left: 3px; font-size: 0.55rem; color: #0df; font-weight: bold;">${shortcutKey}</span>
+            ${imgHtml}
+            <div style="font-size: 0.45rem; line-height: 1; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px;">${displayName}</div>
+            <div style="font-size: 0.55rem; color: #fb0;">${u.cost}</div>
+        `;
+        div.onclick = () => {
+            gameState.selectedUnit = key;
+            updateUnitUI();
+        };
+        selector.appendChild(div);
+    });
+}
+
+function handleCanvasClick(e) {
+    if (gameUI.classList.contains('hidden')) return;
+
+    // 📷 カメラのズーム・オフセットを考慮したワールド座標を取得
+    const pos = Camera.screenToWorld(e.clientX, e.clientY);
+    const x = pos.x;
+    const y = pos.y;
+
+    const cell = CONFIG.TILE_SIZE;
+    const col = Math.floor(x / cell);
+    const row = Math.floor(y / cell);
+
+    if (col < 0 || col >= CONFIG.GRID_COLS || row < 0 || row >= CONFIG.GRID_ROWS) return;
+
+    // 抽出モードの処理
+    if (gameState.extractionMode) {
+        handleExtractionClick(row, col);
+        return;
+    }
+
+    // グリッド範囲内かチェック。範囲外でも発射先にはなり得る
+    const inGrid = col >= 0 && col < CONFIG.GRID_COLS && row >= 0 && row < CONFIG.GRID_ROWS;
+
+    // クリックしたマスにユニットがいればプレビュー表示（コーラ選択中でなければ）
+    if (inGrid && !gameState.selectedCola) {
+        const unitAtCell = gameState.units.find(u => u.col === col && u.row === row && u.hp > 0);
+        if (unitAtCell) {
+            // すでに同じユニットをプレビュー中ならパネルを閉じる
+            if (gameState.previewedUnit === unitAtCell) {
+                hideUnitPreview();
+            } else {
+                showUnitPreview(unitAtCell);
+            }
+            // コーラは選択に進むためreturnしない（以降のcolaクリック判定もある）
+            if (unitAtCell.type !== 'cola') return;
+        } else if (gameState.previewedUnit) {
+            // 空きマスをクリックしたらパネルを閉じる
+            hideUnitPreview();
+        }
+    }
+
+    // 選択済みのコーラがある場合は発射処理
+    if (gameState.selectedCola && gameState.selectedCola.hp > 0 && !gameState.selectedCola.fired) {
+        attemptFireColaTarget(gameState.selectedCola, x, y);
+        gameState.selectedCola = null;
+        return;
+    }
+
+    // 自分のコーラをクリックしたか判定（選択処理）
+    // コーラは左上座標(col*cell, row*cell)ではなく中心座標(x,y)として管理されているので距離で判定
+    const clickedCola = gameState.units.find(u => {
+        return u.side === gameState.playerSide && u.type === 'cola' && !u.fired &&
+            Math.abs(u.x - x) < 32 && Math.abs(u.y - y) < 32;
+    });
+
+    if (clickedCola) {
+        gameState.selectedCola = clickedCola;
+        return;
+    }
+
+    // グリッド範囲外なら以降の召喚処理はしない
+    if (!inGrid) return;
+
+    attemptSummon(row, col);
+}
+
+function attemptSummon(row, col) {
+    // 自分の陣地チェック (左なら 0~8, 右なら 9~17)
+    // 18列なので半分は9
+    const isMySide = gameState.playerSide === 'left' ? col < 9 : col >= 9;
+    if (!isMySide) {
+        statusMsg.innerText = "自分の陣地にのみ召喚できます！";
+        return;
+    }
+
+    // 重ね置き防止 (既にいるユニット ＋ 現在飛んで向かっている召喚エフェクトの両方をチェック)
+    const isOccupied = gameState.units.some(u => u.col === col && u.row === row && u.hp > 0) ||
+        gameState.summoningEffects.some(ef => ef.col === col && ef.row === row);
+
+    if (isOccupied) {
+        statusMsg.innerText = "そこには既にユニットがいます！";
+        return;
+    }
+
+    const unitType = UNIT_TYPES[gameState.selectedUnit];
+    const side = gameState.playerSide;
+
+    if (gameState.players[side].mana >= unitType.cost) {
+        if (gameState.isPractice) {
+            processSummon({ unitId: unitType.id, row, col, side });
+            return;
+        }
+
+        // ホストなら自分でも即座に処理する（レスポンス向上）
+        if (gameState.isHost) {
+            processSummon({ unitId: unitType.id, row, col, side });
+        }
+
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'signal',
+                action: 'summon',
+                unitId: unitType.id,
+                row, col,
+                side
+            }));
+        }
+    }
+}
+
+function startMatchmaking() {
+    gameState.isMatching = true;
+    const btnFindMatch = document.getElementById('btn-find-match');
+    if (btnFindMatch) btnFindMatch.innerText = 'キャンセル';
+    statusMsg.innerText = `${gameState.isRated ? 'レート戦' : 'ノーマル戦'}の相手を探しています...`;
+
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        connectToServer();
+    } else {
+        sendFindMatch();
+    }
+}
+
+function sendFindMatch() {
+    socket.send(JSON.stringify({
+        type: 'find_match',
+        isRated: gameState.isRated
+    }));
+}
+
+function cancelMatch() {
+    gameState.isMatching = false;
+    const btnFindMatch = document.getElementById('btn-find-match');
+    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
+    statusMsg.innerText = '';
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'cancel_match' }));
+    }
+}
+
+function sendRegisterPlayerName() {
+    const nameInput = document.getElementById('player-name');
+    const name = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : 'プレイヤー';
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'register_player',
+            name: name
+        }));
+    }
+}
+
+function updateOnlinePlayersUI(hostName, players) {
+    const hostElem = document.getElementById('host-name-display');
+    const countElem = document.getElementById('online-count');
+    const listElem = document.getElementById('online-players-list');
+
+    if (hostElem) hostElem.innerText = hostName || '未接続';
+    if (countElem) countElem.innerText = players ? players.length : 0;
+
+    if (listElem) {
+        listElem.innerHTML = '';
+        if (!players || players.length === 0) {
+            listElem.innerHTML = '<li style="color: #aaa;">オンラインプレイヤーなし</li>';
+        } else {
+            players.forEach(p => {
+                const li = document.createElement('li');
+                li.style.display = 'flex';
+                li.style.alignItems = 'center';
+                li.style.gap = '5px';
+                li.innerHTML = `<span style="color:#0f0;">•</span> <span>${escapeHtml(p.name)}</span>`;
+                listElem.appendChild(li);
+            });
+        }
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, function(m) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[m];
+    });
+}
+
+function connectToServer() {
+    let host = window.location.host;
+    let protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (!host || window.location.protocol === 'file:') {
+        host = 'localhost:3000';
+        protocol = 'ws:';
+    }
+
+    try {
+        socket = new WebSocket(`${protocol}//${host}`);
+
+        socket.onopen = () => {
+            sendRegisterPlayerName();
+            if (gameState.isMatching) {
+                sendFindMatch();
+            }
+        };
+
+        socket.onmessage = async (event) => {
+            try {
+                let text;
+                if (event.data instanceof Blob) {
+                    text = await event.data.text();
+                } else {
+                    text = event.data;
+                }
+                const data = JSON.parse(text);
+                handleServerMessage(data);
+            } catch (err) {}
+        };
+
+        socket.onerror = () => {
+            console.log('サーバー未起動（オフライン／練習場モードでプレイ可能）');
+        };
+    } catch (err) {
+        console.log('WebSocket接続待機（オフライン）:', err.message);
+    }
+}
+
+function handleServerMessage(data) {
+    switch (data.type) {
+        case 'online_players_update':
+            updateOnlinePlayersUI(data.hostName, data.players);
+            break;
+        case 'disconnected':
+            statusMsg.innerText = "相手が切断しました。あなたの勝利です！";
+            endGame(gameState.playerSide);
+            break;
+        case 'matching_started':
+            // サーバー側で待ち行列に入った
+            break;
+        case 'matching_cancelled':
+            statusMsg.innerText = 'マッチングをキャンセルしました';
+            break;
+        case 'created':
+            gameState.isMatching = false;
+            gameState.isHost = true;
+            gameState.roomId = data.roomId;
+            gameState.playerSide = data.side || 'left';
+            gameState.isPractice = false;
+            statusMsg.innerText = `マッチ成功！ ルーム: ${data.roomId}`;
+            document.getElementById('room-display').innerText = `Room: ${data.roomId}`;
+            startGame();
+            break;
+        case 'joined':
+            gameState.isMatching = false;
+            gameState.isHost = false;
+            gameState.roomId = data.roomId;
+            gameState.playerSide = data.side || 'right';
+            gameState.isPractice = false;
+            statusMsg.innerText = `マッチ成功！ ルーム: ${data.roomId}`;
+            document.getElementById('room-display').innerText = `Room: ${data.roomId}`;
+            startGame();
+            break;
+        case 'player_joined':
+            if (gameState.isHost) {
+                startGame();
+            }
+            break;
+        case 'signal':
+            if (data.action === 'sync_name') {
+                gameState.players[data.side].name = data.name;
+            } else if (data.action === 'summon') {
+                processSummon(data);
+            } else if (data.action === 'move') {
+                gameState.players[data.side].y = data.y;
+            } else if (data.action === 'fire_cola') {
+                processFireCola(data.side);
+            } else if (data.action === 'fire_cola_target') {
+                processFireColaTarget(data.colaIdX, data.colaIdY, data.tx, data.ty, data.side);
+            } else if (data.action === 'fire_cola_all') {
+                processFireColaTargetAll(data.tx, data.ty, data.side);
+            } else if (data.action === 'extraction_process') {
+                processExtraction(data.targetCol, data.targetRow, data.srcCol, data.srcRow, data.side);
+            } else if (data.action === 'chat') {
+                // 自分が送信したものはローカルで追加済みなので他人のみ追加
+                if (data.side !== gameState.playerSide) {
+                    const color = data.side === 'left' ? '#0f0' : '#f55';
+                    appendChatMessage(data.name, data.text, color);
+                }
+            } else if (data.action === 'game_over') {
+                endGame(data.winner);
+            } else if (data.action === 'opponent_disconnected') {
+                statusMsg.innerText = "相手が切断しました。あなたの勝利です！";
+                endGame(gameState.playerSide);
+            } else if (!gameState.isHost && data.state) {
+                syncGameState(data.state);
+            }
+            break;
+    }
+}
+
+function processSummon(data) {
+    const typeKey = Object.keys(UNIT_TYPES).find(k => UNIT_TYPES[k].id === data.unitId);
+    const unitDef = UNIT_TYPES[typeKey];
+
+    SoundManager.playSummon();
+
+    // マナ消費
+    gameState.players[data.side].mana -= unitDef.cost;
+
+    const cell = CONFIG.TILE_SIZE;
+    const targetX = data.col * cell + cell / 2;
+    const targetY = data.row * cell + cell / 2;
+
+    // 召喚者の投げる動作タイマーセット
+    gameState.players[data.side].throwTimer = 10; // 10フレーム程度
+
+    const effect = {
+        unitDef,
+        side: data.side,
+        row: data.row,
+        col: data.col,
+        typeKey: typeKey, // キーを保存しておく
+        x: 0, // Will be calculated in update
+        y: 0, // Will be calculated in update
+        targetX,
+        targetY,
+        progress: 0,
+        duration: 20 // フレーム数
+    };
+    gameState.summoningEffects.push(effect);
+}
+
+function finalizeSummon(effect) {
+    const unit = {
+        ...effect.unitDef,
+        uid: Math.random().toString(36).substr(2, 9),
+        typeKey: effect.typeKey,
+        row: effect.row,
+        col: effect.col,
+        x: effect.targetX,
+        y: effect.targetY,
+        side: effect.side,
+        hp: effect.unitDef.hp,
+        lastFire: 0
+    };
+    gameState.units.push(unit);
+}
+
+function processFireCola(side) {
+    // 設置済みのコーラを探して発射する
+    gameState.units.forEach(u => {
+        if (u.side === side && u.type === 'cola' && !u.fired) {
+            u.fired = true;
+            u.hp = -1; // 発射フラグとしてHPをマイナスに
+            fireCola(u);
+        }
+    });
+}
+
+function fireCola(u) {
+    const spd = 6.0; // 打ったコーラは超高速
+    const vx = u.side === 'left' ? spd : -spd;
+    const extra = { spriteKey: u.typeKey, size: 16 };
+
+    if (u.actions && u.actions.includes('homing')) extra.homing = true;
+    if (u.actions && u.actions.includes('split')) u.action = 'split';
+    if (u.actions && u.actions.includes('bounce')) u.action = 'bounce';
+    
+    let pCount = extra.pierceCount || 0;
+    if (u.action === 'pierce' || (u.actions && u.actions.includes('pierce'))) {
+        pCount = 1 + (u.extractionCount || 0);
+    }
+    extra.pierceCount = pCount;
+
+    if (u.action === 'straight') {
+        spawnBullet(u.x, u.y, vx, 0, u.side, { power: 25, ...extra });
+    } else if (u.action === 'bounce') {
+        spawnBullet(u.x, u.y, vx, 1 * spd, u.side, { bounce: 3, power: 20, ...extra });
+    } else if (u.action === 'split') {
+        spawnBullet(u.x, u.y, vx, 0, u.side, { split: true, power: 18, ...extra });
+    } else if (u.action === 'glide') {
+        spawnBullet(u.x, u.y, vx * 0.3, 0, u.side, { power: 20, lifetime: 200, ...extra });
+    } else if (u.action === 'charge') {
+        spawnBullet(u.x, u.y, vx * 1.5, 0, u.side, { power: 35, ...extra });
+    } else if (u.action === 'pierce') {
+        spawnBullet(u.x, u.y, vx, 0, u.side, { power: u.power || 22, ...extra });
+    } else {
+        spawnBullet(u.x, u.y, vx, 0, u.side, { power: u.power || 15, ...extra });
+    }
+    // ユニットリストから削除 (fired=true にしたので update で消す)
+}
+
+function startGame() {
+    menuOverlay.classList.add('hidden');
+    gameUI.classList.remove('hidden');
+
+    // 試合中はサーバー情報パネルを非表示にして画面の重なりを防ぐ
+    const serverInfoPanel = document.getElementById('server-info-panel');
+    if (serverInfoPanel) serverInfoPanel.classList.add('hidden');
+
+    // 練習場のみDPSパネルを表示
+    const dpsPanel = document.getElementById('dps-panel');
+    if (dpsPanel) {
+        if (gameState.isPractice) {
+            dpsPanel.classList.remove('hidden');
+        } else {
+            dpsPanel.classList.add('hidden');
+        }
+    }
+
+    // ゲーム状態のリセット
+    gameState.units = [];
+    gameState.bullets = [];
+    gameState.summoningEffects = [];
+    gameState.players.left.hp = 2000;
+    gameState.players.left.maxHp = 2000;
+    gameState.players.left.mana = 100;
+
+    // 練習場の場合は右側のかかしHPを100万、対戦時は2000に設定
+    if (gameState.isPractice) {
+        gameState.players.right.hp = 1000000;
+        gameState.players.right.maxHp = 1000000;
+        gameState.players.right.name = 'カカシ';
+    } else {
+        gameState.players.right.hp = 2000;
+        gameState.players.right.maxHp = 2000;
+    }
+    gameState.players.right.mana = 100;
+    gameState.prepTimer = 450; // 15秒 (30FPS * 15)
+    gameState.selectedCola = null;
+    gameState.spaceFireCooldown = 0;
+    gameState.extractionMode = false;
+    gameState.extractionSelections = [];
+    hideUnitPreview();
+
+    // 名前の同期 (両クライアントが相手に送る)
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'signal', action: 'sync_name',
+            side: gameState.playerSide,
+            name: gameState.players[gameState.playerSide].name
+        }));
+    }
+
+    if (!gameState.isPractice) {
+        const btnExitP = document.getElementById('btn-exit-practice');
+        if (btnExitP) btnExitP.classList.add('hidden');
+    }
+}
+
+function attemptFireCola() {
+    // スペース連射防止: クールダウン中は発射しない
+    if (gameState.spaceFireCooldown > 0) return;
+
+    // マウスカーソル位置をターゲットにする
+    const tx = gameState.mousePos.x;
+    const ty = gameState.mousePos.y;
+
+    // クールダウンをセット (30フレーム = 1秒)
+    gameState.spaceFireCooldown = 30;
+
+    if (gameState.isPractice) {
+        processFireColaTargetAll(tx, ty, gameState.playerSide);
+        return;
+    }
+
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'signal',
+            action: 'fire_cola_all',
+            tx: tx,
+            ty: ty,
+            side: gameState.playerSide
+        }));
+        // ホストなら自分でも即座に実行
+        if (gameState.isHost) {
+            processFireColaTargetAll(tx, ty, gameState.playerSide);
+        }
+    }
+}
+
+function processFireColaTargetAll(tx, ty, side) {
+    gameState.units.forEach(u => {
+        if (u.side === side && u.type === 'cola' && !u.fired) {
+            u.fired = true;
+            u.hp = -1;
+            fireColaTarget(u, tx, ty);
+        }
+    });
+}
+
+function handleInput(e) {
+    if (gameUI.classList.contains('hidden')) return;
+    // スペース: 自分の陣地にいるコーラユニットを一斉発射（稲は発射しない）
+    if (e.key === ' ') attemptFireCola();
+    // E: 抽出モードのトグル
+    if (e.key === 'e' || e.key === 'E') toggleExtractionMode();
+
+    // 1〜9キー、0キー: デッキユニットのショートカット選択（10枠対応）
+    if (['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].includes(e.key)) {
+        const slotIdx = e.key === '0' ? 9 : (parseInt(e.key, 10) - 1);
+        const deck = (gameState.deck && gameState.deck.length > 0) ? gameState.deck : DEFAULT_DECK;
+        if (deck[slotIdx]) {
+            gameState.selectedUnit = deck[slotIdx];
+            updateUnitUI();
+        }
+    }
+}
+
+function updatePlayerMovement() {
+    const side = gameState.playerSide;
+    let oldY = gameState.players[side].y;
+
+    if (keysPressed['ArrowUp'] || keysPressed['w'] || keysPressed['W']) {
+        gameState.players[side].y = Math.max(0, gameState.players[side].y - CONFIG.PLAYER_SPEED);
+    }
+    if (keysPressed['ArrowDown'] || keysPressed['s'] || keysPressed['S']) {
+        gameState.players[side].y = Math.min(CONFIG.SCREEN_HEIGHT - 32, gameState.players[side].y + CONFIG.PLAYER_SPEED);
+    }
+
+    if (oldY !== gameState.players[side].y && !gameState.isPractice && socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'signal',
+            action: 'move',
+            side: side,
+            y: gameState.players[side].y
+        }));
+    }
+}
+
+// 同期 (クライアント側)
+function syncGameState(remoteState) {
+    // ホストからの状態を同期する
+    const otherSide = gameState.playerSide === 'left' ? 'right' : 'left';
+    gameState.players[otherSide].y = remoteState.players[otherSide].y;
+    gameState.players[otherSide].hp = remoteState.players[otherSide].hp;
+    gameState.players[gameState.playerSide].hp = remoteState.players[gameState.playerSide].hp;
+    gameState.players.left.mana = remoteState.players.left.mana;
+    gameState.players.right.mana = remoteState.players.right.mana;
+
+    // ユニットと弾の同期 (単純な上書きだが、ID等がないので毎フレーム全コピーは少し重いかもしれないが、一旦これで)
+    if (!gameState.isHost) {
+        gameState.units = remoteState.units;
+        gameState.bullets = remoteState.bullets;
+        gameState.summoningEffects = remoteState.summoningEffects;
+    }
+}
+
+// ゲームループ (30FPS 制限)
+let lastTime = 0;
+const interval = 1000 / CONFIG.FPS;
+
+function gameLoop(timestamp = 0) {
+    const deltaTime = timestamp - lastTime;
+
+    if (deltaTime >= interval) {
+        lastTime = timestamp - (deltaTime % interval);
+        update();
+        draw();
+        DPSManager.tick();
+
+        if (gameState.isHost && socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'signal', state: gameState }));
+        }
+    }
+
+    // 背景アニメーション (滑らかに)
+    bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+    bgParticles.forEach(p => {
+        p.update();
+        p.draw();
+    });
+
+    requestAnimationFrame(gameLoop);
+}
+
+function update() {
+    updatePlayerMovement();
+
+    // 🌋 フィールドギミックの更新 (炭酸ファウンテン加速・黄金稲穂リスポーン・ポータル)
+    FieldGimmickManager.update();
+
+    // 準備時間のカウントダウン
+    if (gameState.prepTimer > 0) gameState.prepTimer--;
+
+    gameState.manaTimer += 1 / CONFIG.FPS;
+    if (gameState.manaTimer >= 0.4) { // 0.4秒に1回復（従来の2.5倍）
+        gameState.manaTimer = 0;
+        gameState.players.left.mana = Math.min(100, gameState.players.left.mana + 1);
+        gameState.players.right.mana = Math.min(100, gameState.players.right.mana + 1);
+    }
+    if (gameState.players.left.throwTimer > 0) gameState.players.left.throwTimer--;
+    if (gameState.players.right.throwTimer > 0) gameState.players.right.throwTimer--;
+
+    // ソーダのマナ生成
+    gameState.units.forEach(u => {
+        if (u.hp > 0 && u.manaGen > 0) {
+            gameState.players[u.side].mana = Math.min(100, gameState.players[u.side].mana + u.manaGen);
+        }
+    });
+
+    // 練習場の敵無限リスポーン (ホスト側または練習場のみ)
+    if (gameState.isPractice) {
+        const enemies = gameState.units.filter(u => u.side === 'right' && u.hp > 0);
+        const incoming = gameState.summoningEffects.filter(ef => ef.side === 'right');
+        if (enemies.length + incoming.length < 3) {
+            // 敵が少なくなったらランダムに召喚
+            const row = Math.floor(Math.random() * CONFIG.GRID_ROWS);
+            const col = 9 + Math.floor(Math.random() * 9); // 右半分
+            const keys = ['RICE_BASIC', 'RICE_SPREAD', 'RICE_SEEKER', 'COLA_STRAIGHT', 'COLA_BOUNCE'];
+            const rKey = keys[Math.floor(Math.random() * keys.length)];
+            const unitDef = UNIT_TYPES[rKey];
+            processSummon({ unitId: unitDef.id, row, col, side: 'right' });
+        }
+    }
+
+    // スペース発射クールダウンのデクリメント
+    if (gameState.spaceFireCooldown > 0) gameState.spaceFireCooldown--;
+
+    if (gameState.isHost || gameState.isPractice) {
+        gameState.units.forEach(u => {
+            if (u.type === 'rice' || u.extractionCount > 0) {
+                u.lastFire = (u.lastFire || 0) + 1;
+                if (u.lastFire >= (u.cooldown || 2) * CONFIG.FPS) {
+                    u.lastFire = 0;
+                    if (u.extractionCount > 0) {
+                        fireExtractionUnit(u);
+                    } else if (u.type === 'rice') {
+                        fireUnit(u);
+                    }
+                }
+            }
+            if (u.type === 'cola' && u.action === 'charge' && !u.fired) {
+                u.charge = Math.min(1, (u.charge || 0) + 1 / (8 * CONFIG.FPS));
+            }
+
+            // 練習場の敵AI: コーラを発射する
+            if (gameState.isPractice && u.side === 'right' && u.type === 'cola' && !u.fired && u.hp > 0) {
+                u.aiFireTimer = (u.aiFireTimer || 0) + 1 / CONFIG.FPS;
+                if (u.aiFireTimer >= 3.0) {
+                    u.aiFireTimer = 0;
+                    const targetX = 16;
+                    const targetY = gameState.players.left.y + 16;
+                    processFireColaTarget(u.x, u.y, targetX, targetY, 'right');
+                }
+            }
+        });
+    }
+    for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+        const b = gameState.bullets[i];
+        let speedMult = 1.0;
+        if (b.action === 'bounce') speedMult = 1.6; // 跳ねるコーラの速度向上
+        b.x += b.vx * speedMult; b.y += b.vy * speedMult;
+
+        // 重力黒コーラ（ブラックホール）による敵弾吸引とマナ変換
+        if (b.action === 'blackhole') {
+            for (let k = gameState.bullets.length - 1; k >= 0; k--) {
+                const eb = gameState.bullets[k];
+                if (eb.side !== b.side && eb !== b) {
+                    const edx = b.x - eb.x; const edy = b.y - eb.y;
+                    const edist = Math.hypot(edx, edy);
+                    if (edist < 45) {
+                        eb.vx += (edx / edist) * 0.9;
+                        eb.vy += (edy / edist) * 0.9;
+                        if (edist < 14) {
+                            removeBullet(k);
+                            if (k < i) i--;
+                            // マナ回復
+                            const myP = gameState.players[b.side];
+                            if (myP) myP.mana = Math.min(100, myP.mana + 0.8);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ギフト ライス（毒胞子）: 触れた敵弾の威力を半減
+        if (b.action === 'poison') {
+            let hitPoison = false;
+            for (let k = gameState.bullets.length - 1; k >= 0; k--) {
+                const eb = gameState.bullets[k];
+                if (eb.side !== b.side && eb !== b) {
+                    if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
+                        eb.power = Math.max(1, Math.floor((eb.power || 5) * 0.5));
+                        hitPoison = true;
+                        break;
+                    }
+                }
+            }
+            if (hitPoison) {
+                removeBullet(i);
+                continue;
+            }
+        }
+
+        // フロスト ライス（氷結）: 敵弾と相殺（両方消滅）
+        if (b.action === 'frost' || b.actions?.includes('frost')) {
+            let hitFrost = false;
+            for (let k = gameState.bullets.length - 1; k >= 0; k--) {
+                const eb = gameState.bullets[k];
+                if (eb.side !== b.side && eb !== b) {
+                    if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
+                        removeBullet(k);
+                        if (k < i) i--;
+                        hitFrost = true;
+                        break;
+                    }
+                }
+            }
+            if (hitFrost) {
+                // 敵の弾を相殺する能力と爆散がある場合、相殺した後にその場で爆散する
+                if (b.action === 'spread' || b.actions?.includes('spread') || b.spread) {
+                    handleSpreadEffect({ x: b.x, y: b.y, side: b.side });
+                }
+                removeBullet(i);
+                continue;
+            }
+        }
+
+        // コーラ ゲイザー: 炭酸噴射で波打ちながら急加速
+        if (b.action === 'geyser') {
+            b.geyserTimer = (b.geyserTimer || 0) + 1;
+            b.vy += Math.sin(b.geyserTimer * 0.4) * 0.5;
+            b.vx *= 1.02;
+            b.vy *= 1.02;
+            const curSpd = Math.hypot(b.vx, b.vy);
+            if (curSpd > 10.5) {
+                b.vx = (b.vx / curSpd) * 10.5;
+                b.vy = (b.vy / curSpd) * 10.5;
+            }
+        }
+        if (b.homing) {
+            const target = b.side === 'left' ? gameState.players.right : gameState.players.left;
+            const targetX = b.side === 'left' ? CONFIG.SCREEN_WIDTH - 16 : 16;
+            const targetY = target.y + 16;
+            const dx = targetX - b.x; const dy = targetY - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+                b.vx += (dx / dist) * 0.1; b.vy += (dy / dist) * 0.1;
+                const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                if (speed > 3) { b.vx = (b.vx / speed) * 3; b.vy = (b.vy / speed) * 3; }
+            }
+        }
+        if (b.lifetime !== undefined) {
+            b.lifetime--;
+            if (b.lifetime <= 0) {
+                if (b.split) {
+                    const angle = Math.atan2(b.vy, b.vx); const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                    spawnBullet(b.x, b.y, Math.cos(angle + 0.2) * spd, Math.sin(angle + 0.2) * spd, b.side, { power: b.power, spriteKey: b.spriteKey, size: b.size });
+                    spawnBullet(b.x, b.y, Math.cos(angle - 0.2) * spd, Math.sin(angle - 0.2) * spd, b.side, { power: b.power, spriteKey: b.spriteKey, size: b.size });
+                    b.lifetime = 1000; b.split = false; // 消さずに直進させる
+                } else { removeBullet(i); continue; }
+            }
+        }
+        const leftP = gameState.players.left; const rightP = gameState.players.right;
+        let hitPlayer = false;
+        if (b.side === 'right' && Math.abs(b.x - 16) < 16 && Math.abs(b.y - (leftP.y + 16)) < 16) {
+            if (!b.hitPlayers?.includes('left')) {
+                leftP.hp -= (b.power || 5);
+                SoundManager.playHit();
+                if (!b.hitPlayers) b.hitPlayers = [];
+                b.hitPlayers.push('left');
+                hitPlayer = true;
+            }
+        }
+        if (b.side === 'left' && Math.abs(b.x - (CONFIG.SCREEN_WIDTH - 16)) < 16 && Math.abs(b.y - (rightP.y + 16)) < 16) {
+            if (!b.hitPlayers?.includes('right')) {
+                const dmg = (b.power || 5);
+                rightP.hp -= dmg;
+                DPSManager.recordDamage(dmg);
+                SoundManager.playHit();
+                if (!b.hitPlayers) b.hitPlayers = [];
+                b.hitPlayers.push('right');
+                hitPlayer = true;
+            }
+        }
+        if (hitPlayer) {
+            if (b.pierceCount && b.pierceCount > 0) {
+                b.pierceCount--;
+            } else {
+                if (b.action === 'spread') {
+                    const spreadX = b.x - b.vx * 0.5;
+                    const spreadY = b.y - b.vy * 0.5;
+                    handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+                }
+                removeBullet(i); continue;
+            }
+        }
+        let hitUnit = false;
+        for (let j = 0; j < gameState.units.length; j++) {
+            const u = gameState.units[j];
+            if (u.side !== b.side && u.hp > 0 && u.fireType !== 'mine' && !u.hasBeenHitBy?.includes(b.uid)) {
+                if (Math.abs(b.x - u.x) < 20 && Math.abs(b.y - u.y) < 20) {
+                    const dmg = (b.power || 5);
+                    u.hp -= dmg;
+                    if (b.side === 'left') {
+                        DPSManager.recordDamage(dmg);
+                    }
+                    SoundManager.playHit();
+                    hitUnit = true;
+                    if (b.pierceCount !== undefined) {
+                        if (!b.hitTargets) b.hitTargets = [];
+                        if (!u.hasBeenHitBy) u.hasBeenHitBy = [];
+                        b.hitTargets.push(u.uid);
+                        u.hasBeenHitBy.push(b.uid);
+                    }
+                    break;
+                }
+            }
+        }
+        if (hitUnit) {
+            if (b.pierceCount && b.pierceCount > 0) {
+                b.pierceCount--;
+            } else {
+                if (b.action === 'spread') {
+                    // 少しだけ手前に戻して拡散させる（中に入りすぎないように）
+                    const spreadX = b.x - b.vx * 0.5;
+                    const spreadY = b.y - b.vy * 0.5;
+                    handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+                }
+                removeBullet(i); continue;
+            }
+        }
+
+        // 壁際での拡散
+        if (b.action === 'spread' && (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT)) {
+            const spreadX = Math.max(0, Math.min(CONFIG.SCREEN_WIDTH, b.x));
+            const spreadY = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT, b.y));
+            handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+            removeBullet(i); continue;
+        }
+        if (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT) {
+            if (b.bounce && b.bounce > 0) { b.vy *= -1; b.bounce--; continue; }
+            removeBullet(i); continue;
+        }
+    }
+    for (let i = gameState.summoningEffects.length - 1; i >= 0; i--) {
+        const ef = gameState.summoningEffects[i];
+        ef.progress += 1 / ef.duration;
+
+        if (ef.type === 'absorption') {
+            const t = ef.progress;
+            ef.x = ef.startX + (ef.targetX - ef.startX) * t;
+            ef.y = ef.startY + (ef.targetY - ef.startY) * t;
+            if (ef.progress >= 1.0) {
+                gameState.summoningEffects.splice(i, 1);
+            }
+            continue;
+        }
+
+        const startX = ef.side === 'left' ? 16 : CONFIG.SCREEN_WIDTH - 16;
+        const startY = gameState.players[ef.side].y + 16;
+        const t = ef.progress;
+        ef.x = startX + (ef.targetX - startX) * t;
+        const peakHeight = 120;
+        ef.y = startY + (ef.targetY - startY) * t - peakHeight * 4 * (t - t * t);
+        if (ef.progress >= 1.0) { finalizeSummon(ef); gameState.summoningEffects.splice(i, 1); }
+    }
+    // ユニット破壊時の音
+    gameState.units.forEach(u => {
+        if (u.hp <= 0 && !u.markedForDestruction) {
+            u.markedForDestruction = true;
+            SoundManager.playExplosion();
+        }
+    });
+    gameState.units = gameState.units.filter(u => u.hp > 0);
+    if (gameState.isHost || gameState.isPractice) {
+        if (gameState.players.left.hp <= 0 || gameState.players.right.hp <= 0) {
+            const winner = gameState.players.left.hp <= 0 ? 'right' : 'left';
+            if (!gameState.isPractice) {
+                socket.send(JSON.stringify({ type: 'signal', action: 'game_over', winner }));
+                endGame(winner);
+            } else {
+                statusMsg.innerText = "練習場：リセット！";
+                // 練習場ではHPを戻して続行
+                gameState.players.left.hp = 2000;
+                gameState.players.right.hp = gameState.isPractice ? 1000000 : 2000;
+            }
+        }
+    }
+}
+
+function fireUnit(u) {
+    if (gameState.prepTimer > 0) return; // 準備時間は撃たない
+    SoundManager.playFire();
+    const unitDef = UNIT_TYPES[u.typeKey];
+    if (!unitDef) return;
+    let spd = 2.0;
+    let actExt = {};
+    if (u.action === 'bounce') actExt.bounce = 3;
+    if (u.action === 'split') { actExt.split = true; actExt.lifetime = 40; }
+    if (u.action === 'pierce') { actExt.pierce = true; u.power = 22; }
+    if (u.action === 'charge') actExt.powerBonus = 25;
+    if (u.action === 'glide') { actExt.lifetime = 200; spd *= 0.4; actExt.power = 20; }
+    if (u.action === 'straight') actExt.power = 25;
+
+    // 新種アクションの能力付与
+    if (u.action === 'laser') {
+        actExt.action = 'laser';
+        actExt.pierce = true;
+        actExt.pierceCount = 3; // 3体貫通
+        spd *= 2.8; // 高速レーザー
+    }
+    if (u.action === 'poison') {
+        actExt.action = 'poison'; // 触れた敵弾を弱体化
+    }
+    if (u.action === 'frost') {
+        actExt.action = 'frost'; // 敵弾と相殺
+    }
+    if (u.action === 'sniper') {
+        actExt.action = 'sniper';
+        actExt.pierce = true;
+        actExt.pierceCount = 4; // 前線の敵を貫いて本体を撃ち抜く
+        spd *= 2.5;
+    }
+
+    const fire = (x, y, vx, vy, side, extra = {}) => {
+        let p = extra.power || u.power || unitDef.power || 5;
+        if (extra.homing || actExt.homing) p = Math.max(2, Math.floor(p * 0.6));
+        if (actExt.powerBonus) p += actExt.powerBonus;
+        
+        let pCount = extra.pierceCount || actExt.pierceCount || 0;
+        if (actExt.pierce || (u.actions && u.actions.includes('pierce')) || u.action === 'pierce') {
+            pCount = Math.max(pCount, 1 + (u.extractionCount || 0));
+        }
+
+        spawnBullet(x, y, vx, vy, side, { ...extra, ...actExt, power: p, pierceCount: pCount });
+    };
+
+    const ft = u.fireType;
+    if (!ft || ft === 'none') return;
+    
+    // アクションの複合化（homing がアクションにある場合は全弾に付与）
+    if ((u.actions && u.actions.includes('homing')) || u.action === 'homing') actExt.homing = true;
+
+    // 狙撃稲（プレツィザ ライス）は敵プレイヤー本体を正確に狙い撃つ
+    if (u.action === 'sniper') {
+        const targetSide = u.side === 'left' ? 'right' : 'left';
+        const targetP = gameState.players[targetSide];
+        const targetX = u.side === 'left' ? CONFIG.SCREEN_WIDTH - 16 : 16;
+        const targetY = (targetP ? targetP.y : 80) + 16;
+        const dx = targetX - u.x;
+        const dy = targetY - u.y;
+        const dist = Math.hypot(dx, dy) || 1;
+        fire(u.x, u.y, (dx / dist) * spd, (dy / dist) * spd, u.side);
+        return;
+    }
+
+    if (ft === '8dir' && u.id === 'rice_1') {
+        // ライス プリムスは前方3方向射撃
+        const baseAng = u.side === 'left' ? 0 : Math.PI;
+        fire(u.x, u.y, Math.cos(baseAng) * 2.5 * spd, Math.sin(baseAng) * 2.5 * spd, u.side);
+        fire(u.x, u.y, Math.cos(baseAng + 0.3) * 2.2 * spd, Math.sin(baseAng + 0.3) * 2.2 * spd, u.side);
+        fire(u.x, u.y, Math.cos(baseAng - 0.3) * 2.2 * spd, Math.sin(baseAng - 0.3) * 2.2 * spd, u.side);
+    } else if (ft === '8dir') {
+        for (let ang = 0; ang < Math.PI * 2; ang += Math.PI / 4) fire(u.x, u.y, Math.cos(ang) * 2 * spd, Math.sin(ang) * 2 * spd, u.side);
+    } else if (ft === 'circle6') {
+        for (let ang = 0; ang < Math.PI * 2; ang += Math.PI / 3) fire(u.x, u.y, Math.cos(ang) * 1.5 * spd, Math.sin(ang) * 1.5 * spd, u.side);
+    } else if (ft === 'burst') {
+        const baseAng = u.side === 'left' ? 0 : Math.PI;
+        fire(u.x, u.y, Math.cos(baseAng) * 4 * spd, Math.sin(baseAng) * 4 * spd, u.side);
+        fire(u.x, u.y - 8, Math.cos(baseAng) * 3.5 * spd, Math.sin(baseAng) * 3.5 * spd, u.side);
+        fire(u.x, u.y + 8, Math.cos(baseAng) * 3.5 * spd, Math.sin(baseAng) * 3.5 * spd, u.side);
+    } else if (ft === 'homing2') {
+        fire(u.x, u.y, u.side === 'left' ? 2 * spd : -2 * spd, 0, u.side, { homing: true });
+        fire(u.x, u.y, u.side === 'left' ? 2 * spd : -2 * spd, 0.5 * spd, u.side, { homing: true });
+    } else if (ft === 'single') {
+        fire(u.x, u.y, u.side === 'left' ? 2.5 * spd : -2.5 * spd, 0, u.side);
+    }
+}
+
+function spawnBullet(x, y, vx, vy, side, extra = {}) {
+    const b = bulletPool.pop() || { x, y, vx, vy, side };
+    b.hp = 1; b.x = x; b.y = y; b.vx = vx; b.vy = vy; b.side = side;
+    b.uid = Math.random().toString(36).substr(2, 9); // バグ修正: 貫通判定のためにuidを付与
+    // リセット
+    b.bounce = undefined; b.homing = false; b.split = false; b.spriteKey = undefined;
+    b.size = undefined; b.power = undefined; b.lifetime = undefined; b.pierce = false;
+    b.action = undefined; // アクションもリセット
+    b.hitTargets = undefined; b.hitPlayers = undefined; b.hasBeenHitBy = undefined;
+    Object.assign(b, { x, y, vx, vy, side, ...extra });
+    gameState.bullets.push(b);
+}
+
+function processFireColaTarget(cx, cy, tx, ty, side) {
+    const u = gameState.units.find(u => u.side === side && u.type === 'cola' && !u.fired && u.x === cx && u.y === cy);
+    if (u) { u.fired = true; u.hp = -1; fireColaTarget(u, tx, ty); }
+}
+
+function fireColaTarget(u, tx, ty) {
+    if (gameState.prepTimer > 0) return; // 準備期間中は不可
+    SoundManager.playFire();
+    let spd = 6.0;
+    // 零式コーラは超高速初速
+    if (u.action === 'zero') spd = 9.0;
+
+    const dx = tx - u.x; const dy = ty - u.y;
+    const dist = Math.sqrt(dx * dx + dy * dy); let vx = 0; let vy = 0;
+    if (dist > 0) { vx = (dx / dist) * spd; vy = (dy / dist) * spd; } else { vx = u.side === 'left' ? spd : -spd; }
+    
+    const extra = { spriteKey: u.typeKey, size: 16, action: u.action };
+    if (u.actions && u.actions.includes('homing')) extra.homing = true;
+    if (u.actions && u.actions.includes('split')) u.action = 'split';
+    if (u.actions && u.actions.includes('bounce')) u.action = 'bounce';
+    
+    let pCount = extra.pierceCount || 0;
+    if (u.action === 'pierce' || (u.actions && u.actions.includes('pierce'))) {
+        pCount = 1 + (u.extractionCount || 0);
+    }
+    
+    // 超巨大コーラ（ギガント）は前線を貫通して圧殺
+    if (u.action === 'megaton') {
+        extra.size = 24;
+        pCount = 2;
+    }
+    extra.pierceCount = pCount;
+
+    if (u.action === 'straight') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 25, ...extra });
+    else if (u.action === 'bounce') spawnBullet(u.x, u.y, vx, vy, u.side, { bounce: 3, power: 20, ...extra });
+    else if (u.action === 'split') spawnBullet(u.x, u.y, vx, vy, u.side, { split: true, power: 18, lifetime: 40, ...extra });
+    else if (u.action === 'charge') {
+        const bonus = (u.charge || 0) * 40;
+        spawnBullet(u.x, u.y, vx * (1.5 + (u.charge || 0)), vy * (1.5 + (u.charge || 0)), u.side, { power: 35 + bonus, ...extra });
+    } else if (u.action === 'pierce') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 22, ...extra });
+    else if (u.action === 'spread') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 20, ...extra });
+    else if (u.action === 'megaton') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 38, ...extra });
+    else if (u.action === 'blackhole') spawnBullet(u.x, u.y, vx * 0.7, vy * 0.7, u.side, { power: 24, ...extra });
+    else if (u.action === 'geyser') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 22, ...extra });
+    else if (u.action === 'zero') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 16, ...extra });
+    else spawnBullet(u.x, u.y, vx, vy, u.side, { power: 15, ...extra });
+}
+
+// ────────────────────────────────────────────────
+// ユニットプレビューパネル
+// ────────────────────────────────────────────────
+
+const TYPE_LABEL = { rice: '稲', cola: 'コーラ', soda: 'ソーダ', extraction: '抽出' };
+const TYPE_COLOR = { rice: '#4a8', cola: '#c54', soda: '#48f', extraction: '#0cf' };
+
+const ACTION_JP = {
+    'straight': '直進', 'bounce': '跳弾', 'split': '分裂', 'charge': '溜め撃ち',
+    'pierce': '貫通', 'spread': '爆散', 'glide': '滑空', 'homing': '追尾弾を撃つ',
+    'laser': '高速レーザー照射', 'poison': '毒胞子弱体化', 'frost': '氷結弾相殺',
+    'sniper': '本体直接狙撃', 'megaton': '超巨大重量圧殺', 'blackhole': '重力弾吸引変換',
+    'geyser': '炭酸暴走加速', 'zero': '零式高速投擲'
+};
+
+const FIRE_TYPE_JP = {
+    '8dir': '8方向弾', 'circle6': '円形6発', 'homing2': '追尾弾×2',
+    'burst': '3連射', 'single': '単発弾', 'none': 'なし'
+};
+
+function showUnitPreview(unit) {
+    if (!unit || unit.hp <= 0) return;
+    gameState.previewedUnit = unit;
+
+    const panel = document.getElementById('unit-preview-panel');
+    if (!panel) return;
+
+    // ── スプライト ──
+    const sprCanvas = document.getElementById('unit-preview-sprite');
+    const sCtx = sprCanvas.getContext('2d');
+    sCtx.clearRect(0, 0, 64, 64);
+
+    if (unit.type === 'extraction') {
+        // 抽出ユニットはキャンバスにそのままミニ描画
+        sCtx.save();
+        sCtx.translate(32, 32);
+        const hue = unit.side === 'left' ? 180 : 30;
+        const grad = sCtx.createRadialGradient(0, 0, 2, 0, 0, 22);
+        grad.addColorStop(0, `hsla(${hue}, 100%, 80%, 0.6)`);
+        grad.addColorStop(1, `hsla(${hue}, 100%, 50%, 0)`);
+        sCtx.fillStyle = grad;
+        sCtx.beginPath(); sCtx.arc(0, 0, 22, 0, Math.PI * 2); sCtx.fill();
+        sCtx.strokeStyle = `hsla(${hue}, 100%, 85%, 0.9)`;
+        sCtx.lineWidth = 2;
+        sCtx.fillStyle = `hsla(${hue}, 80%, 40%, 0.8)`;
+        sCtx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const ang = (Math.PI / 3) * i;
+            i === 0 ? sCtx.moveTo(Math.cos(ang)*14, Math.sin(ang)*14)
+                    : sCtx.lineTo(Math.cos(ang)*14, Math.sin(ang)*14);
+        }
+        sCtx.closePath(); sCtx.fill(); sCtx.stroke();
+        sCtx.fillStyle = `hsla(${hue}, 100%, 90%, 1)`;
+        sCtx.beginPath(); sCtx.arc(0, 0, 5, 0, Math.PI * 2); sCtx.fill();
+        sCtx.restore();
+    } else {
+        const spr = ASSETS[unit.typeKey];
+        if (spr) {
+            sCtx.imageSmoothingEnabled = false;
+            sCtx.drawImage(spr, 0, 0, 64, 64);
+        }
+    }
+
+    // ── 名前・タイプ ──
+    document.getElementById('unit-preview-name').textContent = unit.name;
+
+    const badge = document.getElementById('unit-preview-type-badge');
+    const typeKey = unit.type;
+    badge.textContent = TYPE_LABEL[typeKey] || typeKey;
+    badge.style.background = (TYPE_COLOR[typeKey] || '#888') + '33';
+    badge.style.border = `1px solid ${TYPE_COLOR[typeKey] || '#888'}88`;
+    badge.style.color = TYPE_COLOR[typeKey] || '#eee';
+
+    // ── ステータス ──
+    const statsDiv = document.getElementById('unit-preview-stats');
+    statsDiv.innerHTML = '';
+
+    const hpCurrent = Math.max(0, Math.floor(unit.hp));
+    const hpMax = unit.maxHp || unit.hp;
+    const hpRatio = Math.max(0, Math.min(1, hpCurrent / hpMax));
+    const hpColor = hpRatio > 0.5 ? '#0f0' : hpRatio > 0.25 ? '#ff0' : '#f44';
+
+    const rows = [];
+    rows.push({ label: '体力', value: `${hpCurrent} / ${Math.floor(hpMax)}`, bar: { ratio: hpRatio, color: hpColor } });
+    if (unit.power) rows.push({ label: '攻撃力', value: unit.power });
+    if (unit.cooldown && unit.cooldown < 900) rows.push({ label: '攻撃速度', value: `${(1.0/unit.cooldown).toFixed(2)} 発/秒` });
+    if (unit.cost) rows.push({ label: 'コスト', value: unit.cost });
+    if (unit.manaGen > 0) rows.push({ label: 'マナ生成', value: `+${unit.manaGen}/f` });
+    
+    // 倍率（抽出回数による強化の合算表示）
+    if (unit.extractionCount > 0) {
+        const mult = (1.0 + unit.extractionCount * 0.2).toFixed(1);
+        rows.push({ label: '倍率(抽出)', value: `×${mult} (強化済)` });
+    }
+
+    rows.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'preview-stat-row';
+        row.innerHTML = `<span class="preview-stat-label">${r.label}</span><span class="preview-stat-value">${r.value}</span>`;
+        statsDiv.appendChild(row);
+        if (r.bar) {
+            const wrap = document.createElement('div');
+            wrap.className = 'preview-hp-bar-wrap';
+            const fill = document.createElement('div');
+            fill.className = 'preview-hp-bar-fill';
+            fill.style.width = `${r.bar.ratio * 100}%`;
+            fill.style.background = r.bar.color;
+            wrap.appendChild(fill);
+            statsDiv.appendChild(wrap);
+        }
+    });
+
+    // ── スキル表示 ──
+    const skillsDiv = document.getElementById('unit-preview-skills');
+    skillsDiv.innerHTML = '';
+
+    const fireTypes = unit.fireTypes || (unit.fireType ? [unit.fireType] : []);
+    const actions = unit.actions || (unit.action ? [unit.action] : []);
+
+    if (fireTypes.length > 0) {
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:0.5rem;color:#668;margin-bottom:1px;';
+        label.textContent = '── スキル (射撃) ──';
+        skillsDiv.appendChild(label);
+        fireTypes.filter(ft => ft !== 'none').forEach(ft => {
+            const tag = document.createElement('div');
+            tag.className = 'preview-skill-tag';
+            tag.textContent = FIRE_TYPE_JP[ft] || ft;
+            skillsDiv.appendChild(tag);
+        });
+    }
+
+    if (actions.length > 0) {
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:0.5rem;color:#668;margin-bottom:1px;margin-top:3px;';
+        label.textContent = '── スキル (アクション) ──';
+        skillsDiv.appendChild(label);
+        actions.forEach(act => {
+            const tag = document.createElement('div');
+            tag.className = 'preview-skill-tag action-tag';
+            tag.textContent = ACTION_JP[act] || act;
+            skillsDiv.appendChild(tag);
+        });
+    }
+
+    // 抽出ユニットの素材名
+    if (unit.extractionCount > 0 && unit.sourceNames && unit.sourceNames.length > 0) {
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:0.5rem;color:#668;margin-bottom:1px;margin-top:3px;';
+        label.textContent = '── 吸収履歴 ──';
+        skillsDiv.appendChild(label);
+        unit.sourceNames.forEach(nm => {
+            const tag = document.createElement('div');
+            tag.className = 'preview-skill-tag';
+            tag.style.cssText = 'background:rgba(100,60,160,0.2);border-color:rgba(150,100,220,0.4);color:#c8f;';
+            tag.textContent = nm;
+            skillsDiv.appendChild(tag);
+        });
+    }
+
+    // ── 説明文 ──
+    document.getElementById('unit-preview-desc').textContent = unit.desc || '';
+
+    panel.classList.remove('hidden');
+}
+
+function hideUnitPreview() {
+    gameState.previewedUnit = null;
+    const panel = document.getElementById('unit-preview-panel');
+    if (panel) panel.classList.add('hidden');
+}
+
+// ────────────────────────────────────────────────
+// 抽出システム
+// ────────────────────────────────────────────────
+
+function toggleExtractionMode() {
+    gameState.extractionMode = !gameState.extractionMode;
+    gameState.extractionSelections = [];
+    const btn = document.getElementById('btn-toggle-fusion-mode');
+    if (gameState.extractionMode) {
+        statusMsg.innerText = "【融合モードON】合体させたい2つのユニットを順番にクリックしてください！（稲＋コーラで跳弾・貫通・追尾弾幕！）";
+        if (btn) { btn.style.background = '#0aa'; btn.innerText = '融合キャンセル(E)'; }
+    } else {
+        statusMsg.innerText = "融合モードOFF";
+        if (btn) { btn.style.background = '#066'; btn.innerText = '抽出モード(E)'; }
+    }
+}
+
+function handleExtractionClick(row, col) {
+    // 範囲内の自分のユニットを検索
+    const u = gameState.units.find(u => {
+        if (u.side !== gameState.playerSide || u.hp <= 0) return false;
+        if (u.row === row && u.col === col) return true;
+        // ピクセル座標の近接でもチェック (コーラなど)
+        const cell = CONFIG.TILE_SIZE;
+        const cx = col * cell + cell / 2;
+        const cy = row * cell + cell / 2;
+        return Math.abs(u.x - cx) < cell && Math.abs(u.y - cy) < cell;
+    });
+
+    if (!u) {
+        statusMsg.innerText = "合体させる自分のユニットをクリックしてください。";
+        return;
+    }
+
+    const sel = gameState.extractionSelections;
+
+    // 1体目を選択済み ➔ 2体目をクリックして融合実行
+    if (sel.length === 1) {
+        if (sel[0] === u) {
+            // 同じユニットをクリックしたら選択解除
+            gameState.extractionSelections = [];
+            statusMsg.innerText = "選択を解除しました。";
+            return;
+        }
+
+        const src = sel[0];    // 素材ユニット（消滅）
+        const target = u;       // 基盤ユニット（強化＆スキル継承）
+
+        // 通常ユニットは最大5回、シークレットキメラは最大10回まで抽出可能
+        const maxLimit = target.isSecretChimera ? 10 : 5;
+        if (target.extractionCount >= maxLimit) {
+            statusMsg.innerText = `「${target.name}」は既に最大抽出数（${maxLimit}回）に達しています！`;
+            gameState.extractionSelections = [];
+            return;
+        }
+
+        // 融合処理を実行
+        if (gameState.isPractice) {
+            processExtraction(target.col, target.row, src.col, src.row, gameState.playerSide);
+        } else if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'signal', action: 'extraction_process',
+                targetCol: target.col, targetRow: target.row,
+                srcCol: src.col, srcRow: src.row,
+                side: gameState.playerSide
+            }));
+            if (gameState.isHost) processExtraction(target.col, target.row, src.col, src.row, gameState.playerSide);
+        }
+
+        gameState.extractionSelections = [];
+        return;
+    }
+
+    // 1体目の選択
+    gameState.extractionSelections = [u];
+    statusMsg.innerText = `1体目「${u.name}」を選択。次に合体先となる2体目のユニットをクリック！`;
+}
+
+// 🌟 カットイン演出の表示
+function showSecretEvolutionCutin(name) {
+    const cutin = document.getElementById('secret-evolution-cutin');
+    const nameEl = document.getElementById('cutin-evolution-name');
+    if (!cutin || !nameEl) return;
+    nameEl.textContent = name;
+    cutin.classList.remove('hidden');
+    SoundManager.playVictory();
+    setTimeout(() => {
+        cutin.classList.add('hidden');
+    }, 2500);
+}
+
+function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
+    const target = gameState.units.find(u => u.col === targetCol && u.row === targetRow && u.side === side && u.hp > 0);
+    const src = gameState.units.find(u => u.col === srcCol && u.row === srcRow && u.side === side && u.hp > 0);
+    if (!target || !src) return;
+
+    SoundManager.playSummon();
+
+    // 融合データ初期化
+    if (!target.extractionCount) target.extractionCount = 0;
+    if (!target.sourceNames) target.sourceNames = [];
+    if (!target.extractionHistory) target.extractionHistory = [];
+    if (!target.fireTypes) target.fireTypes = target.fireType && target.fireType !== 'none' ? [target.fireType] : [];
+    if (!target.actions) target.actions = target.action ? [target.action] : [];
+
+    // 素材側のスキル・特性を抽出
+    const srcFireTypes = src.fireTypes || (src.fireType && src.fireType !== 'none' ? [src.fireType] : []);
+    const srcActions = src.actions || (src.action ? [src.action] : []);
+
+    // 射撃タイプ追加（ただしマナ生成系ソーダやマナ生成キメラは弾を撃たない）
+    if (!target.isManaProducer && target.type !== 'soda') {
+        srcFireTypes.forEach(ft => {
+            if (!target.fireTypes.includes(ft)) target.fireTypes.push(ft);
+        });
+        if (target.fireTypes.length === 0 && srcFireTypes.length === 0 && (target.type === 'cola' || src.type === 'cola')) {
+            target.fireTypes.push('single');
+        }
+    }
+
+    // アクション特性追加（コーラの跳弾・分裂・貫通・追尾・爆散・チャージ等）
+    srcActions.forEach(act => {
+        if (!target.actions.includes(act)) target.actions.push(act);
+    });
+
+    target.extractionCount++;
+    target.sourceNames.push(src.name);
+
+    // シークレット特殊進化（キメラ合体）の判定
+    let matchedChimera = null;
+    for (const key of Object.keys(SECRET_CHIMERAS)) {
+        const chimera = SECRET_CHIMERAS[key];
+        try {
+            if (chimera.recipe(target, src)) {
+                matchedChimera = chimera;
+                break;
+            }
+        } catch (e) {}
+    }
+
+    // 抽出履歴に素材のtypeKeyを記録
+    target.extractionHistory.push(src.typeKey || src.id);
+
+    // 正しい順番・組み合わせに合致した時のみ100%シークレット進化（確率依存や5回一律進化は廃止）
+    if (matchedChimera) {
+        target.isSecretChimera = true;
+        target.chimeraId = matchedChimera.id;
+        target.name = matchedChimera.name;
+        target.spriteKey = matchedChimera.id;
+        target.maxHp = matchedChimera.hp;
+        target.hp = matchedChimera.hp;
+        target.power = matchedChimera.power;
+        target.cooldown = matchedChimera.cooldown;
+        target.fireTypes = [...matchedChimera.fireTypes];
+        target.actions = [...(matchedChimera.actions || [])];
+        if (matchedChimera.isManaProducer) target.isManaProducer = true;
+        if (matchedChimera.manaGen) target.manaGen = matchedChimera.manaGen;
+        if (matchedChimera.pierceCount) target.pierceCount = matchedChimera.pierceCount;
+
+        // 図鑑アンロック記録（ローカル + クラウド同期）
+        try {
+            let disc = JSON.parse(localStorage.getItem('inamu_discovered_chimeras') || '[]');
+            if (!disc.includes(matchedChimera.id)) {
+                disc.push(matchedChimera.id);
+                CloudSyncManager.saveDiscoveredChimeras(disc);
+            }
+        } catch (e) {}
+
+        // カットイン表示
+        showSecretEvolutionCutin(matchedChimera.name);
+        statusMsg.innerText = `シークレット進化！「${matchedChimera.name}」が誕生した！`;
+    } else if (target.isSecretChimera) {
+        // すでにシークレットであるユニットへの追加抽出（能力をさらに上乗せ強化！）
+        const hpRatio = target.hp / (target.maxHp || target.hp || 1);
+        target.maxHp = Math.floor((target.maxHp || target.hp) + (src.maxHp || src.hp) * 0.4);
+        target.hp = Math.floor(target.maxHp * Math.max(0.2, hpRatio));
+        target.power = (target.power || 15) + Math.max(2, Math.floor((src.power || 5) * 0.3));
+        target.cooldown = Math.max(0.5, (target.cooldown || 1.5) * 0.9);
+        if (src.manaGen > 0) target.manaGen = (target.manaGen || 0) + src.manaGen * 0.6;
+
+        statusMsg.innerText = `シークレット「${target.name}」が「${src.name}」を吸収して超強化！ (抽出: ${target.extractionCount}/10)`;
+    } else {
+        // 通常の融合ステータス強化
+        const hpRatio = target.hp / (target.maxHp || target.hp || 1);
+        target.maxHp = Math.floor((target.maxHp || target.hp) + (src.maxHp || src.hp) * 0.3);
+        target.hp = Math.floor(target.maxHp * Math.max(0.2, hpRatio));
+        target.power = (target.power || 5) + Math.max(1, Math.floor((src.power || 5) * 0.2));
+        target.cooldown = Math.max(0.8, (target.cooldown || 2.0) * 0.85);
+        if (src.manaGen > 0) target.manaGen = (target.manaGen || 0) + src.manaGen * 0.5;
+
+        statusMsg.innerText = `「${src.name}」と「${target.name}」が抽出融合！ (融合度: ${target.extractionCount}/5)`;
+    }
+
+    // 吸収エフェクト用に光の球パーティクルを生成
+    gameState.summoningEffects.push({
+        type: 'absorption',
+        side: side,
+        startX: src.x, startY: src.y,
+        targetX: target.x, targetY: target.y,
+        progress: 0,
+        duration: 18
+    });
+
+    src.hp = 0; // 素材消費（消滅）
+}
+
+// 融合ユニットの発射処理
+function fireExtractionUnit(u) {
+    if (gameState.prepTimer > 0) return;
+
+    // マナ生成系（ソーダ系、またはマナ生成キメラ）は弾を撃たない
+    if (u.type === 'soda' || u.isManaProducer || !u.fireTypes || u.fireTypes.includes('none') || u.fireTypes.length === 0) {
+        // 生命樹のリジェネ能力のみ実行
+        if (u.isSecretChimera && u.chimeraId === 'chimera_genesis') {
+            const p = gameState.players[u.side];
+            if (p) p.hp = Math.min(p.maxHp || 2000, p.hp + 3);
+        }
+        return;
+    }
+
+    SoundManager.playFire();
+
+    const spd = 2.5;
+    const power = u.power || 20;
+
+    // 融合されたアクション特性をすべて弾丸に付加
+    const actExt = {};
+    if (u.actions) {
+        if (u.actions.includes('homing')) actExt.homing = true;
+        if (u.actions.includes('split')) actExt.split = true;
+        if (u.actions.includes('bounce')) actExt.bounce = 3;
+        if (u.actions.includes('spread')) actExt.action = 'spread';
+        if (u.actions.includes('poison')) actExt.action = 'poison';
+        if (u.actions.includes('frost')) actExt.action = 'frost';
+        if (u.actions.includes('blackhole')) actExt.action = 'blackhole';
+        if (u.actions.includes('megaton')) { actExt.size = 12; actExt.power = power * 1.5; }
+        if (u.actions.includes('pierce')) {
+            actExt.pierce = true;
+            actExt.pierceCount = u.pierceCount || (1 + (u.extractionCount || 1));
+        }
+    }
+
+    const fire = (x, y, vx, vy, side, extra = {}) => {
+        let pCount = extra.pierceCount || actExt.pierceCount || 0;
+        spawnBullet(x, y, vx, vy, side, { power, pierceCount: pCount, ...actExt, ...extra });
+    };
+
+    // リジェネ能力（アウラ・ジェネシス等: リバランスで毎発射HP+2回復）
+    if (u.isSecretChimera && u.chimeraId === 'chimera_genesis') {
+        const p = gameState.players[u.side];
+        if (p) p.hp = Math.min(p.maxHp || 2000, p.hp + 2);
+    }
+
+    u.fireTypes.forEach(ft => {
+        if (ft === 'none') return;
+        if (ft === '8dir' && u.id === 'rice_1') {
+            const baseAng = u.side === 'left' ? 0 : Math.PI;
+            fire(u.x, u.y, Math.cos(baseAng) * 2.8 * spd, Math.sin(baseAng) * 2.8 * spd, u.side);
+            fire(u.x, u.y, Math.cos(baseAng + 0.3) * 2.5 * spd, Math.sin(baseAng + 0.3) * 2.5 * spd, u.side);
+            fire(u.x, u.y, Math.cos(baseAng - 0.3) * 2.5 * spd, Math.sin(baseAng - 0.3) * 2.5 * spd, u.side);
+        } else if (ft === '8dir') {
+            for (let ang = 0; ang < Math.PI * 2; ang += Math.PI / 4)
+                fire(u.x, u.y, Math.cos(ang) * 2.2 * spd, Math.sin(ang) * 2.2 * spd, u.side);
+        } else if (ft === 'circle6') {
+            for (let ang = 0; ang < Math.PI * 2; ang += Math.PI / 3)
+                fire(u.x, u.y, Math.cos(ang) * 1.8 * spd, Math.sin(ang) * 1.8 * spd, u.side);
+        } else if (ft === 'burst') {
+            const baseAng = u.side === 'left' ? 0 : Math.PI;
+            fire(u.x, u.y, Math.cos(baseAng) * 4.2 * spd, Math.sin(baseAng) * 4.2 * spd, u.side);
+            fire(u.x, u.y - 8, Math.cos(baseAng) * 3.8 * spd, Math.sin(baseAng) * 3.8 * spd, u.side);
+            fire(u.x, u.y + 8, Math.cos(baseAng) * 3.8 * spd, Math.sin(baseAng) * 3.8 * spd, u.side);
+        } else if (ft === 'homing2') {
+            fire(u.x, u.y, u.side === 'left' ? 2.5 * spd : -2.5 * spd, 0, u.side, { homing: true });
+            fire(u.x, u.y, u.side === 'left' ? 2.5 * spd : -2.5 * spd, 0.6 * spd, u.side, { homing: true });
+        } else if (ft === 'single') {
+            const baseSpd = u.action === 'laser' || u.action === 'sniper' ? 4.8 * spd : 3.0 * spd;
+            fire(u.x, u.y, u.side === 'left' ? baseSpd : -baseSpd, 0, u.side);
+        }
+    });
+}
+
+function populateEncyclopedia() {
+    const list = document.getElementById('encyclopedia-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    // 通常ユニットセクション見出し
+    const normalHeader = document.createElement('div');
+    normalHeader.style.cssText = 'width: 100%; color: #0df; font-size: 1.1rem; font-weight: bold; border-bottom: 2px solid #0df; padding-bottom: 5px; margin-bottom: 10px;';
+    normalHeader.textContent = '通常ユニット一覧';
+    list.appendChild(normalHeader);
+
+    // 全通常ユニットのキーを取得してソート
+    const allKeys = Object.keys(UNIT_TYPES).sort((a, b) => {
+        const typeOrder = { 'rice': 0, 'soda': 1, 'cola': 2 };
+        return (typeOrder[UNIT_TYPES[a].type] ?? 9) - (typeOrder[UNIT_TYPES[b].type] ?? 9);
+    });
+
+    allKeys.forEach(key => {
+        const u = UNIT_TYPES[key];
+        const div = document.createElement('div');
+        div.style.cssText = 'background: #333; border: 1px solid #777; padding: 10px; width: 220px; text-align: left; position: relative; border-radius: 6px;';
+
+        const spr = ASSETS[key];
+        let imgTag = '';
+        if (spr) {
+            imgTag = `<img src="${spr.toDataURL()}" style="width: 40px; height: 40px; image-rendering: pixelated; margin-right: 8px;">`;
+        }
+
+        let stats = '';
+        if (u.type === 'rice') stats = `HP: ${u.hp} / Cost: ${u.cost}`;
+        else if (u.type === 'cola') stats = `Power: ${u.power} / Cost: ${u.cost}`;
+        else if (u.type === 'soda') stats = `Mana回復: ${u.manaGen}/s / Cost: ${u.cost}`;
+
+        div.innerHTML = `
+            <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                ${imgTag}
+                <div>
+                    <strong style="color: #fb0; font-size: 0.95rem;">${u.name}</strong><br>
+                    <small style="color: #0df;">${stats}</small>
+                </div>
+            </div>
+            <p style="font-size: 0.75rem; margin-top: 5px; border-top: 1px solid #555; padding-top: 5px; line-height: 1.3; color: #ddd;">${u.desc || '説明はありません。'}</p>
+        `;
+        list.appendChild(div);
+    });
+
+    // シークレット特殊進化（キメラ合体）セクション
+    const chimeraHeader = document.createElement('div');
+    chimeraHeader.style.cssText = 'width: 100%; color: #ffd700; font-size: 1.1rem; font-weight: bold; border-bottom: 2px solid #ffd700; padding-bottom: 5px; margin: 20px 0 10px 0;';
+    chimeraHeader.textContent = 'シークレット特殊進化キメラ (全20種)';
+    list.appendChild(chimeraHeader);
+
+    const discovered = JSON.parse(localStorage.getItem('inamu_discovered_chimeras') || '[]');
+
+    Object.keys(SECRET_CHIMERAS).forEach(k => {
+        const chimera = SECRET_CHIMERAS[k];
+        const isDiscovered = discovered.includes(chimera.id);
+        const div = document.createElement('div');
+        div.style.cssText = 'background: ' + (isDiscovered ? '#2a1a3a' : '#1e1e24') + '; border: 1px solid ' + (isDiscovered ? '#ffd700' : '#444') + '; padding: 10px; width: 220px; text-align: left; position: relative; border-radius: 6px;';
+
+        const spr = ASSETS[chimera.id];
+        let imgTag = '';
+        if (isDiscovered && spr) {
+            imgTag = `<img src="${spr.toDataURL()}" style="width: 40px; height: 40px; image-rendering: pixelated; margin-right: 8px;">`;
+        } else {
+            imgTag = `<div style="width: 40px; height: 40px; background: #111; border: 1px dashed #555; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #555; margin-right: 8px;">？</div>`;
+        }
+
+        if (isDiscovered) {
+            div.innerHTML = `
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    ${imgTag}
+                    <div>
+                        <strong style="color: #ffd700; font-size: 0.95rem;">${chimera.name}</strong><br>
+                        <small style="color: #0df;">HP: ${chimera.hp} / 攻: ${chimera.power || '-'}</small>
+                    </div>
+                </div>
+                <div style="font-size: 0.72rem; color: #f39c12; margin-bottom: 3px; font-weight: bold;">配合レシピ: ${chimera.pairHint}</div>
+                <p style="font-size: 0.75rem; margin-top: 3px; border-top: 1px solid #555; padding-top: 3px; line-height: 1.3; color: #ddd;">${chimera.desc}</p>
+            `;
+        } else {
+            div.innerHTML = `
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    ${imgTag}
+                    <div>
+                        <strong style="color: #777; font-size: 0.95rem;">？？？ (未発見)</strong><br>
+                        <small style="color: #555;">シークレット進化</small>
+                    </div>
+                </div>
+                <div style="font-size: 0.7rem; color: #555; margin-bottom: 3px;">配合レシピ: ？？？？？？？？？？</div>
+                <p style="font-size: 0.75rem; margin-top: 3px; border-top: 1px solid #333; padding-top: 3px; line-height: 1.3; color: #666;">まだ発見されていない未知のシークレットキメラです。戦場で特殊な抽出を成功させると配合レシピが解放されます。</p>
+            `;
+        }
+        list.appendChild(div);
+    });
+}
+
+
+function attemptFireColaTarget(cola, tx, ty) {
+    if (gameState.isPractice) { processFireColaTarget(cola.x, cola.y, tx, ty, gameState.playerSide); return; }
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'signal', action: 'fire_cola_target',
+            colaIdX: cola.x, colaIdY: cola.y, tx, ty, side: gameState.playerSide
+        }));
+    }
+}
+
+function endGame(winner) {
+    SoundManager.playVictory();
+    statusMsg.innerText = `ゲーム終了！勝者: ${winner === 'left' ? 'P1' : 'P2'}`;
+    menuOverlay.classList.remove('hidden');
+    gameUI.classList.add('hidden');
+
+    // メニューに戻ったらサーバー情報パネルを再表示
+    const serverInfoPanel = document.getElementById('server-info-panel');
+    if (serverInfoPanel) serverInfoPanel.classList.remove('hidden');
+    const dpsPanel = document.getElementById('dps-panel');
+    if (dpsPanel) dpsPanel.classList.add('hidden');
+
+    // ELO 計算 (簡易版)
+    if (winner === gameState.playerSide) {
+        updateElo(32);
+    } else {
+        updateElo(-32);
+    }
+}
+
+function updateElo(delta) {
+    // CloudSyncManagerを通じてローカル+サーバー両方に保存
+    CloudSyncManager.updateElo(delta).then(elo => {
+        console.log(`ELO更新: ${elo > 0 ? '+' : ''}${delta} → 合計: ${elo}`);
+    });
+}
+
+function removeBullet(index) {
+    const b = gameState.bullets.splice(index, 1)[0];
+    bulletPool.push(b);
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    // 📷 カメラの拡大・縮小＆位置移動をキャンバス全体に適用
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(Camera.zoom, Camera.zoom);
+    ctx.translate(-canvas.width / 2 + Camera.x, -canvas.height / 2 + Camera.y);
+
+    // グリッド描画 (網目をわかりやすく)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+    const tile = CONFIG.TILE_SIZE;
+
+    for (let i = 0; i <= CONFIG.GRID_COLS; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * tile, 0);
+        ctx.lineTo(tile * i, CONFIG.GRID_ROWS * tile);
+        ctx.stroke();
+    }
+    for (let j = 0; j <= CONFIG.GRID_ROWS; j++) {
+        ctx.beginPath();
+        ctx.moveTo(0, j * tile);
+        ctx.lineTo(CONFIG.SCREEN_WIDTH, j * tile);
+        ctx.stroke();
+    }
+
+    // 🌋 フィールドギミックの描画 (炭酸ファウンテン・黄金稲穂・ポータル)
+    FieldGimmickManager.draw(ctx);
+
+    // プレイヤー描画
+    drawPlayer('left', 'player_left');
+    drawPlayer('right', 'player_right');
+
+    // ユニット描画
+    gameState.units.forEach(u => {
+        // キメラの場合はキメラスプライト、通常はtypeKeyのスプライトを使用
+        const sprKey = (u.isSecretChimera && u.chimeraId) ? u.chimeraId : u.typeKey;
+        const sprite = ASSETS[sprKey] || ASSETS[u.typeKey];
+        if (sprite) {
+            ctx.drawImage(sprite, u.x - 16, u.y - 16);
+            // 溜めゲージの描画
+            if (u.action === 'charge' && !u.fired) {
+                const gx = u.x - 12; const gy = u.y + 14;
+                ctx.fillStyle = '#444'; ctx.fillRect(gx, gy, 24, 4);
+                ctx.fillStyle = '#ff0'; ctx.fillRect(gx, gy, 24 * (u.charge || 0), 4);
+            }
+        }
+
+        // 抽出されている場合の追加エフェクト（オーラとバッジ）
+        if (u.extractionCount > 0) {
+            const count = u.extractionCount;
+            const t = Date.now() / 400;
+            const pulse = 0.5 + Math.sin(t * 3) * 0.5;
+            // キメラは金色のオーラ
+            const hue = u.isSecretChimera ? 45 : (u.side === 'left' ? 180 : 30);
+
+            ctx.save();
+            ctx.translate(u.x, u.y);
+            
+            // 下部のオーラ
+            ctx.fillStyle = u.isSecretChimera
+                ? `rgba(255, 215, 0, ${0.4 * pulse})`
+                : `hsla(${hue}, 100%, 70%, ${0.3 * pulse})`;
+            ctx.beginPath();
+            ctx.ellipse(0, 12, 16 + count, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 抽出回数バッジ
+            ctx.fillStyle = `hsla(${hue}, 100%, 70%, 0.9)`;
+            ctx.font = 'bold 9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`×${count}`, 0, -18);
+            ctx.restore();
+        }
+
+        // 抽出モード中のハイライト
+        if (gameState.extractionMode && u.side === gameState.playerSide && u.hp > 0) {
+            const isSelected = gameState.extractionSelections.some(s => s === u);
+            // 選択されている場合は青枠、まだ選択されていない場合は緑枠
+            ctx.strokeStyle = isSelected ? '#0ff' : '#0a8';
+            ctx.lineWidth = isSelected ? 3 : 1.5;
+            ctx.strokeRect(u.col * tile, u.row * tile, tile, tile);
+            if (isSelected) {
+                ctx.fillStyle = 'rgba(0, 200, 255, 0.15)';
+                ctx.fillRect(u.col * tile, u.row * tile, tile, tile);
+            }
+        }
+    });
+
+    // 召喚・吸収演出の描画
+    gameState.summoningEffects.forEach(ef => {
+        if (ef.type === 'absorption') {
+            ctx.fillStyle = '#0ff';
+            ctx.beginPath();
+            ctx.arc(ef.x, ef.y, 6 + Math.random() * 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(ef.x - 4 + Math.random() * 8, ef.y - 4 + Math.random() * 8);
+            ctx.lineTo(ef.x - 4 + Math.random() * 8, ef.y - 4 + Math.random() * 8);
+            ctx.stroke();
+            return;
+        }
+
+        const sprite = ASSETS[ef.typeKey];
+        if (sprite) {
+            ctx.save();
+            ctx.globalAlpha = 0.7;
+            ctx.translate(ef.x, ef.y);
+            // 飛んでる間は回転させる演出
+            ctx.rotate(ef.progress * Math.PI * 4);
+            ctx.drawImage(sprite, -16, -16);
+            ctx.restore();
+        }
+    });
+
+    // コーラ選択状態の表示
+    if (gameState.selectedCola && gameState.selectedCola.hp > 0 && !gameState.selectedCola.fired) {
+        ctx.strokeStyle = '#0f0';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(gameState.selectedCola.x, gameState.selectedCola.y, 20, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    // プレビュー中ユニットのハイライト枠
+    if (gameState.previewedUnit && gameState.previewedUnit.hp > 0) {
+        const pu = gameState.previewedUnit;
+        const t2 = Date.now() / 500;
+        const alpha = 0.5 + Math.sin(t2) * 0.35;
+        ctx.strokeStyle = `rgba(255, 240, 80, ${alpha})`;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(pu.col * tile + 1, pu.row * tile + 1, tile - 2, tile - 2);
+    }
+
+    // 弾描画
+    gameState.bullets.forEach(b => {
+        if (b.spriteKey && ASSETS[b.spriteKey]) {
+            // コーラ自身が飛んでいく演出（回転しながら）
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            ctx.rotate(Math.atan2(b.vy, b.vx) + Math.PI / 2);
+            ctx.drawImage(ASSETS[b.spriteKey], -16, -16); // 32x32画像
+            ctx.restore();
+        } else {
+            // 特殊弾丸および米粒のドット絵を描画する
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            ctx.rotate(Math.atan2(b.vy, b.vx));
+
+            if (b.action === 'laser') {
+                // ルクス ライス: 高速シアンレーザー光線
+                ctx.fillStyle = '#0ff';
+                ctx.fillRect(-10, -1.5, 20, 3);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(-6, -0.5, 12, 1);
+            } else if (b.action === 'poison') {
+                // ギフト ライス: 紫色の毒胞子
+                ctx.fillStyle = '#9b59b6';
+                ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#2ecc71';
+                ctx.fillRect(-1, -1, 2, 2);
+            } else if (b.action === 'frost') {
+                // フロスト ライス: 水色の氷結晶
+                ctx.fillStyle = '#74b9ff';
+                ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(-3, -0.5, 6, 1); ctx.fillRect(-0.5, -3, 1, 6);
+            } else if (b.action === 'sniper') {
+                // プレツィザ ライス: 赤い徹甲狙撃弾
+                ctx.fillStyle = '#ff7675';
+                ctx.fillRect(-8, -1.5, 16, 3);
+                ctx.fillStyle = '#fdcb6e';
+                ctx.fillRect(4, -1, 3, 2);
+            } else {
+                // 通常の米粒
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 4, 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ddd';
+                ctx.beginPath();
+                ctx.ellipse(0, 1, 3, 1, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+    });
+
+    ctx.restore();
+
+    // UI 更新 (バー描画用)
+    updateStatusBars();
+}
+
+function updateStatusBars() {
+    const p1 = gameState.players.left;
+    const p2 = gameState.players.right;
+    const myMana = gameState.players[gameState.playerSide].mana;
+
+    const maxHp1 = p1.maxHp || 2000;
+    const maxHp2 = p2.maxHp || (gameState.isPractice ? 1000000 : 2000);
+
+    const hitPointRatio1 = Math.max(0, p1.hp) / maxHp1 * 100;
+    const hitPointRatio2 = Math.max(0, p2.hp) / maxHp2 * 100;
+    const manaRatio = Math.max(0, myMana) / 100 * 100;
+
+    document.getElementById('p1-hp-fill').style.width = `${hitPointRatio1}%`;
+    document.getElementById('p2-hp-fill').style.width = `${hitPointRatio2}%`;
+    document.getElementById('mana-fill').style.width = `${manaRatio}%`;
+
+    document.getElementById('p1-hp-text').innerText = `${p1.name} HP: ${Math.floor(p1.hp).toLocaleString()} / ${maxHp1.toLocaleString()}`;
+    document.getElementById('p2-hp-text').innerText = `${p2.name} HP: ${Math.floor(p2.hp).toLocaleString()} / ${maxHp2.toLocaleString()}`;
+    document.getElementById('mana-text').innerText = `Mana: ${Math.floor(myMana)}`;
+
+    // 準備時間の表示
+    if (gameState.prepTimer > 0) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`準備中... ${Math.ceil(gameState.prepTimer / CONFIG.FPS)}`, canvas.width / 2, 30);
+    }
+}
+
+// drawExtractionUnit は削除されました（既存ユニットの見た目を維持するため）
+
+function drawPlayer(side, spriteKey) {
+    const p = gameState.players[side];
+    const baseX = side === 'left' ? 16 : CONFIG.SCREEN_WIDTH - 16;
+    const baseY = p.y + 16; // 中心Y座標
+
+    // 練習場のかかし判定
+    const isScarecrow = gameState.isPractice && side === 'right';
+    const key = isScarecrow ? 'scarecrow' : (side === 'left' ? 'player_left' : 'player_right');
+    const spr = ASSETS[key];
+
+    ctx.save();
+    
+    // 生き生きとした呼吸・バウンスアニメーション
+    const t = Date.now() / 150;
+    const bounce = Math.sin(t) * 1.5;
+    const tilt = isScarecrow ? Math.sin(t * 0.5) * 0.04 : (side === 'left' ? 0.05 : -0.05);
+
+    ctx.translate(baseX, baseY + bounce);
+
+    // 投擲アクション（少し前傾して光る魔力エフェクト）
+    if (p.throwTimer > 0) {
+        const lean = (side === 'left' ? 1 : -1) * 0.3 * (p.throwTimer / 10);
+        ctx.rotate(lean);
+        
+        // 投擲時の魔法エフェクト
+        ctx.fillStyle = side === 'left' ? 'rgba(46, 204, 113, 0.4)' : 'rgba(231, 76, 60, 0.4)';
+        ctx.beginPath();
+        ctx.arc(side === 'left' ? 12 : -12, -4, 10 * (p.throwTimer / 10), 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        ctx.rotate(tilt);
+    }
+
+    if (spr) {
+        // 32x32 ドット絵スプライトの高品質描画
+        // 左プレイヤーは右向き、右プレイヤーは左向き
+        if (side === 'right' && !isScarecrow) {
+            ctx.scale(-1, 1);
+        }
+        ctx.drawImage(spr, -16, -16, 32, 32);
+    }
+
+    ctx.restore();
+}
+
+function exitPracticeMode() {
+    gameState.isPractice = false;
+    menuOverlay.classList.remove('hidden');
+    gameUI.classList.add('hidden');
+    const btnExitP = document.getElementById('btn-exit-practice');
+    if (btnExitP) btnExitP.classList.add('hidden');
+    const dpsPanel = document.getElementById('dps-panel');
+    if (dpsPanel) dpsPanel.classList.add('hidden');
+    const serverInfoPanel = document.getElementById('server-info-panel');
+    if (serverInfoPanel) serverInfoPanel.classList.remove('hidden');
+}
+
+function leaveRoom() {
+    if (gameState.isMatching) {
+        cancelMatch();
+    }
+    if (socket) {
+        socket.close();
+        socket = null;
+    }
+    gameState.roomId = null;
+    gameState.isHost = false;
+    gameState.isMatching = false;
+
+    menuOverlay.classList.remove('hidden');
+    gameUI.classList.add('hidden');
+    const rd = document.getElementById('room-display');
+    if (rd) rd.innerText = `Room: -`;
+    const btnFindMatch = document.getElementById('btn-find-match');
+    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
+    const serverInfoPanel = document.getElementById('server-info-panel');
+    if (serverInfoPanel) serverInfoPanel.classList.remove('hidden');
+    const dpsPanel = document.getElementById('dps-panel');
+    if (dpsPanel) dpsPanel.classList.add('hidden');
+}
+
+function handleSpreadEffect(b) {
+    const num = 12; // 8から12に増やして豪華に
+    for (let i = 0; i < num; i++) {
+        const angle = (Math.PI * 2 / num) * i;
+        const spd = 5;
+        // 微小なオフセットを加えて即時再衝突を防ぐ
+        const ox = Math.cos(angle) * 10;
+        const oy = Math.sin(angle) * 10;
+        spawnBullet(b.x + ox, b.y + oy, Math.cos(angle) * spd, Math.sin(angle) * spd, b.side, { power: 10, spriteKey: 'bullet', size: 4 });
+    }
+}
+
+init();
