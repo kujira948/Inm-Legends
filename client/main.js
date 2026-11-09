@@ -296,7 +296,7 @@ const UNIT_TYPES = {
 // シークレット特殊進化（キメラ合体）全20種の定義（厳格レシピ：最低3素材・2種類以上・個数指定）
 const SECRET_CHIMERAS = {
     GATLING_SPRITE: {
-        id: 'chimera_gatling', name: '機神 ガトリング・スプライト',
+        id: 'chimera_gatling', name: 'GATLING', displayName: '機神 ガトリング・スプライト',
         pairHint: 'シュトゥルム ライス×2 ＋ コーラ ジャンパー (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_BURST' &&
@@ -308,7 +308,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.001 シークレット】連射稲2体に跳弾コーラを抽出。秒間8連射の超高速跳弾マシンガンを乱射する機神。'
     },
     CLUSTER_METEOR: {
-        id: 'chimera_meteor', name: '彗星 クラスター・ミーティア',
+        id: 'chimera_meteor', name: 'METEOR', displayName: '彗星 クラスター・ミーティア',
         pairHint: 'フェッヒャー ライス×2 ＋ コーラ ノヴァ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SPREAD' &&
@@ -320,7 +320,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.002 シークレット】拡散稲2体に爆散コーラを抽出。着弾時に周囲へ超大爆発を起こす彗星弾を円形発射。'
     },
     PHANTOM_HUNTER: {
-        id: 'chimera_phantom', name: '亡霊 イェーガー・アサシン',
+        id: 'chimera_phantom', name: 'PHANTOM', displayName: '亡霊 イェーガー・アサシン',
         pairHint: 'イェーガー ライス ＋ コーラ ランツェ ＋ コーラ ジャンパー (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SEEKER' &&
@@ -332,7 +332,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.003 シークレット】追尾稲に貫通と跳弾コーラを抽出。壁を跳ね敵前線をすり抜け本体を執拗に追尾。'
     },
     VOLCANO_FORTRESS: {
-        id: 'chimera_volcano', name: '超要塞 インフェルノ・フォートレス',
+        id: 'chimera_volcano', name: 'VOLCANO', displayName: '超要塞 インフェルノ・フォートレス',
         pairHint: 'ホルツ シルト ＋ アイゼン シルト ＋ コーラ バルカン (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SHIELD_WOOD' &&
@@ -344,7 +344,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.004 シークレット】木盾に鉄盾と火山コーラを抽出。HP320の砦。周囲に超高威力の火砕流弾を噴出。'
     },
     NEBULA_HARVESTER: {
-        id: 'chimera_nebula', name: '特異点 ネビュラ・ハーベスター',
+        id: 'chimera_nebula', name: 'NEBULA', displayName: '特異点 ネビュラ・ハーベスター',
         pairHint: 'ギフト ライス×2 ＋ コーラ ネビュラ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_POISON' &&
@@ -356,7 +356,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.005 シークレット】毒稲2体に黒コーラを抽出。敵弾を吸い込んで消滅させマナへ変換し、敵弾を腐食。'
     },
     ZERO_DRAGOON: {
-        id: 'chimera_dragoon', name: '超電磁砲 零式ドラグーン・カイザー',
+        id: 'chimera_dragoon', name: 'DRAGOON', displayName: '超電磁砲 零式ドラグーン・カイザー',
         pairHint: 'プレツィザ ライス ＋ コーラ ゼロ ＋ コーラ ブリッツ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SNIPER' &&
@@ -368,7 +368,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.006 シークレット】狙撃稲に零式と電撃コーラを抽出。一直線に敵陣を貫通する超高速プラズマレールガン。'
     },
     MEGALITH_TITAN: {
-        id: 'chimera_titan', name: '超巨神 ギガント・メガリス・タイタン',
+        id: 'chimera_titan', name: 'TITAN', displayName: '超巨神 ギガント・メガリス・タイタン',
         pairHint: 'アイゼン シルト×2 ＋ コーラ ギガント (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SHIELD_IRON' &&
@@ -380,7 +380,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.007 シークレット】鉄盾2体に巨大コーラを抽出。HP350。敵前線を圧殺する超重量級メガトン砲撃。'
     },
     FROST_NOVA: {
-        id: 'chimera_frost', name: '極光 フロスト・ノヴァ',
+        id: 'chimera_frost', name: 'FROST', displayName: '極光 フロスト・ノヴァ',
         pairHint: 'フロスト ライス×2 ＋ コーラ ゲイザー (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_FROST' &&
@@ -392,7 +392,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】氷結稲2体にゲイザーコーラを抽出。急加速する8方向冷気弾で敵弾を相殺。'
     },
     ZERO_FROST: {
-        id: 'chimera_zero_frost', name: '絶対零度 アブソリュート・フロスト',
+        id: 'chimera_zero_frost', name: 'ZERO-FROST', displayName: '絶対零度 アブソリュート・フロスト',
         pairHint: 'フロスト ライス ＋ コーラ ノヴァ ＋ コーラ ゲイザー (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_FROST' &&
@@ -404,7 +404,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.008 シークレット】氷結稲に爆散とゲイザーを抽出。敵弾を相殺した瞬間に周囲へカウンター大爆散を起こす！'
     },
     AURA_GENESIS: {
-        id: 'chimera_genesis', name: '世界樹 ユグドラシル・ジェネシス',
+        id: 'chimera_genesis', name: 'GENESIS', displayName: '世界樹 ユグドラシル・ジェネシス',
         pairHint: 'アウラ シルト ＋ ソーダ クヴェレ ＋ ソーダ オツェアーン (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SHIELD_MAGIC' &&
@@ -419,7 +419,7 @@ const SECRET_CHIMERAS = {
     // ❄️ 第2弾: 氷結・極冷・絶対零度系シークレット (No.011〜020)
     // ===============================================================
     VALKYRIE_BLIZZARD: {
-        id: 'chimera_valkyrie', name: '氷槍 ヴァルキリー・ブリザード',
+        id: 'chimera_valkyrie', name: 'VALKYRIE', displayName: '氷槍 ヴァルキリー・ブリザード',
         pairHint: 'フロスト ライス×2 ＋ コーラ ジャンパー (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_FROST' &&
@@ -431,7 +431,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.011 シークレット】氷結稲2体に跳弾コーラを抽出。壁を反射しながら触れた敵弾を相殺消滅させる極冷の跳弾氷槍！'
     },
     GLACIA_FORTRESS: {
-        id: 'chimera_glacia', name: '氷壁 グレイシア・フォートレス',
+        id: 'chimera_glacia', name: 'GLACIA', displayName: '氷壁 グレイシア・フォートレス',
         pairHint: 'アイゼン シルト ＋ フロスト ライス ＋ ソーダ クヴェレ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SHIELD_IRON' &&
@@ -443,7 +443,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.012 シークレット】鉄盾に氷結稲と源泉ソーダを抽出。被弾ダメージ軽減＆敵弾を相殺反射する絶対防御の氷壁要塞！'
     },
     ICICLE_SNIPER: {
-        id: 'chimera_icicle', name: '零式 アイシクル・スナイパー',
+        id: 'chimera_icicle', name: 'ICICLE', displayName: '零式 アイシクル・スナイパー',
         pairHint: 'プレツィザ ライス ＋ フロスト ライス ＋ コーラ ゼロ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SNIPER' &&
@@ -455,7 +455,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.013 シークレット】狙撃稲に氷結稲と零式コーラを抽出。敵弾をすり抜け相殺しながら敵プレイヤーを射抜く氷柱弾！'
     },
     DIAMOND_METEOR: {
-        id: 'chimera_diamond', name: '星屑 ダイヤモンドダスト・ミーティア',
+        id: 'chimera_diamond', name: 'DIAMOND', displayName: '星屑 ダイヤモンドダスト・ミーティア',
         pairHint: 'フェッヒャー ライス ＋ フロスト ライス ＋ コーラ ノヴァ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SPREAD' &&
@@ -467,7 +467,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.014 シークレット】拡散稲に氷結稲と爆散コーラを抽出。相殺した瞬間に周囲全域へダイヤモンドダスト大爆散を起こす！'
     },
     AVALANCHE_TITAN: {
-        id: 'chimera_avalanche', name: '雪嶺 アバランチ・タイタン',
+        id: 'chimera_avalanche', name: 'AVALANCHE', displayName: '雪嶺 アバランチ・タイタン',
         pairHint: 'アイゼン シルト ＋ フロスト ライス ＋ コーラ ギガント (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SHIELD_IRON' &&
@@ -479,7 +479,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.015 シークレット】鉄盾に氷結稲と超巨大コーラを抽出。敵弾を相殺しながら敵前線を押し潰す巨大雪崩キャノン！'
     },
     COCYTUS_DRAKE: {
-        id: 'chimera_cocytus', name: '氷竜 コキュートス・ドレイク',
+        id: 'chimera_cocytus', name: 'COCYTUS', displayName: '氷竜 コキュートス・ドレイク',
         pairHint: 'シュトゥルム ライス ＋ フロスト ライス ＋ コーラ ランツェ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_BURST' &&
@@ -491,7 +491,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.016 シークレット】連射稲に氷結稲と貫通コーラを抽出。敵弾を消滅させながら敵列を貫く氷竜の3連凍結レーザー！'
     },
     FREEZE_NEBULA: {
-        id: 'chimera_freeze_nebula', name: '凍穴 フリージング・ネビュラ',
+        id: 'chimera_freeze_nebula', name: 'FREEZE', displayName: '凍穴 フリージング・ネビュラ',
         pairHint: 'ギフト ライス ＋ フロスト ライス ＋ コーラ ネビュラ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_POISON' &&
@@ -503,7 +503,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.017 シークレット】毒稲に氷結稲と重力黒コーラを抽出。敵弾を凍らせて吸い込み消滅させ、自軍マナに大変換！'
     },
     AURORA_PHANTOM: {
-        id: 'chimera_aurora', name: '極光 オーロラ・ファントム',
+        id: 'chimera_aurora', name: 'AURORA', displayName: '極光 オーロラ・ファントム',
         pairHint: 'イェーガー ライス ＋ フロスト ライス ＋ コーラ ジャンパー (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SEEKER' &&
@@ -515,7 +515,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.018 シークレット】追尾稲に氷結稲と跳弾コーラを抽出。壁を反射しながら敵弾を相殺し、相手本体へ迫る幻影氷弾！'
     },
     FROST_GENESIS: {
-        id: 'chimera_frost_genesis', name: '氷聖樹 フロスト・ジェネシス',
+        id: 'chimera_frost_genesis', name: 'FROST-GEN', displayName: '氷聖樹 フロスト・ジェネシス',
         pairHint: 'アウラ シルト ＋ フロスト ライス ＋ ソーダ オツェアーン (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SHIELD_MAGIC' &&
@@ -527,7 +527,7 @@ const SECRET_CHIMERAS = {
         desc: '【No.019 シークレット】魔力盾に氷結稲と大海ソーダを抽出。触れた敵弾を完全凍結相殺しつつ味方リジェネ＆マナ超生成！'
     },
     NIFLHEIM_GOD: {
-        id: 'chimera_niflheim', name: '氷獄神 ニヴルヘイム',
+        id: 'chimera_niflheim', name: 'NIFLHEIM', displayName: '氷獄神 ニヴルヘイム',
         pairHint: 'フロスト ライス×2 ＋ コーラ バルカン (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_FROST' &&
@@ -543,7 +543,7 @@ const SECRET_CHIMERAS = {
     // ⚡ 既存厳格キメラ (追加強化枠)
     // ===============================================================
     VOLTEC_LASER: {
-        id: 'chimera_voltec', name: '迅雷 ルクス・ヴォルテック',
+        id: 'chimera_voltec', name: 'VOLTEC', displayName: '迅雷 ルクス・ヴォルテック',
         pairHint: 'ルクス ライス×2 ＋ コーラ ブリッツ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_LASER' &&
@@ -555,7 +555,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】光の稲2体に電撃コーラを抽出。全てを貫く極太の高圧雷光レーザーを一閃照射。'
     },
     HADES_POISON: {
-        id: 'chimera_hades', name: '冥府 ハデス・ポイズン',
+        id: 'chimera_hades', name: 'HADES', displayName: '冥府 ハデス・ポイズン',
         pairHint: 'ギフト ライス ＋ コーラ ランツェ ＋ コーラ ネビュラ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_POISON' &&
@@ -567,7 +567,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】毒稲に貫通と黒コーラを抽出。敵列を貫き敵弾を弱体化＆吸引する冥界の弾幕。'
     },
     TYPHOON_GEYSER: {
-        id: 'chimera_typhoon', name: '暴風 タイフーン・ゲイザー',
+        id: 'chimera_typhoon', name: 'TYPHOON', displayName: '暴風 タイフーン・ゲイザー',
         pairHint: 'シュトゥルム ライス ＋ コーラ ゲイザー ＋ コーラ ジャンパー (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_BURST' &&
@@ -579,7 +579,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】連射稲にゲイザーと跳弾コーラを抽出。激しく跳ね回る暴走炭酸弾を乱れ撃つ。'
     },
     EMPEROR_SHIELD: {
-        id: 'chimera_emperor', name: '天帝 エンペラー・シルト',
+        id: 'chimera_emperor', name: 'EMPEROR', displayName: '天帝 エンペラー・シルト',
         pairHint: 'アウラ シルト ＋ アイゼン シルト ＋ コーラ ギガント (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SHIELD_MAGIC' &&
@@ -591,7 +591,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】魔力盾に鉄盾と巨大コーラを抽出。前線で不動の要塞となり着弾時に巨大衝撃波を炸裂。'
     },
     MIRAGE_SNIPER: {
-        id: 'chimera_mirage', name: '幻影 ミラージュ・スナイパー',
+        id: 'chimera_mirage', name: 'MIRAGE', displayName: '幻影 ミラージュ・スナイパー',
         pairHint: 'プレツィザ ライス×2 ＋ コーラ ジャンパー (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SNIPER' &&
@@ -603,7 +603,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】狙撃稲2体に跳弾コーラを抽出。壁を反射しながら敵プレイヤーの死角を突く幻影狙撃。'
     },
     FLORA_FRAGMENT: {
-        id: 'chimera_flora', name: '百花 プリムス・フラグメント',
+        id: 'chimera_flora', name: 'FLORA', displayName: '百花 プリムス・フラグメント',
         pairHint: 'ライス プリムス×2 ＋ コーラ フラグメント (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_BASIC' &&
@@ -615,7 +615,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】基本稲2体に分裂コーラを抽出。放たれた全方向米粒が空中で一斉に花咲くように分裂。'
     },
     VORTEX_QUELLE: {
-        id: 'chimera_vortex', name: '深淵 ボルテックス・クヴェレ',
+        id: 'chimera_vortex', name: 'VORTEX', displayName: '深淵 ボルテックス・クヴェレ',
         pairHint: 'ソーダ クヴェレ ＋ ソーダ ブリーゼ ＋ コーラ ネビュラ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'SODA_MEDIUM' &&
@@ -627,7 +627,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】源泉ソーダに小ソーダと黒コーラを抽出。敵弾を吸い込んで即座に大量マナへ変換。'
     },
     PROMINENCE_VULCAN: {
-        id: 'chimera_prominence', name: '紅蓮 プロミネンス・バルカン',
+        id: 'chimera_prominence', name: 'PROMINENCE', displayName: '紅蓮 プロミネンス・バルカン',
         pairHint: 'ルクス ライス ＋ コーラ バルカン ＋ コーラ ノヴァ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_LASER' &&
@@ -639,7 +639,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】光の稲に火山と爆散コーラを抽出。チャージエネルギーを解き放つ極大の熱線ブラスター。'
     },
     GAIA_HARVEST: {
-        id: 'chimera_gaia', name: '豊穣 ガイア・ハーベスト',
+        id: 'chimera_gaia', name: 'GAIA', displayName: '豊穣 ガイア・ハーベスト',
         pairHint: 'ホルツ シルト×2 ＋ ソーダ ブリーゼ (計3体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_SHIELD_WOOD' &&
@@ -651,7 +651,7 @@ const SECRET_CHIMERAS = {
         desc: '【シークレットキメラ】木盾2体に微風ソーダを抽出。前線を強固に守りながらマナを継続供給。'
     },
     INAMU_THE_END: {
-        id: 'chimera_the_end', name: '太陽神 アルティメット・いなむー・ソル',
+        id: 'chimera_the_end', name: 'SOL', displayName: '太陽神 アルティメット・いなむー・ソル',
         pairHint: '基本稲 → ①電撃コーラ → ②微風ソーダ → ③光の稲 の順で抽出 (計4体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_BASIC' &&
@@ -1465,6 +1465,7 @@ let gameState = {
     },
     isPractice: false,
     isBotMatch: false, // 強化Bot対戦モード
+    cpuDifficulty: 2, // CPU難易度 (1=易しい, 2=普通, 3=難しい, 4=超難, 5=鬼)
     deck: [...DEFAULT_DECK],
     units: [],
     summoningEffects: [], // 召喚アニメーション用
@@ -1515,12 +1516,19 @@ const BotAI = {
         const bot = gameState.players[botSide];
         const human = gameState.players.left;
 
+        // 難易度に応じたBot行動速度
+        const diff = gameState.cpuDifficulty || 2;
+        // diffが高いほど行動頻度UP、判断スピードUP
+        const thinkBase = diff === 1 ? 70 : diff === 2 ? 45 : diff === 3 ? 35 : diff === 4 ? 25 : 18;
+        const fireBase = diff === 1 ? 90 : diff === 2 ? 60 : diff === 3 ? 45 : diff === 4 ? 32 : 22;
+        const extractBase = diff === 1 ? 120 : diff === 2 ? 80 : diff === 3 ? 60 : diff === 4 ? 45 : 30;
+
         // 1. 移動・弾除け回避
         this.updateMovement(bot, human);
 
         // 2. 戦術的ユニット召喚（前衛盾・後衛ソーダ・中衛攻撃＆素材）
         this.thinkTimer++;
-        const thinkInterval = gameState.prepTimer > 0 ? 30 : 45; // 準備中は高速配置
+        const thinkInterval = gameState.prepTimer > 0 ? Math.floor(thinkBase * 0.6) : thinkBase; // 準備中は高速配置
         if (this.thinkTimer >= thinkInterval) {
             this.thinkTimer = 0;
             this.trySummon(botSide, bot);
@@ -1528,14 +1536,14 @@ const BotAI = {
 
         // 3. コーラ発射（プレイヤーを狙って一斉射撃）
         this.fireTimer++;
-        if (this.fireTimer >= 60 && gameState.prepTimer <= 0) {
+        if (this.fireTimer >= fireBase && gameState.prepTimer <= 0) {
             this.fireTimer = 0;
             this.tryFireCola(botSide, human);
         }
 
         // 4. 抽出・キメラ進化（自陣ユニット同士を合成してシークレットキメラを生成）
         this.extractTimer++;
-        if (this.extractTimer >= 80) {
+        if (this.extractTimer >= extractBase) {
             this.extractTimer = 0;
             this.tryExtract(botSide);
         }
@@ -1692,6 +1700,13 @@ function startBotMatch() {
         gameState.matchTimeoutTimer = null;
     }
 
+    const difficultyEl = document.getElementById('cpu-difficulty');
+    const difficulty = difficultyEl ? parseInt(difficultyEl.value) : 2;
+    gameState.cpuDifficulty = difficulty;
+
+    const diffNames = ['', '易しい', '普通', '難しい', '超難', '鬼'];
+    const botNames = ['', '🤖 よわよわBot', '🤖 普通Bot', '🤖 強化Bot', '🤖 超強Bot', '🤖 鬼Bot'];
+
     gameState.roomId = 'CPU_BOT';
     gameState.isHost = true;
     gameState.isMatching = false;
@@ -1701,7 +1716,7 @@ function startBotMatch() {
 
     savePlayerName();
     gameState.players.left.name = localStorage.getItem('inamu_player_name') || 'Player 1';
-    gameState.players.right.name = '🤖 強化AI いなむー';
+    gameState.players.right.name = botNames[difficulty] || '🤖 強化AI いなむー';
     gameState.players.left.hp = 2000;
     gameState.players.left.maxHp = 2000;
     gameState.players.right.hp = 2000;
@@ -1713,11 +1728,11 @@ function startBotMatch() {
     gameState.summoningEffects = [];
 
     const roomDisp = document.getElementById('room-display');
-    if (roomDisp) roomDisp.innerText = `Room: VS CPU (強化Bot)`;
+    if (roomDisp) roomDisp.innerText = `VS CPU [${diffNames[difficulty]}]`;
 
     Camera.reset();
     startGame();
-    statusMsg.innerText = "CPU対戦開始！ 相手は思考＆合体を行う強化Botです！";
+    statusMsg.innerText = `CPU対戦開始！ 難易度: ${diffNames[difficulty]}`;
 }
 
 // 初期化
@@ -1749,6 +1764,24 @@ function init() {
     for (let i = 0; i < 50; i++) bgParticles.push(new Particle()); // 粒子を増やす
 
     setupEventListeners();
+
+    // 📱 スマホ判定: タッチ端末のみ操作ボタンを表示
+    const mobileControls = document.getElementById('mobile-controls');
+    const isMobileDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth < 768);
+    if (mobileControls) {
+        mobileControls.style.display = isMobileDevice ? 'flex' : 'none';
+    }
+
+    // チャット折りたたみ状態の復元
+    try {
+        if (localStorage.getItem('chatCollapsed') === '1') {
+            const body = document.getElementById('chat-body');
+            const icon = document.getElementById('chat-toggle-icon');
+            if (body) body.style.display = 'none';
+            if (icon) icon.textContent = '▲';
+        }
+    } catch(e) {}
+
     connectToServer(); // 起動時に自動接続してホスト・他プレイヤー名を取得
     gameLoop();
 }
@@ -3542,10 +3575,10 @@ function toggleExtractionMode() {
     const btn = document.getElementById('btn-toggle-fusion-mode');
     if (gameState.extractionMode) {
         statusMsg.innerText = "【融合モードON】合体させたい2つのユニットを順番にクリックしてください！（稲＋コーラで跳弾・貫通・追尾弾幕！）";
-        if (btn) { btn.style.background = '#0aa'; btn.innerText = '融合キャンセル(E)'; }
+        if (btn) { btn.style.background = '#0aa'; btn.innerText = 'キャンセル(E)'; }
     } else {
-        statusMsg.innerText = "融合モードOFF";
-        if (btn) { btn.style.background = '#066'; btn.innerText = '抽出モード(E)'; }
+        statusMsg.innerText = "";
+        if (btn) { btn.style.background = '#066'; btn.innerText = '抽出(E)'; }
     }
 }
 
