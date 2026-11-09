@@ -275,144 +275,239 @@ const UNIT_TYPES = {
     SODA_LARGE: { id: 'soda_3', name: 'ソーダ オツェアーン', cost: 35, hp: 80, type: 'soda', manaGen: 0.1, desc: '広大な大海のソーダ。マナの潮流を生む。' }
 };
 
-// シークレット特殊進化（キメラ合体）全20種の定義（強化・厳格レシピ）
+// シークレット特殊進化（キメラ合体）全20種の定義（厳格レシピ：最低3素材・2種類以上・個数指定）
 const SECRET_CHIMERAS = {
     GATLING_SPRITE: {
         id: 'chimera_gatling', name: '機神 ガトリング・スプライト',
-        pairHint: 'シュトゥルム ライス ＋ コーラ ジャンパー',
-        recipe: (t, s) => (t.typeKey === 'RICE_BURST' && s.typeKey === 'COLA_BOUNCE'),
-        hp: 95, power: 14, cooldown: 0.7, fireTypes: ['burst'], actions: ['bounce'],
-        desc: '【シークレットキメラ】連射の稲に跳弾コーラを完全抽出。超高速連射で跳弾マシンガンを撃ちまくる機動砲台。'
+        pairHint: 'シュトゥルム ライス×2 ＋ コーラ ジャンパー (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_BURST' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_BURST').length >= 1 &&
+            s.typeKey === 'COLA_BOUNCE'
+        ),
+        hp: 110, power: 16, cooldown: 0.5, fireTypes: ['burst'], actions: ['bounce'],
+        desc: '【No.001 シークレット】連射稲2体に跳弾コーラを抽出。秒間8連射の超高速跳弾マシンガンを乱射する機神。'
     },
     CLUSTER_METEOR: {
         id: 'chimera_meteor', name: '彗星 クラスター・ミーティア',
-        pairHint: 'フェッヒャー ライス ＋ コーラ ノヴァ',
-        recipe: (t, s) => (t.typeKey === 'RICE_SPREAD' && s.typeKey === 'COLA_SPREAD'),
-        hp: 90, power: 22, cooldown: 1.5, fireTypes: ['circle6'], actions: ['spread'],
-        desc: '【シークレットキメラ】拡散の稲に爆散コーラを完全抽出。着弾時に大爆発を起こす星屑の彗星弾を円形発射。'
+        pairHint: 'フェッヒャー ライス×2 ＋ コーラ ノヴァ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SPREAD' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_SPREAD').length >= 1 &&
+            s.typeKey === 'COLA_SPREAD'
+        ),
+        hp: 105, power: 25, cooldown: 1.4, fireTypes: ['circle6'], actions: ['spread'],
+        desc: '【No.002 シークレット】拡散稲2体に爆散コーラを抽出。着弾時に周囲へ超大爆発を起こす彗星弾を円形発射。'
     },
     PHANTOM_HUNTER: {
-        id: 'chimera_phantom', name: '亡霊 イェーガー・ファントム',
-        pairHint: 'イェーガー ライス ＋ コーラ ランツェ',
-        recipe: (t, s) => (t.typeKey === 'RICE_SEEKER' && s.typeKey === 'COLA_PIERCE'),
-        hp: 85, power: 18, cooldown: 1.3, fireTypes: ['homing2'], actions: ['pierce', 'homing'], pierceCount: 3,
-        desc: '【シークレットキメラ】追尾の稲に貫通コーラを完全抽出。敵前線をすり抜けながら本体を執拗に追い詰める幽霊弾。'
+        id: 'chimera_phantom', name: '亡霊 イェーガー・アサシン',
+        pairHint: 'イェーガー ライス ＋ コーラ ランツェ ＋ コーラ ジャンパー (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SEEKER' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('COLA_PIERCE') &&
+            s.typeKey === 'COLA_BOUNCE'
+        ),
+        hp: 95, power: 20, cooldown: 1.1, fireTypes: ['homing2'], actions: ['pierce', 'bounce', 'homing'], pierceCount: 4,
+        desc: '【No.003 シークレット】追尾稲に貫通と跳弾コーラを抽出。壁を跳ね敵前線をすり抜け本体を執拗に追尾。'
     },
     VOLCANO_FORTRESS: {
-        id: 'chimera_volcano', name: '要塞 ヴォルケイノ・フォートレス',
-        pairHint: 'ホルツ シルト ＋ コーラ バルカン',
-        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_WOOD' && s.typeKey === 'COLA_CHARGE'),
-        hp: 210, power: 24, cooldown: 1.8, fireTypes: ['circle6'], actions: ['charge', 'spread'],
-        desc: '【シークレットキメラ】木の盾に火山コーラを完全抽出。圧倒的な耐久を誇り、チャージ火砕流弾を全周囲に噴出。'
+        id: 'chimera_volcano', name: '超要塞 インフェルノ・フォートレス',
+        pairHint: 'ホルツ シルト ＋ アイゼン シルト ＋ コーラ バルカン (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SHIELD_WOOD' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_SHIELD_IRON') &&
+            s.typeKey === 'COLA_CHARGE'
+        ),
+        hp: 320, power: 30, cooldown: 1.6, fireTypes: ['circle6'], actions: ['charge', 'spread'],
+        desc: '【No.004 シークレット】木盾に鉄盾と火山コーラを抽出。HP320の砦。周囲に超高威力の火砕流弾を噴出。'
     },
     NEBULA_HARVESTER: {
-        id: 'chimera_nebula', name: '暗黒 ネビュラ・ハーベスター',
-        pairHint: 'ギフト ライス ＋ コーラ ネビュラ',
-        recipe: (t, s) => (t.typeKey === 'RICE_POISON' && s.typeKey === 'COLA_BLACK'),
-        hp: 95, power: 15, cooldown: 1.6, fireTypes: ['8dir'], actions: ['blackhole'], manaGen: 0.08,
-        desc: '【シークレットキメラ】毒の稲に黒コーラを完全抽出。周囲の敵弾を引き込み消滅させ、自軍のマナに変換。'
+        id: 'chimera_nebula', name: '特異点 ネビュラ・ハーベスター',
+        pairHint: 'ギフト ライス×2 ＋ コーラ ネビュラ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_POISON' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_POISON').length >= 1 &&
+            s.typeKey === 'COLA_BLACK'
+        ),
+        hp: 110, power: 18, cooldown: 1.5, fireTypes: ['8dir'], actions: ['blackhole', 'poison'], manaGen: 0.12,
+        desc: '【No.005 シークレット】毒稲2体に黒コーラを抽出。敵弾を吸い込んで消滅させマナへ変換し、敵弾を腐食。'
     },
     ZERO_DRAGOON: {
-        id: 'chimera_dragoon', name: '雷轟 零式ドラグーン',
-        pairHint: 'プレツィザ ライス ＋ コーラ ゼロ',
-        recipe: (t, s) => (t.typeKey === 'RICE_SNIPER' && s.typeKey === 'COLA_ZERO'),
-        hp: 90, power: 28, cooldown: 1.4, fireTypes: ['single'], actions: ['pierce', 'sniper'], pierceCount: 5,
-        desc: '【シークレットキメラ】狙撃の稲に零式コーラを完全抽出。敵本陣へ向けて障害物を貫く超音速レールガンを射出。'
+        id: 'chimera_dragoon', name: '超電磁砲 零式ドラグーン・カイザー',
+        pairHint: 'プレツィザ ライス ＋ コーラ ゼロ ＋ コーラ ブリッツ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SNIPER' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('COLA_ZERO') &&
+            s.typeKey === 'COLA_STRAIGHT'
+        ),
+        hp: 100, power: 35, cooldown: 1.2, fireTypes: ['single'], actions: ['pierce', 'sniper', 'straight'], pierceCount: 8,
+        desc: '【No.006 シークレット】狙撃稲に零式と電撃コーラを抽出。一直線に敵陣を貫通する超高速プラズマレールガン。'
     },
     MEGALITH_TITAN: {
-        id: 'chimera_titan', name: '巨神 メガリス・タイタン',
-        pairHint: 'アイゼン シルト ＋ コーラ ギガント',
-        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_IRON' && s.typeKey === 'COLA_MEGATON'),
-        hp: 250, power: 26, cooldown: 2.2, fireTypes: ['burst'], actions: ['megaton'],
-        desc: '【シークレットキメラ】鉄盾に巨大コーラを完全抽出。圧倒的装甲と重力砲撃で敵前線を完全に圧殺する巨神。'
+        id: 'chimera_titan', name: '超巨神 ギガント・メガリス・タイタン',
+        pairHint: 'アイゼン シルト×2 ＋ コーラ ギガント (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SHIELD_IRON' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_SHIELD_IRON').length >= 1 &&
+            s.typeKey === 'COLA_MEGATON'
+        ),
+        hp: 350, power: 32, cooldown: 2.0, fireTypes: ['burst'], actions: ['megaton'],
+        desc: '【No.007 シークレット】鉄盾2体に巨大コーラを抽出。HP350。敵前線を圧殺する超重量級メガトン砲撃。'
     },
     FROST_NOVA: {
         id: 'chimera_frost', name: '極光 フロスト・ノヴァ',
-        pairHint: 'フロスト ライス ＋ コーラ ゲイザー',
-        recipe: (t, s) => (t.typeKey === 'RICE_FROST' && s.typeKey === 'COLA_MENTOS'),
-        hp: 90, power: 16, cooldown: 1.4, fireTypes: ['8dir'], actions: ['frost', 'geyser'],
-        desc: '【シークレットキメラ】氷結の稲にゲイザーコーラを完全抽出。急加速する8方向冷気弾を放ち、接触した敵弾を相殺。'
+        pairHint: 'フロスト ライス×2 ＋ コーラ ゲイザー (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_FROST' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_FROST').length >= 1 &&
+            s.typeKey === 'COLA_MENTOS'
+        ),
+        hp: 105, power: 18, cooldown: 1.3, fireTypes: ['8dir'], actions: ['frost', 'geyser'],
+        desc: '【シークレットキメラ】氷結稲2体にゲイザーコーラを抽出。急加速する8方向冷気弾で敵弾を相殺。'
     },
     ZERO_FROST: {
-        id: 'chimera_zero_frost', name: '絶対零度 アブソリュート・ゼロ',
-        pairHint: 'フロスト ライス ＋ コーラ ノヴァ',
-        recipe: (t, s) => (t.typeKey === 'RICE_FROST' && s.typeKey === 'COLA_SPREAD'),
-        hp: 100, power: 20, cooldown: 1.5, fireTypes: ['circle6'], actions: ['frost', 'spread'],
-        desc: '【シークレットキメラ】氷結の稲に拡散コーラを完全抽出。敵弾を相殺した瞬間に周囲へカウンター爆散を起こす！'
+        id: 'chimera_zero_frost', name: '絶対零度 アブソリュート・フロスト',
+        pairHint: 'フロスト ライス ＋ コーラ ノヴァ ＋ コーラ ゲイザー (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_FROST' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('COLA_SPREAD') &&
+            s.typeKey === 'COLA_MENTOS'
+        ),
+        hp: 115, power: 24, cooldown: 1.3, fireTypes: ['circle6'], actions: ['frost', 'spread', 'geyser'],
+        desc: '【No.008 シークレット】氷結稲に爆散とゲイザーを抽出。敵弾を相殺した瞬間に周囲へカウンター大爆散を起こす！'
     },
     AURA_GENESIS: {
-        id: 'chimera_genesis', name: '聖樹 アウラ・ジェネシス',
-        pairHint: 'アウラ シルト ＋ ソーダ オツェアーン',
-        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_MAGIC' && s.typeKey === 'SODA_LARGE'),
-        hp: 180, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.14,
-        desc: '【シークレットキメラ】魔力盾に大海ソーダを完全抽出。弾は撃たず、味方全体のHPを常時リジェネし大量のマナを生成。'
+        id: 'chimera_genesis', name: '世界樹 ユグドラシル・ジェネシス',
+        pairHint: 'アウラ シルト ＋ ソーダ クヴェレ ＋ ソーダ オツェアーン (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SHIELD_MAGIC' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('SODA_MEDIUM') &&
+            s.typeKey === 'SODA_LARGE'
+        ),
+        hp: 220, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.22,
+        desc: '【No.009 シークレット】魔力盾に中ソーダと大ソーダを抽出。味方HPを持続リジェネ(+4/s)し大量マナ生成。'
     },
     VOLTEC_LASER: {
         id: 'chimera_voltec', name: '迅雷 ルクス・ヴォルテック',
-        pairHint: 'ルクス ライス ＋ コーラ ブリッツ',
-        recipe: (t, s) => (t.typeKey === 'RICE_LASER' && s.typeKey === 'COLA_STRAIGHT'),
-        hp: 85, power: 25, cooldown: 1.1, fireTypes: ['single'], actions: ['laser', 'straight'], pierceCount: 4,
-        desc: '【シークレットキメラ】光の稲に電撃コーラを完全抽出。全てを貫く極太の高圧雷光レーザーを一閃照射。'
+        pairHint: 'ルクス ライス×2 ＋ コーラ ブリッツ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_LASER' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_LASER').length >= 1 &&
+            s.typeKey === 'COLA_STRAIGHT'
+        ),
+        hp: 95, power: 28, cooldown: 1.0, fireTypes: ['single'], actions: ['laser', 'straight'], pierceCount: 5,
+        desc: '【シークレットキメラ】光の稲2体に電撃コーラを抽出。全てを貫く極太の高圧雷光レーザーを一閃照射。'
     },
     HADES_POISON: {
         id: 'chimera_hades', name: '冥府 ハデス・ポイズン',
-        pairHint: 'ギフト ライス ＋ コーラ ランツェ',
-        recipe: (t, s) => (t.typeKey === 'RICE_POISON' && s.typeKey === 'COLA_PIERCE'),
-        hp: 90, power: 19, cooldown: 1.3, fireTypes: ['circle6'], actions: ['poison', 'pierce'], pierceCount: 3,
-        desc: '【シークレットキメラ】毒の稲に貫通コーラを完全抽出。敵列を貫きながら触れた敵弾すべてを腐食弱体化させる。'
+        pairHint: 'ギフト ライス ＋ コーラ ランツェ ＋ コーラ ネビュラ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_POISON' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('COLA_PIERCE') &&
+            s.typeKey === 'COLA_BLACK'
+        ),
+        hp: 100, power: 22, cooldown: 1.2, fireTypes: ['circle6'], actions: ['poison', 'pierce', 'blackhole'], pierceCount: 4,
+        desc: '【シークレットキメラ】毒稲に貫通と黒コーラを抽出。敵列を貫き敵弾を弱体化＆吸引する冥界の弾幕。'
     },
     TYPHOON_GEYSER: {
         id: 'chimera_typhoon', name: '暴風 タイフーン・ゲイザー',
-        pairHint: 'シュトゥルム ライス ＋ コーラ ゲイザー',
-        recipe: (t, s) => (t.typeKey === 'RICE_BURST' && s.typeKey === 'COLA_MENTOS'),
-        hp: 85, power: 17, cooldown: 0.8, fireTypes: ['burst'], actions: ['geyser'],
-        desc: '【シークレットキメラ】連射の稲にゲイザーコーラを完全抽出。激しく蛇行しながら急加速する暴走炭酸弾を3連射。'
+        pairHint: 'シュトゥルム ライス ＋ コーラ ゲイザー ＋ コーラ ジャンパー (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_BURST' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('COLA_MENTOS') &&
+            s.typeKey === 'COLA_BOUNCE'
+        ),
+        hp: 95, power: 19, cooldown: 0.7, fireTypes: ['burst'], actions: ['geyser', 'bounce'],
+        desc: '【シークレットキメラ】連射稲にゲイザーと跳弾コーラを抽出。激しく跳ね回る暴走炭酸弾を乱れ撃つ。'
     },
     EMPEROR_SHIELD: {
         id: 'chimera_emperor', name: '天帝 エンペラー・シルト',
-        pairHint: 'アウラ シルト ＋ コーラ ギガント',
-        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_MAGIC' && s.typeKey === 'COLA_MEGATON'),
-        hp: 270, power: 22, cooldown: 2.2, fireTypes: ['burst'], actions: ['megaton', 'spread'],
-        desc: '【シークレットキメラ】魔力盾に巨大コーラを完全抽出。前線で不動の要塞となり、着弾時に巨大衝撃波を炸裂させる。'
+        pairHint: 'アウラ シルト ＋ アイゼン シルト ＋ コーラ ギガント (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SHIELD_MAGIC' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_SHIELD_IRON') &&
+            s.typeKey === 'COLA_MEGATON'
+        ),
+        hp: 340, power: 26, cooldown: 2.0, fireTypes: ['burst'], actions: ['megaton', 'spread'],
+        desc: '【シークレットキメラ】魔力盾に鉄盾と巨大コーラを抽出。前線で不動の要塞となり着弾時に巨大衝撃波を炸裂。'
     },
     MIRAGE_SNIPER: {
         id: 'chimera_mirage', name: '幻影 ミラージュ・スナイパー',
-        pairHint: 'プレツィザ ライス ＋ コーラ ジャンパー',
-        recipe: (t, s) => (t.typeKey === 'RICE_SNIPER' && s.typeKey === 'COLA_BOUNCE'),
-        hp: 80, power: 26, cooldown: 1.5, fireTypes: ['single'], actions: ['sniper', 'bounce'],
-        desc: '【シークレットキメラ】狙撃の稲に跳弾コーラを完全抽出。壁を反射しながら敵プレイヤーの死角を突く幻影狙撃。'
+        pairHint: 'プレツィザ ライス×2 ＋ コーラ ジャンパー (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SNIPER' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_SNIPER').length >= 1 &&
+            s.typeKey === 'COLA_BOUNCE'
+        ),
+        hp: 90, power: 30, cooldown: 1.4, fireTypes: ['single'], actions: ['sniper', 'bounce'],
+        desc: '【シークレットキメラ】狙撃稲2体に跳弾コーラを抽出。壁を反射しながら敵プレイヤーの死角を突く幻影狙撃。'
     },
     FLORA_FRAGMENT: {
         id: 'chimera_flora', name: '百花 プリムス・フラグメント',
-        pairHint: 'ライス プリムス ＋ コーラ フラグメント',
-        recipe: (t, s) => (t.typeKey === 'RICE_BASIC' && s.typeKey === 'COLA_SPLIT'),
-        hp: 85, power: 16, cooldown: 1.2, fireTypes: ['8dir'], actions: ['split'],
-        desc: '【シークレットキメラ】基本の稲に分裂コーラを完全抽出。放たれた全方向米粒が空中で一斉に花咲くように分裂。'
+        pairHint: 'ライス プリムス×2 ＋ コーラ フラグメント (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_BASIC' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_BASIC').length >= 1 &&
+            s.typeKey === 'COLA_SPLIT'
+        ),
+        hp: 95, power: 18, cooldown: 1.1, fireTypes: ['8dir'], actions: ['split'],
+        desc: '【シークレットキメラ】基本稲2体に分裂コーラを抽出。放たれた全方向米粒が空中で一斉に花咲くように分裂。'
     },
     VORTEX_QUELLE: {
         id: 'chimera_vortex', name: '深淵 ボルテックス・クヴェレ',
-        pairHint: 'ソーダ クヴェレ ＋ コーラ ネビュラ',
-        recipe: (t, s) => (t.typeKey === 'SODA_MEDIUM' && s.typeKey === 'COLA_BLACK'),
-        hp: 130, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.16,
-        desc: '【シークレットキメラ】源泉ソーダに黒コーラを完全抽出。弾は撃たず、敵弾を吸い込んで即座に大量マナへ変換。'
+        pairHint: 'ソーダ クヴェレ ＋ ソーダ ブリーゼ ＋ コーラ ネビュラ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'SODA_MEDIUM' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('SODA_SMALL') &&
+            s.typeKey === 'COLA_BLACK'
+        ),
+        hp: 150, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.20,
+        desc: '【シークレットキメラ】源泉ソーダに小ソーダと黒コーラを抽出。敵弾を吸い込んで即座に大量マナへ変換。'
     },
     PROMINENCE_VULCAN: {
         id: 'chimera_prominence', name: '紅蓮 プロミネンス・バルカン',
-        pairHint: 'ルクス ライス ＋ コーラ バルカン',
-        recipe: (t, s) => (t.typeKey === 'RICE_LASER' && s.typeKey === 'COLA_CHARGE'),
-        hp: 95, power: 30, cooldown: 1.7, fireTypes: ['single'], actions: ['laser', 'charge', 'spread'],
-        desc: '【シークレットキメラ】光の稲に火山コーラを完全抽出。チャージエネルギーを一気に解き放つ極大の熱線ブラスター。'
+        pairHint: 'ルクス ライス ＋ コーラ バルカン ＋ コーラ ノヴァ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_LASER' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('COLA_CHARGE') &&
+            s.typeKey === 'COLA_SPREAD'
+        ),
+        hp: 105, power: 34, cooldown: 1.6, fireTypes: ['single'], actions: ['laser', 'charge', 'spread'],
+        desc: '【シークレットキメラ】光の稲に火山と爆散コーラを抽出。チャージエネルギーを解き放つ極大の熱線ブラスター。'
     },
     GAIA_HARVEST: {
         id: 'chimera_gaia', name: '豊穣 ガイア・ハーベスト',
-        pairHint: 'ホルツ シルト ＋ ソーダ ブリーゼ',
-        recipe: (t, s) => (t.typeKey === 'RICE_SHIELD_WOOD' && s.typeKey === 'SODA_SMALL'),
-        hp: 160, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.08,
-        desc: '【シークレットキメラ】木の盾に微風ソーダを完全抽出。弾は撃たず、味方前線を強固に守りながらマナを継続供給。'
+        pairHint: 'ホルツ シルト×2 ＋ ソーダ ブリーゼ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SHIELD_WOOD' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_SHIELD_WOOD').length >= 1 &&
+            s.typeKey === 'SODA_SMALL'
+        ),
+        hp: 200, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.12,
+        desc: '【シークレットキメラ】木盾2体に微風ソーダを抽出。前線を強固に守りながらマナを継続供給。'
     },
     INAMU_THE_END: {
-        id: 'chimera_the_end', name: '太陽神 いなむー・ソル',
-        pairHint: '基本稲 → 電撃コーラ → ソーダ → 光の稲 の順で抽出',
+        id: 'chimera_the_end', name: '太陽神 アルティメット・いなむー・ソル',
+        pairHint: '基本稲 → ①電撃コーラ → ②微風ソーダ → ③光の稲 の順で抽出 (計4体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_BASIC' &&
             Array.isArray(t.extractionHistory) &&
@@ -421,8 +516,8 @@ const SECRET_CHIMERAS = {
             t.extractionHistory[1] === 'SODA_SMALL' &&
             s.typeKey === 'RICE_LASER'
         ),
-        hp: 160, power: 25, cooldown: 0.9, fireTypes: ['8dir', 'burst'], actions: ['bounce', 'spread'],
-        desc: '【真シークレット】稲・コーラ・ソーダ・光の稲を完全な順番で抽出した時のみ降臨する太陽の守護神。'
+        hp: 200, power: 32, cooldown: 0.7, fireTypes: ['8dir', 'burst'], actions: ['bounce', 'spread', 'laser'],
+        desc: '【No.010 太陽神】基本稲に電撃コーラ・ソーダ・光の稲を完全な順番で抽出した時降臨する黄金の最高神。'
     }
 };
 
@@ -1168,6 +1263,7 @@ let gameState = {
         right: { name: 'Player 2', y: 80, hp: 2000, maxHp: 2000, mana: 100, targetY: 80, throwTimer: 0 }
     },
     isPractice: false,
+    isBotMatch: false, // 強化Bot対戦モード
     deck: [...DEFAULT_DECK],
     units: [],
     summoningEffects: [], // 召喚アニメーション用
@@ -1178,6 +1274,7 @@ let gameState = {
     interactionMode: 'none', // 'place_rice', 'throw_cola'
     mousePos: { x: 0, y: 0 },
     isMatching: false,
+    matchTimeoutTimer: null, // スマートマッチング用
     prepTimer: 450, // 15秒 (30FPS * 15)
     spaceFireCooldown: 0, // スペース発射クールダウン（フレーム数）
     extractionMode: false,
@@ -1201,6 +1298,226 @@ const statusMsg = document.getElementById('status-message');
 
 
 let keysPressed = {};
+
+// ===============================================================
+// 🤖 強化Bot AI（対戦型CPUロジック）
+// 戦略配置・シークレット合成・弾除け回避・コーラ照準射撃をフル搭載
+// ===============================================================
+const BotAI = {
+    thinkTimer: 0,
+    fireTimer: 0,
+    extractTimer: 0,
+
+    update() {
+        if (!gameState.isBotMatch) return;
+        const botSide = 'right';
+        const bot = gameState.players[botSide];
+        const human = gameState.players.left;
+
+        // 1. 移動・弾除け回避
+        this.updateMovement(bot, human);
+
+        // 2. 戦術的ユニット召喚（前衛盾・後衛ソーダ・中衛攻撃＆素材）
+        this.thinkTimer++;
+        const thinkInterval = gameState.prepTimer > 0 ? 30 : 45; // 準備中は高速配置
+        if (this.thinkTimer >= thinkInterval) {
+            this.thinkTimer = 0;
+            this.trySummon(botSide, bot);
+        }
+
+        // 3. コーラ発射（プレイヤーを狙って一斉射撃）
+        this.fireTimer++;
+        if (this.fireTimer >= 60 && gameState.prepTimer <= 0) {
+            this.fireTimer = 0;
+            this.tryFireCola(botSide, human);
+        }
+
+        // 4. 抽出・キメラ進化（自陣ユニット同士を合成してシークレットキメラを生成）
+        this.extractTimer++;
+        if (this.extractTimer >= 80) {
+            this.extractTimer = 0;
+            this.tryExtract(botSide);
+        }
+    },
+
+    updateMovement(bot, human) {
+        // 迫り来る敵弾の緊急ステップ回避
+        const incoming = gameState.bullets.filter(b => b.side === 'left' && b.vx > 0 && b.x > 450);
+        let avoidDy = 0;
+        for (const b of incoming) {
+            const distY = Math.abs(b.y - (bot.y + 16));
+            if (distY < 24) {
+                // 弾より上または下に回避
+                avoidDy = b.y > bot.y + 16 ? -5 : 5;
+                break;
+            }
+        }
+
+        if (avoidDy !== 0) {
+            bot.y = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT - 32, bot.y + avoidDy));
+        } else {
+            // 人間のY座標を滑らかに追従
+            const targetY = human.y;
+            const diff = targetY - bot.y;
+            if (Math.abs(diff) > 4) {
+                bot.y += Math.sign(diff) * 2.5;
+                bot.y = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT - 32, bot.y));
+            }
+        }
+    },
+
+    trySummon(side, bot) {
+        if (bot.mana < 15) return;
+
+        // 盤面上の自軍ユニット状況
+        const myUnits = gameState.units.filter(u => u.side === side && u.hp > 0);
+        const incoming = gameState.summoningEffects.filter(ef => ef.side === side);
+        if (myUnits.length + incoming.length >= 14) return; // 盤面上限
+
+        const hasShield = myUnits.some(u => u.col <= 11 && u.type.includes('shield'));
+        const sodaCount = myUnits.filter(u => u.type === 'soda').length;
+        const burstCount = myUnits.filter(u => u.typeKey === 'RICE_BURST').length;
+        const spreadCount = myUnits.filter(u => u.typeKey === 'RICE_SPREAD').length;
+
+        let unitKeyToSummon = 'RICE_BASIC';
+        let targetCol = 12;
+
+        if (!hasShield && bot.mana >= 25) {
+            // 最前列に盾（鉄盾または木盾）
+            unitKeyToSummon = Math.random() < 0.6 ? 'RICE_SHIELD_IRON' : 'RICE_SHIELD_WOOD';
+            targetCol = 9 + Math.floor(Math.random() * 3); // 9〜11
+        } else if (sodaCount < 2 && bot.mana >= 20) {
+            // 後衛にマナ生成ソーダ
+            unitKeyToSummon = Math.random() < 0.5 ? 'SODA_MEDIUM' : 'SODA_LARGE';
+            targetCol = 15 + Math.floor(Math.random() * 3); // 15〜17
+        } else if (burstCount < 2 && Math.random() < 0.4) {
+            // 連射稲（ガトリング狙い）
+            unitKeyToSummon = 'RICE_BURST';
+            targetCol = 12 + Math.floor(Math.random() * 3); // 12〜14
+        } else if (spreadCount < 2 && Math.random() < 0.35) {
+            // 拡散稲（ミーティア狙い）
+            unitKeyToSummon = 'RICE_SPREAD';
+            targetCol = 12 + Math.floor(Math.random() * 3);
+        } else if (Math.random() < 0.45) {
+            // コーラ（ジャンパー・ノヴァ・メントス）
+            const colas = ['COLA_BOUNCE', 'COLA_SPREAD', 'COLA_MENTOS', 'COLA_PIERCE'];
+            unitKeyToSummon = colas[Math.floor(Math.random() * colas.length)];
+            targetCol = 11 + Math.floor(Math.random() * 4);
+        } else {
+            // 氷結・狙撃など多彩な攻撃稲
+            const rices = ['RICE_FROST', 'RICE_SNIPER', 'RICE_BURST', 'RICE_SPREAD'];
+            unitKeyToSummon = rices[Math.floor(Math.random() * rices.length)];
+            targetCol = 12 + Math.floor(Math.random() * 3);
+        }
+
+        const unitDef = UNIT_TYPES[unitKeyToSummon];
+        if (!unitDef || bot.mana < unitDef.cost) return;
+
+        // 空きマスを探す
+        const row = Math.floor(Math.random() * CONFIG.GRID_ROWS);
+        const isOccupied = myUnits.some(u => u.col === targetCol && u.row === row) ||
+            incoming.some(ef => ef.col === targetCol && ef.row === row);
+
+        if (!isOccupied) {
+            processSummon({ unitId: unitDef.id, row, col: targetCol, side });
+        }
+    },
+
+    tryExtract(side) {
+        const myUnits = gameState.units.filter(u => u.side === side && u.hp > 0);
+        if (myUnits.length < 2) return;
+
+        // 1. ガトリング・スプライト狙い (シュトゥルム×2 + ジャンパー)
+        const bursts = myUnits.filter(u => u.typeKey === 'RICE_BURST');
+        const bounceCola = myUnits.find(u => u.typeKey === 'COLA_BOUNCE');
+        if (bursts.length >= 2) {
+            processExtraction(bursts[0].col, bursts[0].row, bursts[1].col, bursts[1].row, side);
+            return;
+        } else if (bursts.length === 1 && bursts[0].extractionHistory?.includes('RICE_BURST') && bounceCola) {
+            processExtraction(bursts[0].col, bursts[0].row, bounceCola.col, bounceCola.row, side);
+            return;
+        }
+
+        // 2. クラスター・ミーティア狙い (フェッヒャー×2 + ノヴァ)
+        const spreads = myUnits.filter(u => u.typeKey === 'RICE_SPREAD');
+        const novaCola = myUnits.find(u => u.typeKey === 'COLA_SPREAD');
+        if (spreads.length >= 2) {
+            processExtraction(spreads[0].col, spreads[0].row, spreads[1].col, spreads[1].row, side);
+            return;
+        } else if (spreads.length === 1 && spreads[0].extractionHistory?.includes('RICE_SPREAD') && novaCola) {
+            processExtraction(spreads[0].col, spreads[0].row, novaCola.col, novaCola.row, side);
+            return;
+        }
+
+        // 3. 絶対零度狙い (フロスト + ノヴァ + ゲイザー)
+        const frost = myUnits.find(u => u.typeKey === 'RICE_FROST');
+        const mentos = myUnits.find(u => u.typeKey === 'COLA_MENTOS');
+        if (frost && novaCola && !frost.extractionHistory?.includes('COLA_SPREAD')) {
+            processExtraction(frost.col, frost.row, novaCola.col, novaCola.row, side);
+            return;
+        } else if (frost && frost.extractionHistory?.includes('COLA_SPREAD') && mentos) {
+            processExtraction(frost.col, frost.row, mentos.col, mentos.row, side);
+            return;
+        }
+
+        // 4. 一般強化抽出（未抽出ユニットをベースに他ユニットを吸収）
+        const candidates = myUnits.filter(u => (u.extractionCount || 0) < 3);
+        if (candidates.length >= 2) {
+            const target = candidates[0];
+            const src = candidates.slice(1).find(u => u !== target);
+            if (target && src) {
+                processExtraction(target.col, target.row, src.col, src.row, side);
+            }
+        }
+    },
+
+    tryFireCola(side, human) {
+        const myColas = gameState.units.filter(u => u.side === side && u.type === 'cola' && !u.fired && u.hp > 0);
+        if (myColas.length === 0) return;
+
+        // プレイヤーの現在位置に向けて発射
+        const targetX = 16;
+        const targetY = human.y + 16;
+        processFireColaTargetAll(targetX, targetY, side);
+    }
+};
+
+function startBotMatch() {
+    if (socket) {
+        try { socket.send(JSON.stringify({ type: 'cancel_match' })); } catch (e) {}
+    }
+    if (gameState.matchTimeoutTimer) {
+        clearTimeout(gameState.matchTimeoutTimer);
+        gameState.matchTimeoutTimer = null;
+    }
+
+    gameState.roomId = 'CPU_BOT';
+    gameState.isHost = true;
+    gameState.isMatching = false;
+    gameState.isPractice = false;
+    gameState.isBotMatch = true;
+    gameState.playerSide = 'left';
+
+    savePlayerName();
+    gameState.players.left.name = localStorage.getItem('inamu_player_name') || 'Player 1';
+    gameState.players.right.name = '🤖 強化AI いなむー';
+    gameState.players.left.hp = 2000;
+    gameState.players.left.maxHp = 2000;
+    gameState.players.right.hp = 2000;
+    gameState.players.right.maxHp = 2000;
+    gameState.players.left.mana = 100;
+    gameState.players.right.mana = 100;
+    gameState.units = [];
+    gameState.bullets = [];
+    gameState.summoningEffects = [];
+
+    const roomDisp = document.getElementById('room-display');
+    if (roomDisp) roomDisp.innerText = `Room: VS CPU (強化Bot)`;
+
+    Camera.reset();
+    startGame();
+    statusMsg.innerText = "CPU対戦開始！ 相手は思考＆合体を行う強化Botです！";
+}
 
 // 初期化
 function init() {
@@ -1262,6 +1579,14 @@ function setupEventListeners() {
                 gameState.isRated = checkRated ? checkRated.checked : false;
                 startMatchmaking();
             }
+        };
+    }
+
+    // 🤖 CPU対戦（強化Bot）ボタン
+    const btnBotMatch = document.getElementById('btn-bot-match');
+    if (btnBotMatch) {
+        btnBotMatch.onclick = () => {
+            startBotMatch();
         };
     }
 
@@ -1567,6 +1892,7 @@ function updateUnitUI() {
         div.onclick = () => {
             gameState.selectedUnit = key;
             updateUnitUI();
+            showUnitPreview({ ...u, typeKey: key });
         };
         selector.appendChild(div);
     });
@@ -1688,6 +2014,20 @@ function startMatchmaking() {
     if (btnFindMatch) btnFindMatch.innerText = 'キャンセル';
     statusMsg.innerText = `${gameState.isRated ? 'レート戦' : 'ノーマル戦'}の相手を探しています...`;
 
+    // 🕒 スマートマッチング: 6秒以内に人間が見つからなければ、強化Botとの対戦を提案・自動開始
+    if (gameState.matchTimeoutTimer) clearTimeout(gameState.matchTimeoutTimer);
+    gameState.matchTimeoutTimer = setTimeout(() => {
+        if (gameState.isMatching) {
+            statusMsg.innerText = "対戦相手が見つからないため、強化AI（Bot）との対戦を開始します！";
+            setTimeout(() => {
+                if (gameState.isMatching) {
+                    cancelMatch();
+                    startBotMatch();
+                }
+            }, 1000);
+        }
+    }, 6000);
+
     if (!socket || socket.readyState !== WebSocket.OPEN) {
         connectToServer();
     } else {
@@ -1704,8 +2044,12 @@ function sendFindMatch() {
 
 function cancelMatch() {
     gameState.isMatching = false;
+    if (gameState.matchTimeoutTimer) {
+        clearTimeout(gameState.matchTimeoutTimer);
+        gameState.matchTimeoutTimer = null;
+    }
     const btnFindMatch = document.getElementById('btn-find-match');
-    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
+    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す (オンライン)';
     statusMsg.innerText = '';
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'cancel_match' }));
@@ -1816,8 +2160,10 @@ function handleServerMessage(data) {
             statusMsg.innerText = 'マッチングをキャンセルしました';
             break;
         case 'created':
+            if (gameState.matchTimeoutTimer) { clearTimeout(gameState.matchTimeoutTimer); gameState.matchTimeoutTimer = null; }
             gameState.isMatching = false;
             gameState.isHost = true;
+            gameState.isBotMatch = false;
             gameState.roomId = data.roomId;
             gameState.playerSide = data.side || 'left';
             gameState.isPractice = false;
@@ -1826,8 +2172,10 @@ function handleServerMessage(data) {
             startGame();
             break;
         case 'joined':
+            if (gameState.matchTimeoutTimer) { clearTimeout(gameState.matchTimeoutTimer); gameState.matchTimeoutTimer = null; }
             gameState.isMatching = false;
             gameState.isHost = false;
+            gameState.isBotMatch = false;
             gameState.roomId = data.roomId;
             gameState.playerSide = data.side || 'right';
             gameState.isPractice = false;
@@ -2076,8 +2424,10 @@ function handleInput(e) {
         const slotIdx = e.key === '0' ? 9 : (parseInt(e.key, 10) - 1);
         const deck = (gameState.deck && gameState.deck.length > 0) ? gameState.deck : DEFAULT_DECK;
         if (deck[slotIdx]) {
-            gameState.selectedUnit = deck[slotIdx];
+            const k = deck[slotIdx];
+            gameState.selectedUnit = k;
             updateUnitUI();
+            if (UNIT_TYPES[k]) showUnitPreview({ ...UNIT_TYPES[k], typeKey: k });
         }
     }
 }
@@ -2152,6 +2502,11 @@ function gameLoop(timestamp = 0) {
 function update() {
     updatePlayerMovement();
 
+    // 🤖 強化Botの思考ルーチン実行
+    if (gameState.isBotMatch) {
+        BotAI.update();
+    }
+
     // 🌋 フィールドギミックの更新 (炭酸ファウンテン加速・黄金稲穂リスポーン・ポータル)
     FieldGimmickManager.update();
 
@@ -2174,14 +2529,13 @@ function update() {
         }
     });
 
-    // 練習場の敵無限リスポーン (ホスト側または練習場のみ)
+    // 練習場の敵無限リスポーン (練習場のみ)
     if (gameState.isPractice) {
         const enemies = gameState.units.filter(u => u.side === 'right' && u.hp > 0);
         const incoming = gameState.summoningEffects.filter(ef => ef.side === 'right');
         if (enemies.length + incoming.length < 3) {
-            // 敵が少なくなったらランダムに召喚
             const row = Math.floor(Math.random() * CONFIG.GRID_ROWS);
-            const col = 9 + Math.floor(Math.random() * 9); // 右半分
+            const col = 9 + Math.floor(Math.random() * 9);
             const keys = ['RICE_BASIC', 'RICE_SPREAD', 'RICE_SEEKER', 'COLA_STRAIGHT', 'COLA_BOUNCE'];
             const rKey = keys[Math.floor(Math.random() * keys.length)];
             const unitDef = UNIT_TYPES[rKey];
@@ -2192,7 +2546,9 @@ function update() {
     // スペース発射クールダウンのデクリメント
     if (gameState.spaceFireCooldown > 0) gameState.spaceFireCooldown--;
 
-    if (gameState.isHost || gameState.isPractice) {
+    const isAuthority = gameState.isHost || gameState.isPractice || gameState.isBotMatch;
+
+    if (isAuthority) {
         gameState.units.forEach(u => {
             if (u.type === 'rice' || u.extractionCount > 0) {
                 u.lastFire = (u.lastFire || 0) + 1;
@@ -2209,7 +2565,7 @@ function update() {
                 u.charge = Math.min(1, (u.charge || 0) + 1 / (8 * CONFIG.FPS));
             }
 
-            // 練習場の敵AI: コーラを発射する
+            // 練習場専用の敵AI: コーラを発射する
             if (gameState.isPractice && u.side === 'right' && u.type === 'cola' && !u.fired && u.hp > 0) {
                 u.aiFireTimer = (u.aiFireTimer || 0) + 1 / CONFIG.FPS;
                 if (u.aiFireTimer >= 3.0) {
@@ -2221,192 +2577,193 @@ function update() {
             }
         });
     }
-    for (let i = gameState.bullets.length - 1; i >= 0; i--) {
-        const b = gameState.bullets[i];
-        let speedMult = 1.0;
-        if (b.action === 'bounce') speedMult = 1.6; // 跳ねるコーラの速度向上
-        b.x += b.vx * speedMult; b.y += b.vy * speedMult;
 
-        // 重力黒コーラ（ブラックホール）による敵弾吸引とマナ変換
-        if (b.action === 'blackhole') {
-            for (let k = gameState.bullets.length - 1; k >= 0; k--) {
-                const eb = gameState.bullets[k];
-                if (eb.side !== b.side && eb !== b) {
-                    const edx = b.x - eb.x; const edy = b.y - eb.y;
-                    const edist = Math.hypot(edx, edy);
-                    if (edist < 45) {
-                        eb.vx += (edx / edist) * 0.9;
-                        eb.vy += (edy / edist) * 0.9;
-                        if (edist < 14) {
-                            removeBullet(k);
-                            if (k < i) i--;
-                            // マナ回復
-                            const myP = gameState.players[b.side];
-                            if (myP) myP.mana = Math.min(100, myP.mana + 0.8);
+    // 物理・弾の移動および当たり判定（ホスト／練習場／Bot戦が一元計算）
+    if (isAuthority) {
+        for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+            const b = gameState.bullets[i];
+            let speedMult = 1.0;
+            if (b.action === 'bounce') speedMult = 1.6;
+            b.x += b.vx * speedMult; b.y += b.vy * speedMult;
+
+            // 重力黒コーラ（ブラックホール）による敵弾吸引とマナ変換
+            if (b.action === 'blackhole') {
+                for (let k = gameState.bullets.length - 1; k >= 0; k--) {
+                    const eb = gameState.bullets[k];
+                    if (eb.side !== b.side && eb !== b) {
+                        const edx = b.x - eb.x; const edy = b.y - eb.y;
+                        const edist = Math.hypot(edx, edy);
+                        if (edist < 45) {
+                            eb.vx += (edx / edist) * 0.9;
+                            eb.vy += (edy / edist) * 0.9;
+                            if (edist < 14) {
+                                removeBullet(k);
+                                if (k < i) i--;
+                                const myP = gameState.players[b.side];
+                                if (myP) myP.mana = Math.min(100, myP.mana + 0.8);
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // ギフト ライス（毒胞子）: 触れた敵弾の威力を半減
-        if (b.action === 'poison') {
-            let hitPoison = false;
-            for (let k = gameState.bullets.length - 1; k >= 0; k--) {
-                const eb = gameState.bullets[k];
-                if (eb.side !== b.side && eb !== b) {
-                    if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
-                        eb.power = Math.max(1, Math.floor((eb.power || 5) * 0.5));
-                        hitPoison = true;
-                        break;
+            // ギフト ライス（毒胞子）: 触れた敵弾の威力を半減
+            if (b.action === 'poison') {
+                let hitPoison = false;
+                for (let k = gameState.bullets.length - 1; k >= 0; k--) {
+                    const eb = gameState.bullets[k];
+                    if (eb.side !== b.side && eb !== b) {
+                        if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
+                            eb.power = Math.max(1, Math.floor((eb.power || 5) * 0.5));
+                            hitPoison = true;
+                            break;
+                        }
                     }
                 }
+                if (hitPoison) {
+                    removeBullet(i);
+                    continue;
+                }
             }
-            if (hitPoison) {
-                removeBullet(i);
-                continue;
-            }
-        }
 
-        // フロスト ライス（氷結）: 敵弾と相殺（両方消滅）
-        if (b.action === 'frost' || b.actions?.includes('frost')) {
-            let hitFrost = false;
-            for (let k = gameState.bullets.length - 1; k >= 0; k--) {
-                const eb = gameState.bullets[k];
-                if (eb.side !== b.side && eb !== b) {
-                    if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
-                        removeBullet(k);
-                        if (k < i) i--;
-                        hitFrost = true;
-                        break;
+            // フロスト ライス（氷結）: 敵弾と相殺（両方消滅）
+            if (b.action === 'frost' || b.actions?.includes('frost')) {
+                let hitFrost = false;
+                for (let k = gameState.bullets.length - 1; k >= 0; k--) {
+                    const eb = gameState.bullets[k];
+                    if (eb.side !== b.side && eb !== b) {
+                        if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
+                            removeBullet(k);
+                            if (k < i) i--;
+                            hitFrost = true;
+                            break;
+                        }
                     }
                 }
-            }
-            if (hitFrost) {
-                // 敵の弾を相殺する能力と爆散がある場合、相殺した後にその場で爆散する
-                if (b.action === 'spread' || b.actions?.includes('spread') || b.spread) {
-                    handleSpreadEffect({ x: b.x, y: b.y, side: b.side });
-                }
-                removeBullet(i);
-                continue;
-            }
-        }
-
-        // コーラ ゲイザー: 炭酸噴射で波打ちながら急加速
-        if (b.action === 'geyser') {
-            b.geyserTimer = (b.geyserTimer || 0) + 1;
-            b.vy += Math.sin(b.geyserTimer * 0.4) * 0.5;
-            b.vx *= 1.02;
-            b.vy *= 1.02;
-            const curSpd = Math.hypot(b.vx, b.vy);
-            if (curSpd > 10.5) {
-                b.vx = (b.vx / curSpd) * 10.5;
-                b.vy = (b.vy / curSpd) * 10.5;
-            }
-        }
-        if (b.homing) {
-            const target = b.side === 'left' ? gameState.players.right : gameState.players.left;
-            const targetX = b.side === 'left' ? CONFIG.SCREEN_WIDTH - 16 : 16;
-            const targetY = target.y + 16;
-            const dx = targetX - b.x; const dy = targetY - b.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 0) {
-                b.vx += (dx / dist) * 0.1; b.vy += (dy / dist) * 0.1;
-                const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-                if (speed > 3) { b.vx = (b.vx / speed) * 3; b.vy = (b.vy / speed) * 3; }
-            }
-        }
-        if (b.lifetime !== undefined) {
-            b.lifetime--;
-            if (b.lifetime <= 0) {
-                if (b.split) {
-                    const angle = Math.atan2(b.vy, b.vx); const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-                    spawnBullet(b.x, b.y, Math.cos(angle + 0.2) * spd, Math.sin(angle + 0.2) * spd, b.side, { power: b.power, spriteKey: b.spriteKey, size: b.size });
-                    spawnBullet(b.x, b.y, Math.cos(angle - 0.2) * spd, Math.sin(angle - 0.2) * spd, b.side, { power: b.power, spriteKey: b.spriteKey, size: b.size });
-                    b.lifetime = 1000; b.split = false; // 消さずに直進させる
-                } else { removeBullet(i); continue; }
-            }
-        }
-        const leftP = gameState.players.left; const rightP = gameState.players.right;
-        let hitPlayer = false;
-        if (b.side === 'right' && Math.abs(b.x - 16) < 16 && Math.abs(b.y - (leftP.y + 16)) < 16) {
-            if (!b.hitPlayers?.includes('left')) {
-                leftP.hp -= (b.power || 5);
-                SoundManager.playHit();
-                if (!b.hitPlayers) b.hitPlayers = [];
-                b.hitPlayers.push('left');
-                hitPlayer = true;
-            }
-        }
-        if (b.side === 'left' && Math.abs(b.x - (CONFIG.SCREEN_WIDTH - 16)) < 16 && Math.abs(b.y - (rightP.y + 16)) < 16) {
-            if (!b.hitPlayers?.includes('right')) {
-                const dmg = (b.power || 5);
-                rightP.hp -= dmg;
-                DPSManager.recordDamage(dmg);
-                SoundManager.playHit();
-                if (!b.hitPlayers) b.hitPlayers = [];
-                b.hitPlayers.push('right');
-                hitPlayer = true;
-            }
-        }
-        if (hitPlayer) {
-            if (b.pierceCount && b.pierceCount > 0) {
-                b.pierceCount--;
-            } else {
-                if (b.action === 'spread') {
-                    const spreadX = b.x - b.vx * 0.5;
-                    const spreadY = b.y - b.vy * 0.5;
-                    handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
-                }
-                removeBullet(i); continue;
-            }
-        }
-        let hitUnit = false;
-        for (let j = 0; j < gameState.units.length; j++) {
-            const u = gameState.units[j];
-            if (u.side !== b.side && u.hp > 0 && u.fireType !== 'mine' && !u.hasBeenHitBy?.includes(b.uid)) {
-                if (Math.abs(b.x - u.x) < 20 && Math.abs(b.y - u.y) < 20) {
-                    const dmg = (b.power || 5);
-                    u.hp -= dmg;
-                    if (b.side === 'left') {
-                        DPSManager.recordDamage(dmg);
+                if (hitFrost) {
+                    if (b.action === 'spread' || b.actions?.includes('spread') || b.spread) {
+                        handleSpreadEffect({ x: b.x, y: b.y, side: b.side });
                     }
+                    removeBullet(i);
+                    continue;
+                }
+            }
+
+            // コーラ ゲイザー: 炭酸噴射で波打ちながら急加速
+            if (b.action === 'geyser') {
+                b.geyserTimer = (b.geyserTimer || 0) + 1;
+                b.vy += Math.sin(b.geyserTimer * 0.4) * 0.5;
+                b.vx *= 1.02;
+                b.vy *= 1.02;
+                const curSpd = Math.hypot(b.vx, b.vy);
+                if (curSpd > 10.5) {
+                    b.vx = (b.vx / curSpd) * 10.5;
+                    b.vy = (b.vy / curSpd) * 10.5;
+                }
+            }
+            if (b.homing) {
+                const target = b.side === 'left' ? gameState.players.right : gameState.players.left;
+                const targetX = b.side === 'left' ? CONFIG.SCREEN_WIDTH - 16 : 16;
+                const targetY = target.y + 16;
+                const dx = targetX - b.x; const dy = targetY - b.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 0) {
+                    b.vx += (dx / dist) * 0.1; b.vy += (dy / dist) * 0.1;
+                    const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                    if (speed > 3) { b.vx = (b.vx / speed) * 3; b.vy = (b.vy / speed) * 3; }
+                }
+            }
+            if (b.lifetime !== undefined) {
+                b.lifetime--;
+                if (b.lifetime <= 0) {
+                    if (b.split) {
+                        const angle = Math.atan2(b.vy, b.vx); const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                        spawnBullet(b.x, b.y, Math.cos(angle + 0.2) * spd, Math.sin(angle + 0.2) * spd, b.side, { power: b.power, spriteKey: b.spriteKey, size: b.size });
+                        spawnBullet(b.x, b.y, Math.cos(angle - 0.2) * spd, Math.sin(angle - 0.2) * spd, b.side, { power: b.power, spriteKey: b.spriteKey, size: b.size });
+                        b.lifetime = 1000; b.split = false;
+                    } else { removeBullet(i); continue; }
+                }
+            }
+            const leftP = gameState.players.left; const rightP = gameState.players.right;
+            let hitPlayer = false;
+            if (b.side === 'right' && Math.abs(b.x - 16) < 16 && Math.abs(b.y - (leftP.y + 16)) < 16) {
+                if (!b.hitPlayers?.includes('left')) {
+                    leftP.hp -= (b.power || 5);
                     SoundManager.playHit();
-                    hitUnit = true;
-                    if (b.pierceCount !== undefined) {
-                        if (!b.hitTargets) b.hitTargets = [];
-                        if (!u.hasBeenHitBy) u.hasBeenHitBy = [];
-                        b.hitTargets.push(u.uid);
-                        u.hasBeenHitBy.push(b.uid);
-                    }
-                    break;
+                    if (!b.hitPlayers) b.hitPlayers = [];
+                    b.hitPlayers.push('left');
+                    hitPlayer = true;
                 }
             }
-        }
-        if (hitUnit) {
-            if (b.pierceCount && b.pierceCount > 0) {
-                b.pierceCount--;
-            } else {
-                if (b.action === 'spread') {
-                    // 少しだけ手前に戻して拡散させる（中に入りすぎないように）
-                    const spreadX = b.x - b.vx * 0.5;
-                    const spreadY = b.y - b.vy * 0.5;
-                    handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+            if (b.side === 'left' && Math.abs(b.x - (CONFIG.SCREEN_WIDTH - 16)) < 16 && Math.abs(b.y - (rightP.y + 16)) < 16) {
+                if (!b.hitPlayers?.includes('right')) {
+                    const dmg = (b.power || 5);
+                    rightP.hp -= dmg;
+                    DPSManager.recordDamage(dmg);
+                    SoundManager.playHit();
+                    if (!b.hitPlayers) b.hitPlayers = [];
+                    b.hitPlayers.push('right');
+                    hitPlayer = true;
                 }
+            }
+            if (hitPlayer) {
+                if (b.pierceCount && b.pierceCount > 0) {
+                    b.pierceCount--;
+                } else {
+                    if (b.action === 'spread') {
+                        const spreadX = b.x - b.vx * 0.5;
+                        const spreadY = b.y - b.vy * 0.5;
+                        handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+                    }
+                    removeBullet(i); continue;
+                }
+            }
+            let hitUnit = false;
+            for (let j = 0; j < gameState.units.length; j++) {
+                const u = gameState.units[j];
+                if (u.side !== b.side && u.hp > 0 && u.fireType !== 'mine' && !u.hasBeenHitBy?.includes(b.uid)) {
+                    if (Math.abs(b.x - u.x) < 20 && Math.abs(b.y - u.y) < 20) {
+                        const dmg = (b.power || 5);
+                        u.hp -= dmg;
+                        if (b.side === 'left') {
+                            DPSManager.recordDamage(dmg);
+                        }
+                        SoundManager.playHit();
+                        hitUnit = true;
+                        if (b.pierceCount !== undefined) {
+                            if (!b.hitTargets) b.hitTargets = [];
+                            if (!u.hasBeenHitBy) u.hasBeenHitBy = [];
+                            b.hitTargets.push(u.uid);
+                            u.hasBeenHitBy.push(b.uid);
+                        }
+                        break;
+                    }
+                }
+            }
+            if (hitUnit) {
+                if (b.pierceCount && b.pierceCount > 0) {
+                    b.pierceCount--;
+                } else {
+                    if (b.action === 'spread') {
+                        const spreadX = b.x - b.vx * 0.5;
+                        const spreadY = b.y - b.vy * 0.5;
+                        handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+                    }
+                    removeBullet(i); continue;
+                }
+            }
+
+            // 壁際での拡散
+            if (b.action === 'spread' && (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT)) {
+                const spreadX = Math.max(0, Math.min(CONFIG.SCREEN_WIDTH, b.x));
+                const spreadY = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT, b.y));
+                handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
                 removeBullet(i); continue;
             }
-        }
-
-        // 壁際での拡散
-        if (b.action === 'spread' && (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT)) {
-            const spreadX = Math.max(0, Math.min(CONFIG.SCREEN_WIDTH, b.x));
-            const spreadY = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT, b.y));
-            handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
-            removeBullet(i); continue;
-        }
-        if (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT) {
-            if (b.bounce && b.bounce > 0) { b.vy *= -1; b.bounce--; continue; }
-            removeBullet(i); continue;
+            if (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT) {
+                if (b.bounce && b.bounce > 0) { b.vy *= -1; b.bounce--; continue; }
+                removeBullet(i); continue;
+            }
         }
     }
     for (let i = gameState.summoningEffects.length - 1; i >= 0; i--) {
@@ -2439,11 +2796,15 @@ function update() {
         }
     });
     gameState.units = gameState.units.filter(u => u.hp > 0);
-    if (gameState.isHost || gameState.isPractice) {
+    if (gameState.isHost || gameState.isPractice || gameState.isBotMatch) {
         if (gameState.players.left.hp <= 0 || gameState.players.right.hp <= 0) {
             const winner = gameState.players.left.hp <= 0 ? 'right' : 'left';
-            if (!gameState.isPractice) {
-                socket.send(JSON.stringify({ type: 'signal', action: 'game_over', winner }));
+            if (gameState.isBotMatch) {
+                endGame(winner);
+            } else if (!gameState.isPractice) {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'signal', action: 'game_over', winner }));
+                }
                 endGame(winner);
             } else {
                 statusMsg.innerText = "練習場：リセット！";
@@ -2879,27 +3240,58 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
     if (!target.extractionCount) target.extractionCount = 0;
     if (!target.sourceNames) target.sourceNames = [];
     if (!target.extractionHistory) target.extractionHistory = [];
-    if (!target.fireTypes) target.fireTypes = target.fireType && target.fireType !== 'none' ? [target.fireType] : [];
-    if (!target.actions) target.actions = target.action ? [target.action] : [];
+    
+    // 元の射撃タイプの保全
+    if (!target.fireTypes) {
+        target.fireTypes = target.fireType && target.fireType !== 'none' ? [target.fireType] : [];
+    }
+    // 元のアクション特性の保全
+    if (!target.actions) {
+        target.actions = [];
+        if (target.action) target.actions.push(target.action);
+        if (target.bounce) target.actions.push('bounce');
+        if (target.split) target.actions.push('split');
+        if (target.pierce) target.actions.push('pierce');
+        if (target.homing) target.actions.push('homing');
+    }
 
     // 素材側のスキル・特性を抽出
     const srcFireTypes = src.fireTypes || (src.fireType && src.fireType !== 'none' ? [src.fireType] : []);
-    const srcActions = src.actions || (src.action ? [src.action] : []);
+    const srcActions = src.actions || [];
+    if (src.action && !srcActions.includes(src.action)) srcActions.push(src.action);
+    if (src.bounce && !srcActions.includes('bounce')) srcActions.push('bounce');
+    if (src.split && !srcActions.includes('split')) srcActions.push('split');
+    if (src.pierce && !srcActions.includes('pierce')) srcActions.push('pierce');
+    if (src.homing && !srcActions.includes('homing')) srcActions.push('homing');
 
-    // 射撃タイプ追加（ただしマナ生成系ソーダやマナ生成キメラは弾を撃たない）
-    if (!target.isManaProducer && target.type !== 'soda') {
-        srcFireTypes.forEach(ft => {
-            if (!target.fireTypes.includes(ft)) target.fireTypes.push(ft);
-        });
-        if (target.fireTypes.length === 0 && srcFireTypes.length === 0 && (target.type === 'cola' || src.type === 'cola')) {
-            target.fireTypes.push('single');
+    // 射撃タイプを統合（素材の弾も撃てるように追加）
+    srcFireTypes.forEach(ft => {
+        if (ft && ft !== 'none' && !target.fireTypes.includes(ft)) {
+            target.fireTypes.push(ft);
         }
+    });
+
+    // どちらかがコーラや弾撃ちで、まだfireTypesがない場合は通常単発を追加
+    if (target.fireTypes.length === 0 && (target.type === 'cola' || src.type === 'cola' || srcFireTypes.length > 0)) {
+        target.fireTypes.push('single');
     }
 
-    // アクション特性追加（コーラの跳弾・分裂・貫通・追尾・爆散・チャージ等）
+    // アクション特性を追加（跳弾・分裂・貫通・爆散・毒・氷結・吸い込み等）
     srcActions.forEach(act => {
-        if (!target.actions.includes(act)) target.actions.push(act);
+        if (act && !target.actions.includes(act)) {
+            target.actions.push(act);
+        }
     });
+
+    // 貫通カウントの合算
+    if (src.pierceCount || src.pierce) {
+        target.pierceCount = Math.max(target.pierceCount || 0, src.pierceCount || 2) + 1;
+    }
+
+    // マナ生成能力の合算（ソーダを吸収した場合もマナ生成が付く）
+    if (src.manaGen > 0) {
+        target.manaGen = (target.manaGen || 0) + src.manaGen * 0.7;
+    }
 
     target.extractionCount++;
     target.sourceNames.push(src.name);
@@ -2919,7 +3311,7 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
     // 抽出履歴に素材のtypeKeyを記録
     target.extractionHistory.push(src.typeKey || src.id);
 
-    // 正しい順番・組み合わせに合致した時のみ100%シークレット進化（確率依存や5回一律進化は廃止）
+    // 正しい順番・組み合わせに合致した時のみ100%シークレット進化
     if (matchedChimera) {
         target.isSecretChimera = true;
         target.chimeraId = matchedChimera.id;
@@ -2953,7 +3345,7 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         target.maxHp = Math.floor((target.maxHp || target.hp) + (src.maxHp || src.hp) * 0.4);
         target.hp = Math.floor(target.maxHp * Math.max(0.2, hpRatio));
         target.power = (target.power || 15) + Math.max(2, Math.floor((src.power || 5) * 0.3));
-        target.cooldown = Math.max(0.5, (target.cooldown || 1.5) * 0.9);
+        target.cooldown = Math.max(0.4, (target.cooldown || 1.5) * 0.9);
         if (src.manaGen > 0) target.manaGen = (target.manaGen || 0) + src.manaGen * 0.6;
 
         statusMsg.innerText = `シークレット「${target.name}」が「${src.name}」を吸収して超強化！ (抽出: ${target.extractionCount}/10)`;
@@ -2962,9 +3354,8 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         const hpRatio = target.hp / (target.maxHp || target.hp || 1);
         target.maxHp = Math.floor((target.maxHp || target.hp) + (src.maxHp || src.hp) * 0.3);
         target.hp = Math.floor(target.maxHp * Math.max(0.2, hpRatio));
-        target.power = (target.power || 5) + Math.max(1, Math.floor((src.power || 5) * 0.2));
-        target.cooldown = Math.max(0.8, (target.cooldown || 2.0) * 0.85);
-        if (src.manaGen > 0) target.manaGen = (target.manaGen || 0) + src.manaGen * 0.5;
+        target.power = (target.power || 5) + Math.max(1, Math.floor((src.power || 5) * 0.25));
+        target.cooldown = Math.max(0.6, (target.cooldown || 2.0) * 0.85);
 
         statusMsg.innerText = `「${src.name}」と「${target.name}」が抽出融合！ (融合度: ${target.extractionCount}/5)`;
     }
@@ -2986,12 +3377,15 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
 function fireExtractionUnit(u) {
     if (gameState.prepTimer > 0) return;
 
-    // マナ生成系（ソーダ系、またはマナ生成キメラ）は弾を撃たない
-    if (u.type === 'soda' || u.isManaProducer || !u.fireTypes || u.fireTypes.includes('none') || u.fireTypes.length === 0) {
+    // マナ専任キメラ（fireTypesに'none'を含むもの、または射撃タイプを持たないもの）は弾を撃たない
+    const isPureManaProducer = (u.isManaProducer && (!u.fireTypes || u.fireTypes.includes('none'))) ||
+        (!u.fireTypes || u.fireTypes.length === 0 || u.fireTypes.every(ft => ft === 'none'));
+
+    if (isPureManaProducer) {
         // 生命樹のリジェネ能力のみ実行
-        if (u.isSecretChimera && u.chimeraId === 'chimera_genesis') {
+        if (u.isSecretChimera && (u.chimeraId === 'chimera_genesis' || u.id === 'chimera_genesis')) {
             const p = gameState.players[u.side];
-            if (p) p.hp = Math.min(p.maxHp || 2000, p.hp + 3);
+            if (p) p.hp = Math.min(p.maxHp || 2000, p.hp + 4);
         }
         return;
     }
@@ -3167,9 +3561,14 @@ function attemptFireColaTarget(cola, tx, ty) {
 
 function endGame(winner) {
     SoundManager.playVictory();
-    statusMsg.innerText = `ゲーム終了！勝者: ${winner === 'left' ? 'P1' : 'P2'}`;
+    const winnerName = (gameState.players[winner] && gameState.players[winner].name)
+        ? gameState.players[winner].name
+        : (winner === 'left' ? 'P1' : 'P2');
+    statusMsg.innerText = `ゲーム終了！ 勝者: 【${winnerName}】！`;
     menuOverlay.classList.remove('hidden');
     gameUI.classList.add('hidden');
+    gameState.isBotMatch = false;
+    gameState.isPractice = false;
 
     // メニューに戻ったらサーバー情報パネルを再表示
     const serverInfoPanel = document.getElementById('server-info-panel');
@@ -3488,20 +3887,26 @@ function leaveRoom() {
     if (gameState.isMatching) {
         cancelMatch();
     }
-    if (socket) {
+    if (gameState.matchTimeoutTimer) {
+        clearTimeout(gameState.matchTimeoutTimer);
+        gameState.matchTimeoutTimer = null;
+    }
+    if (socket && !gameState.isBotMatch) {
         socket.close();
         socket = null;
     }
     gameState.roomId = null;
     gameState.isHost = false;
     gameState.isMatching = false;
+    gameState.isBotMatch = false;
+    gameState.isPractice = false;
 
     menuOverlay.classList.remove('hidden');
     gameUI.classList.add('hidden');
     const rd = document.getElementById('room-display');
     if (rd) rd.innerText = `Room: -`;
     const btnFindMatch = document.getElementById('btn-find-match');
-    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
+    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す (オンライン)';
     const serverInfoPanel = document.getElementById('server-info-panel');
     if (serverInfoPanel) serverInfoPanel.classList.remove('hidden');
     const dpsPanel = document.getElementById('dps-panel');
