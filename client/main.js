@@ -252,10 +252,19 @@ const UNIT_TYPES = {
     RICE_FROST: { id: 'rice_f', name: 'フロスト ライス', cost: 16, hp: 18, type: 'rice', cooldown: 3.5, fireType: '8dir', action: 'frost', power: 6, desc: '【新種】氷結の冷気を放つ稲。冷気弾で敵弾を相殺。' },
     RICE_SNIPER: { id: 'rice_s', name: 'プレツィザ ライス', cost: 20, hp: 12, type: 'rice', cooldown: 4.5, fireType: 'single', action: 'sniper', power: 30, desc: '【新種】敵本体を遠距離から直接撃ち抜く狙撃の稲。' },
 
-    // 🛡️ 稲・盾（耐久調整）
-    RICE_SHIELD_WOOD: { id: 'rice_6', name: 'ホルツ シルト', cost: 8, hp: 70, type: 'rice', cooldown: 999, fireType: 'none', desc: '木製の素朴な盾。低コストで戦線を支える。' },
-    RICE_SHIELD_IRON: { id: 'rice_7', name: 'アイゼン シルト', cost: 15, hp: 130, type: 'rice', cooldown: 999, fireType: 'none', desc: '重厚な鉄の盾。強固な守りを提供。' },
-    RICE_SHIELD_MAGIC: { id: 'rice_8', name: 'アウラ シルト', cost: 24, hp: 200, type: 'rice', cooldown: 999, fireType: 'none', desc: '輝く魔力の盾。究極の耐久力を誇る障壁。' },
+    // 🛡️ 稲・盾（個性豊かな特殊能力を付与）
+    RICE_SHIELD_WOOD: {
+        id: 'rice_6', name: 'ホルツ シルト', cost: 8, hp: 65, type: 'rice', cooldown: 999, fireType: 'none', special: 'wood_regen',
+        desc: '【特殊能力: 芽吹き再生】低コスト木盾。自らのHPを毎秒+2自然回復し、破壊時に周囲味方HPを回復。'
+    },
+    RICE_SHIELD_IRON: {
+        id: 'rice_7', name: 'アイゼン シルト', cost: 15, hp: 120, type: 'rice', cooldown: 999, fireType: 'none', special: 'iron_reflect',
+        desc: '【特殊能力: 鉄壁反射】重厚鉄盾。被弾ダメージ25%軽減＋3回被弾ごとに棘スパイク弾を前方へ跳弾反射！'
+    },
+    RICE_SHIELD_MAGIC: {
+        id: 'rice_8', name: 'アウラ シルト', cost: 24, hp: 190, type: 'rice', cooldown: 999, fireType: 'none', special: 'aura_absorb',
+        desc: '【特殊能力: 魔力変換】神秘の障壁。敵弾を受けるたびに自軍マナへ変換し、戦線を支え続ける！'
+    },
 
     // 🥤 コーラ（手動投擲・新種追加）
     COLA_STRAIGHT: { id: 'cola_1', name: 'コーラ ブリッツ', cost: 8, hp: 50, type: 'cola', action: 'straight', power: 25, desc: '直線的に突き進む電撃のコーラ。' },
@@ -269,10 +278,19 @@ const UNIT_TYPES = {
     COLA_MENTOS: { id: 'cola_g', name: 'コーラ ゲイザー', cost: 15, hp: 45, type: 'cola', action: 'geyser', power: 22, desc: '【新種】炭酸噴射で軌道を変えながら急加速する暴走コーラ。' },
     COLA_ZERO: { id: 'cola_z', name: 'コーラ ゼロ', cost: 6, hp: 35, type: 'cola', action: 'zero', power: 16, desc: '【新種】超低コストで高速回転する零式コーラ。' },
 
-    // 🫧 ソーダ（マナ生成）
-    SODA_SMALL: { id: 'soda_1', name: 'ソーダ ブリーゼ', cost: 12, hp: 30, type: 'soda', manaGen: 0.02, desc: '穏やかな香りのソーダ。マナを微量生成。' },
-    SODA_MEDIUM: { id: 'soda_2', name: 'ソーダ クヴェレ', cost: 22, hp: 50, type: 'soda', manaGen: 0.05, desc: '湧き出す源泉のソーダ。マナを効率よく供給。' },
-    SODA_LARGE: { id: 'soda_3', name: 'ソーダ オツェアーン', cost: 35, hp: 80, type: 'soda', manaGen: 0.1, desc: '広大な大海のソーダ。マナの潮流を生む。' }
+    // 🫧 ソーダ（個性豊かな特殊能力を付与）
+    SODA_SMALL: {
+        id: 'soda_1', name: 'ソーダ ブリーゼ', cost: 12, hp: 35, type: 'soda', manaGen: 0.025, special: 'breeze_haste',
+        desc: '【特殊能力: 追い風エール】微量マナ生成に加え、同列にいる味方稲の攻撃速度を15%加速させる！'
+    },
+    SODA_MEDIUM: {
+        id: 'soda_2', name: 'ソーダ クヴェレ', cost: 22, hp: 55, type: 'soda', manaGen: 0.05, special: 'quelle_bubble',
+        desc: '【特殊能力: 泡の防護膜】中マナ生成。6秒ごとに最も弱った味方に敵弾を無効化するバブルシールド付与！'
+    },
+    SODA_LARGE: {
+        id: 'soda_3', name: 'ソーダ オツェアーン', cost: 35, hp: 85, type: 'soda', manaGen: 0.09, special: 'ocean_heal',
+        desc: '【特殊能力: 満潮ヒーリング】大量マナ生成に加え、自軍プレイヤー本体のHPを毎秒+2回復する！'
+    }
 };
 
 // シークレット特殊進化（キメラ合体）全20種の定義（厳格レシピ：最低3素材・2種類以上・個数指定）
@@ -397,6 +415,133 @@ const SECRET_CHIMERAS = {
         hp: 220, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.22,
         desc: '【No.009 シークレット】魔力盾に中ソーダと大ソーダを抽出。味方HPを持続リジェネ(+4/s)し大量マナ生成。'
     },
+    // ===============================================================
+    // ❄️ 第2弾: 氷結・極冷・絶対零度系シークレット (No.011〜020)
+    // ===============================================================
+    VALKYRIE_BLIZZARD: {
+        id: 'chimera_valkyrie', name: '氷槍 ヴァルキリー・ブリザード',
+        pairHint: 'フロスト ライス×2 ＋ コーラ ジャンパー (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_FROST' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_FROST').length >= 1 &&
+            s.typeKey === 'COLA_BOUNCE'
+        ),
+        hp: 110, power: 22, cooldown: 0.9, fireTypes: ['single'], actions: ['frost', 'bounce'],
+        desc: '【No.011 シークレット】氷結稲2体に跳弾コーラを抽出。壁を反射しながら触れた敵弾を相殺消滅させる極冷の跳弾氷槍！'
+    },
+    GLACIA_FORTRESS: {
+        id: 'chimera_glacia', name: '氷壁 グレイシア・フォートレス',
+        pairHint: 'アイゼン シルト ＋ フロスト ライス ＋ ソーダ クヴェレ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SHIELD_IRON' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_FROST') &&
+            s.typeKey === 'SODA_MEDIUM'
+        ),
+        hp: 280, power: 16, cooldown: 1.8, fireTypes: ['circle6'], actions: ['frost', 'iron_reflect'], special: 'iron_reflect',
+        desc: '【No.012 シークレット】鉄盾に氷結稲と源泉ソーダを抽出。被弾ダメージ軽減＆敵弾を相殺反射する絶対防御の氷壁要塞！'
+    },
+    ICICLE_SNIPER: {
+        id: 'chimera_icicle', name: '零式 アイシクル・スナイパー',
+        pairHint: 'プレツィザ ライス ＋ フロスト ライス ＋ コーラ ゼロ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SNIPER' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_FROST') &&
+            s.typeKey === 'COLA_ZERO'
+        ),
+        hp: 95, power: 36, cooldown: 1.3, fireTypes: ['single'], actions: ['frost', 'sniper', 'zero'], pierceCount: 4,
+        desc: '【No.013 シークレット】狙撃稲に氷結稲と零式コーラを抽出。敵弾をすり抜け相殺しながら敵プレイヤーを射抜く氷柱弾！'
+    },
+    DIAMOND_METEOR: {
+        id: 'chimera_diamond', name: '星屑 ダイヤモンドダスト・ミーティア',
+        pairHint: 'フェッヒャー ライス ＋ フロスト ライス ＋ コーラ ノヴァ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SPREAD' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_FROST') &&
+            s.typeKey === 'COLA_SPREAD'
+        ),
+        hp: 105, power: 26, cooldown: 1.4, fireTypes: ['circle6'], actions: ['frost', 'spread'],
+        desc: '【No.014 シークレット】拡散稲に氷結稲と爆散コーラを抽出。相殺した瞬間に周囲全域へダイヤモンドダスト大爆散を起こす！'
+    },
+    AVALANCHE_TITAN: {
+        id: 'chimera_avalanche', name: '雪嶺 アバランチ・タイタン',
+        pairHint: 'アイゼン シルト ＋ フロスト ライス ＋ コーラ ギガント (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SHIELD_IRON' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_FROST') &&
+            s.typeKey === 'COLA_MEGATON'
+        ),
+        hp: 340, power: 34, cooldown: 2.0, fireTypes: ['burst'], actions: ['frost', 'megaton'],
+        desc: '【No.015 シークレット】鉄盾に氷結稲と超巨大コーラを抽出。敵弾を相殺しながら敵前線を押し潰す巨大雪崩キャノン！'
+    },
+    COCYTUS_DRAKE: {
+        id: 'chimera_cocytus', name: '氷竜 コキュートス・ドレイク',
+        pairHint: 'シュトゥルム ライス ＋ フロスト ライス ＋ コーラ ランツェ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_BURST' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_FROST') &&
+            s.typeKey === 'COLA_PIERCE'
+        ),
+        hp: 100, power: 20, cooldown: 0.7, fireTypes: ['burst'], actions: ['frost', 'pierce'], pierceCount: 5,
+        desc: '【No.016 シークレット】連射稲に氷結稲と貫通コーラを抽出。敵弾を消滅させながら敵列を貫く氷竜の3連凍結レーザー！'
+    },
+    FREEZE_NEBULA: {
+        id: 'chimera_freeze_nebula', name: '凍穴 フリージング・ネビュラ',
+        pairHint: 'ギフト ライス ＋ フロスト ライス ＋ コーラ ネビュラ (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_POISON' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_FROST') &&
+            s.typeKey === 'COLA_BLACK'
+        ),
+        hp: 115, power: 18, cooldown: 1.5, fireTypes: ['8dir'], actions: ['frost', 'blackhole'], manaGen: 0.15,
+        desc: '【No.017 シークレット】毒稲に氷結稲と重力黒コーラを抽出。敵弾を凍らせて吸い込み消滅させ、自軍マナに大変換！'
+    },
+    AURORA_PHANTOM: {
+        id: 'chimera_aurora', name: '極光 オーロラ・ファントム',
+        pairHint: 'イェーガー ライス ＋ フロスト ライス ＋ コーラ ジャンパー (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SEEKER' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_FROST') &&
+            s.typeKey === 'COLA_BOUNCE'
+        ),
+        hp: 95, power: 22, cooldown: 1.1, fireTypes: ['homing2'], actions: ['frost', 'bounce', 'homing'],
+        desc: '【No.018 シークレット】追尾稲に氷結稲と跳弾コーラを抽出。壁を反射しながら敵弾を相殺し、相手本体へ迫る幻影氷弾！'
+    },
+    FROST_GENESIS: {
+        id: 'chimera_frost_genesis', name: '氷聖樹 フロスト・ジェネシス',
+        pairHint: 'アウラ シルト ＋ フロスト ライス ＋ ソーダ オツェアーン (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_SHIELD_MAGIC' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.includes('RICE_FROST') &&
+            s.typeKey === 'SODA_LARGE'
+        ),
+        hp: 240, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.25, actions: ['frost'],
+        desc: '【No.019 シークレット】魔力盾に氷結稲と大海ソーダを抽出。触れた敵弾を完全凍結相殺しつつ味方リジェネ＆マナ超生成！'
+    },
+    NIFLHEIM_GOD: {
+        id: 'chimera_niflheim', name: '氷獄神 ニヴルヘイム',
+        pairHint: 'フロスト ライス×2 ＋ コーラ バルカン (計3体)',
+        recipe: (t, s) => (
+            t.typeKey === 'RICE_FROST' &&
+            Array.isArray(t.extractionHistory) &&
+            t.extractionHistory.filter(k => k === 'RICE_FROST').length >= 1 &&
+            s.typeKey === 'COLA_CHARGE'
+        ),
+        hp: 130, power: 35, cooldown: 1.3, fireTypes: ['circle6'], actions: ['frost', 'charge', 'spread'],
+        desc: '【No.020 シークレット】氷結稲2体に火山コーラを抽出。敵弾相殺時に周囲へ極大の絶対零度カウンター氷爆を炸裂！'
+    },
+
+    // ===============================================================
+    // ⚡ 既存厳格キメラ (追加強化枠)
+    // ===============================================================
     VOLTEC_LASER: {
         id: 'chimera_voltec', name: '迅雷 ルクス・ヴォルテック',
         pairHint: 'ルクス ライス×2 ＋ コーラ ブリッツ (計3体)',
@@ -916,6 +1061,60 @@ function generateSprites() {
             x.fillStyle = '#27ae60'; x.fillRect(6, 6, 20, 20);
             x.fillStyle = '#795548'; x.fillRect(10, 10, 12, 12);
             x.fillStyle = '#2ecc71'; x.beginPath(); x.arc(16, 16, 4, 0, Math.PI * 2); x.fill();
+        } else if (chimera.id === 'chimera_valkyrie') {
+            // No.011 ヴァルキリー・ブリザード (氷槍翼)
+            x.fillStyle = '#74b9ff'; x.beginPath(); x.moveTo(16, 2); x.lineTo(26, 22); x.lineTo(16, 17); x.lineTo(6, 22); x.closePath(); x.fill();
+            x.fillStyle = '#dfe6e9'; x.fillRect(14, 6, 4, 18);
+            x.strokeStyle = '#0984e3'; x.lineWidth = 1.5; x.stroke();
+        } else if (chimera.id === 'chimera_glacia') {
+            // No.012 グレイシア・フォートレス (氷壁鉄砦)
+            x.fillStyle = '#0984e3'; x.fillRect(4, 4, 24, 24);
+            x.fillStyle = '#74b9ff'; x.fillRect(7, 7, 18, 18);
+            x.fillStyle = '#ffffff'; x.fillRect(11, 11, 10, 10);
+            x.strokeStyle = '#00cec9'; x.lineWidth = 2; x.strokeRect(4, 4, 24, 24);
+        } else if (chimera.id === 'chimera_icicle') {
+            // No.013 アイシクル・スナイパー (氷柱狙撃)
+            x.fillStyle = '#2d3436'; x.fillRect(13, 2, 6, 26);
+            x.fillStyle = '#00cec9'; x.beginPath(); x.moveTo(16, 0); x.lineTo(22, 10); x.lineTo(10, 10); x.fill();
+            x.fillStyle = '#74b9ff'; x.fillRect(12, 14, 8, 8);
+        } else if (chimera.id === 'chimera_diamond') {
+            // No.014 ダイヤモンドダスト・ミーティア (星屑氷晶)
+            x.fillStyle = '#81ecec'; x.beginPath(); x.arc(16, 16, 12, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#ffffff'; x.beginPath(); x.moveTo(16, 6); x.lineTo(24, 16); x.lineTo(16, 26); x.lineTo(8, 16); x.closePath(); x.fill();
+            x.strokeStyle = '#0984e3'; x.lineWidth = 1.5; x.stroke();
+        } else if (chimera.id === 'chimera_avalanche') {
+            // No.015 アバランチ・タイタン (雪嶺巨神)
+            x.fillStyle = '#2c3e50'; x.fillRect(4, 4, 24, 24);
+            x.fillStyle = '#dfe6e9'; x.fillRect(6, 6, 20, 20);
+            x.fillStyle = '#0984e3'; x.fillRect(10, 10, 12, 12);
+            x.strokeStyle = '#74b9ff'; x.lineWidth = 2; x.strokeRect(4, 4, 24, 24);
+        } else if (chimera.id === 'chimera_cocytus') {
+            // No.016 コキュートス・ドレイク (氷竜)
+            x.fillStyle = '#0984e3'; x.beginPath(); x.moveTo(16, 2); x.lineTo(28, 16); x.lineTo(22, 28); x.lineTo(10, 28); x.lineTo(4, 16); x.closePath(); x.fill();
+            x.fillStyle = '#00cec9'; x.fillRect(13, 8, 6, 16);
+            x.fillStyle = '#fff'; x.fillRect(14, 4, 4, 4);
+        } else if (chimera.id === 'chimera_freeze_nebula') {
+            // No.017 フリージング・ネビュラ (凍穴)
+            x.fillStyle = '#0a3d62'; x.beginPath(); x.arc(16, 16, 13, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#60a3bc'; x.beginPath(); x.arc(16, 16, 8, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#fff'; x.beginPath(); x.arc(16, 16, 3, 0, Math.PI * 2); x.fill();
+        } else if (chimera.id === 'chimera_aurora') {
+            // No.018 オーロラ・ファントム (極光幻影)
+            x.fillStyle = 'rgba(0, 206, 201, 0.8)'; x.beginPath(); x.ellipse(16, 16, 14, 7, Math.PI / 4, 0, Math.PI * 2); x.fill();
+            x.fillStyle = 'rgba(108, 92, 231, 0.8)'; x.beginPath(); x.ellipse(16, 16, 14, 7, -Math.PI / 4, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#fff'; x.fillRect(14, 14, 4, 4);
+        } else if (chimera.id === 'chimera_frost_genesis') {
+            // No.019 フロスト・ジェネシス (氷聖樹)
+            x.fillStyle = '#74b9ff'; x.beginPath(); x.arc(16, 12, 11, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#0984e3'; x.fillRect(13, 18, 6, 12);
+            x.fillStyle = '#fff'; x.beginPath(); x.arc(16, 12, 5, 0, Math.PI * 2); x.fill();
+            x.strokeStyle = '#dfe6e9'; x.lineWidth = 2; x.beginPath(); x.arc(16, 12, 13, 0, Math.PI * 2); x.stroke();
+        } else if (chimera.id === 'chimera_niflheim') {
+            // No.020 氷獄神 ニヴルヘイム (絶対零度極神)
+            x.fillStyle = '#0c2461'; x.beginPath(); x.arc(16, 16, 14, 0, Math.PI * 2); x.fill();
+            x.fillStyle = '#4a69bd'; x.fillRect(8, 8, 16, 16);
+            x.fillStyle = '#e55039'; x.beginPath(); x.arc(16, 16, 5, 0, Math.PI * 2); x.fill();
+            x.strokeStyle = '#60a3bc'; x.lineWidth = 2; x.strokeRect(8, 8, 16, 16);
         }
 
         ASSETS[chimera.id] = c;
@@ -2636,10 +2835,50 @@ function update() {
     if (gameState.players.left.throwTimer > 0) gameState.players.left.throwTimer--;
     if (gameState.players.right.throwTimer > 0) gameState.players.right.throwTimer--;
 
-    // ソーダのマナ生成
+    // ソーダ＆シールドの特殊能力・マナ生成の更新
     gameState.units.forEach(u => {
-        if (u.hp > 0 && u.manaGen > 0) {
+        if (u.hp <= 0) return;
+
+        // マナ生成
+        if (u.manaGen > 0) {
             gameState.players[u.side].mana = Math.min(100, gameState.players[u.side].mana + u.manaGen);
+        }
+
+        // 🫧 ソーダ オツェアーン【満潮ヒーリング】: プレイヤー本体HPを毎秒+2回復
+        if (u.special === 'ocean_heal' || u.actions?.includes('ocean_heal')) {
+            u.healTick = (u.healTick || 0) + 1;
+            if (u.healTick >= CONFIG.FPS) {
+                u.healTick = 0;
+                const p = gameState.players[u.side];
+                if (p) p.hp = Math.min(p.maxHp || 2000, p.hp + 2);
+            }
+        }
+
+        // 🫧 ソーダ クヴェレ【泡の防護膜】: 6秒ごとに最も弱った味方にバブルシールド付与
+        if (u.special === 'quelle_bubble' || u.actions?.includes('quelle_bubble')) {
+            u.bubbleTick = (u.bubbleTick || 0) + 1;
+            if (u.bubbleTick >= CONFIG.FPS * 6) {
+                u.bubbleTick = 0;
+                // 同陣地でバブル未所持のユニットを探す
+                const candidates = gameState.units.filter(target => target.side === u.side && target.hp > 0 && !target.hasBubbleShield);
+                if (candidates.length > 0) {
+                    // HP割合が最も低いユニットを優先
+                    candidates.sort((a, b) => (a.hp / (a.maxHp || a.hp || 1)) - (b.hp / (b.maxHp || b.hp || 1)));
+                    candidates[0].hasBubbleShield = true;
+                }
+            }
+        }
+
+        // 🛡️ ホルツ シルト【芽吹き再生】: 毎秒自分のHPを+2自然回復
+        if (u.special === 'wood_regen' || u.actions?.includes('wood_regen')) {
+            u.woodRegenTick = (u.woodRegenTick || 0) + 1;
+            if (u.woodRegenTick >= CONFIG.FPS) {
+                u.woodRegenTick = 0;
+                const maxHp = u.maxHp || 65;
+                if (u.hp < maxHp) {
+                    u.hp = Math.min(maxHp, u.hp + 2);
+                }
+            }
         }
     });
 
@@ -2665,7 +2904,10 @@ function update() {
     if (isAuthority) {
         gameState.units.forEach(u => {
             if (u.type === 'rice' || u.extractionCount > 0) {
-                u.lastFire = (u.lastFire || 0) + 1;
+                // 🫧 ソーダ ブリーゼ【追い風エール】: 同列(同じrow)にブリーゼがいる場合、攻撃速度+25%加速！
+                const hasBreeze = gameState.units.some(s => s.side === u.side && s.hp > 0 && s.row === u.row && (s.special === 'breeze_haste' || s.actions?.includes('breeze_haste')));
+                const fireInc = hasBreeze ? 1.25 : 1.0;
+                u.lastFire = (u.lastFire || 0) + fireInc;
                 if (u.lastFire >= (u.cooldown || 2) * CONFIG.FPS) {
                     u.lastFire = 0;
                     if (u.extractionCount > 0) {
@@ -2837,8 +3079,46 @@ function update() {
                 const u = gameState.units[j];
                 if (u.side !== b.side && u.hp > 0 && u.fireType !== 'mine' && !u.hasBeenHitBy?.includes(b.uid)) {
                     if (Math.abs(b.x - u.x) < 20 && Math.abs(b.y - u.y) < 20) {
-                        const dmg = (b.power || 5);
+                        // 🫧 ソーダ クヴェレの「泡の防護膜（バブルシールド）」判定
+                        if (u.hasBubbleShield) {
+                            u.hasBubbleShield = false;
+                            SoundManager.playHit();
+                            hitUnit = true;
+                            break; // ダメージ完全無効化
+                        }
+
+                        let dmg = (b.power || 5);
+
+                        // 🛡️ アイゼン シルト（鉄盾）: ダメージ25%軽減＋3回被弾で反射弾を射出
+                        if (u.special === 'iron_reflect' || u.actions?.includes('iron_reflect')) {
+                            dmg = Math.max(1, Math.floor(dmg * 0.75));
+                            u.reflectHits = (u.reflectHits || 0) + 1;
+                            if (u.reflectHits >= 3) {
+                                u.reflectHits = 0;
+                                const refVx = u.side === 'left' ? 4.5 : -4.5;
+                                spawnBullet(u.x + (u.side === 'left' ? 16 : -16), u.y, refVx, (Math.random() - 0.5) * 1.5, u.side, { power: 12, bounce: 2, spriteKey: 'bullet' });
+                                SoundManager.playFire();
+                            }
+                        }
+
+                        // 🛡️ アウラ シルト（魔力盾）: 被弾ダメージを自軍マナへ変換
+                        if (u.special === 'aura_absorb' || u.actions?.includes('aura_absorb')) {
+                            const p = gameState.players[u.side];
+                            if (p) p.mana = Math.min(100, p.mana + dmg * 0.2);
+                        }
+
                         u.hp -= dmg;
+
+                        // 🛡️ ホルツ シルト（木盾）破壊時: 周囲の味方HPを小回復
+                        if (u.hp <= 0 && (u.special === 'wood_regen' || u.actions?.includes('wood_regen')) && !u.woodBursted) {
+                            u.woodBursted = true;
+                            gameState.units.forEach(adj => {
+                                if (adj.side === u.side && adj.hp > 0 && adj !== u && Math.hypot(adj.x - u.x, adj.y - u.y) < 60) {
+                                    adj.hp = Math.min(adj.maxHp || 100, adj.hp + 15);
+                                }
+                            });
+                        }
+
                         if (b.side === 'left') {
                             DPSManager.recordDamage(dmg);
                         }
@@ -3614,7 +3894,7 @@ function populateEncyclopedia() {
     // シークレット特殊進化（キメラ合体）セクション
     const chimeraHeader = document.createElement('div');
     chimeraHeader.style.cssText = 'width: 100%; color: #ffd700; font-size: 1.1rem; font-weight: bold; border-bottom: 2px solid #ffd700; padding-bottom: 5px; margin: 20px 0 10px 0;';
-    chimeraHeader.textContent = 'シークレット特殊進化キメラ (全20種)';
+    chimeraHeader.textContent = `シークレット特殊進化キメラ (全${Object.keys(SECRET_CHIMERAS).length}種)`;
     list.appendChild(chimeraHeader);
 
     const discovered = JSON.parse(localStorage.getItem('inamu_discovered_chimeras') || '[]');
@@ -3757,6 +4037,19 @@ function draw() {
                 ctx.fillStyle = '#444'; ctx.fillRect(gx, gy, 24, 4);
                 ctx.fillStyle = '#ff0'; ctx.fillRect(gx, gy, 24 * (u.charge || 0), 4);
             }
+        }
+
+        // 🫧 バブルシールド描画（クヴェレの泡バリア）
+        if (u.hasBubbleShield) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0, 220, 255, 0.85)';
+            ctx.fillStyle = 'rgba(0, 200, 255, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(u.x, u.y, 18, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
         }
 
         // 抽出されている場合の追加エフェクト（オーラとバッジ）
