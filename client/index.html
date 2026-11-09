@@ -164,11 +164,18 @@
                 <div id="unit-selector">
                     <!-- ユニットスロットがここに入る (最大10枠) -->
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 5px; margin-left: auto;">
-                    <button id="btn-toggle-fusion-mode"
-                        style="padding: 5px 8px; font-size: 0.8rem; background: #066; border-radius: 4px; cursor: pointer;">抽出モード(E)</button>
-                    <button id="btn-help" style="padding: 5px 8px; font-size: 0.8rem; background: #448; border-radius: 4px; cursor: pointer;">操作方法</button>
+                <div class="action-buttons-group">
+                    <!-- スマホ・タッチ用 コーラ発射ボタン -->
+                    <button id="btn-fire-cola-mobile" class="mobile-action-btn" title="スペースキーと同じ効果">コーラ発射</button>
+                    <button id="btn-toggle-fusion-mode" class="mobile-action-btn" style="background: #066;">抽出(E)</button>
+                    <button id="btn-help" class="mobile-action-btn" style="background: #448;">操作</button>
                 </div>
+            </div>
+
+            <!-- 📱 スマホ用 バーチャル移動コントローラー (画面左側に透過配置) -->
+            <div id="mobile-controls">
+                <button id="btn-mobile-up" class="mobile-dir-btn" aria-label="上移動">▲</button>
+                <button id="btn-mobile-down" class="mobile-dir-btn" aria-label="下移動">▼</button>
             </div>
             
             <!-- チャットUI -->

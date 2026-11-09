@@ -1193,27 +1193,29 @@ const DeckManager = {
 
         if (countEl) countEl.textContent = this.tempDeck.length;
 
-        // 現在の6スロット描画
+        // 現在の10スロット描画 (MAX_DECK_SIZE=10枠すべて表示)
         slotsEl.innerHTML = '';
-        for (let i = 0; i < 6; i++) {
+        for (let i = 0; i < MAX_DECK_SIZE; i++) {
             const key = this.tempDeck[i];
             const slot = document.createElement('div');
-            slot.style.cssText = 'width: 60px; height: 60px; border: 2px solid ' + (key ? '#0df' : '#444') + '; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: ' + (key ? 'rgba(0,100,200,0.3)' : 'rgba(0,0,0,0.3)') + '; cursor: pointer; position: relative;';
+            slot.className = 'deck-modal-slot';
+            slot.style.cssText = 'width: 58px; height: 58px; border: 2px solid ' + (key ? '#0df' : '#444') + '; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: ' + (key ? 'rgba(0,100,200,0.3)' : 'rgba(0,0,0,0.3)') + '; cursor: pointer; position: relative; flex-shrink: 0;';
 
+            const numLabel = i === 9 ? '0' : `${i + 1}`;
             if (key && UNIT_TYPES[key]) {
                 const u = UNIT_TYPES[key];
                 const spr = ASSETS[key];
-                let imgTag = spr ? `<img src="${spr.toDataURL()}" style="width: 28px; height: 28px; image-rendering: pixelated;">` : '';
+                let imgTag = spr ? `<img src="${spr.toDataURL()}" style="width: 26px; height: 26px; image-rendering: pixelated;">` : '';
                 const nameShort = u.name.replace(/ライス|コーラ|ソーダ|シールド|盾/g, '').trim();
                 slot.innerHTML = `
-                    <span style="position: absolute; top: 1px; left: 3px; font-size: 0.6rem; color: #ff0;">[${i+1}]</span>
-                    <span style="position: absolute; top: 1px; right: 3px; font-size: 0.6rem; color: #f55; font-weight: bold;">✕</span>
+                    <span style="position: absolute; top: 1px; left: 3px; font-size: 0.6rem; color: #ff0; font-weight: bold;">[${numLabel}]</span>
+                    <span style="position: absolute; top: 1px; right: 3px; font-size: 0.65rem; color: #f55; font-weight: bold;">✕</span>
                     ${imgTag}
-                    <div style="font-size: 0.55rem; color: #fff; margin-top: 2px; white-space: nowrap; overflow: hidden; max-width: 55px; text-overflow: ellipsis;">${nameShort}</div>
+                    <div style="font-size: 0.52rem; color: #fff; margin-top: 1px; white-space: nowrap; overflow: hidden; max-width: 52px; text-overflow: ellipsis;">${nameShort}</div>
                 `;
                 slot.onclick = () => this.removeAt(i);
             } else {
-                slot.innerHTML = `<span style="font-size: 0.7rem; color: #666;">空き [${i+1}]</span>`;
+                slot.innerHTML = `<span style="font-size: 0.65rem; color: #666;">枠[${numLabel}]</span>`;
             }
             slotsEl.appendChild(slot);
         }
@@ -1618,6 +1620,42 @@ function setupEventListeners() {
 
     canvas.addEventListener('click', handleCanvasClick);
 
+    // 📱 スマホ用 コーラ発射ボタン
+    const btnFireColaMobile = document.getElementById('btn-fire-cola-mobile');
+    if (btnFireColaMobile) {
+        btnFireColaMobile.addEventListener('click', (e) => {
+            e.preventDefault();
+            attemptFireCola();
+        });
+        btnFireColaMobile.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            attemptFireCola();
+        });
+    }
+
+    // 📱 スマホ用 バーチャル移動ボタン (▲ / ▼)
+    const btnMobileUp = document.getElementById('btn-mobile-up');
+    const btnMobileDown = document.getElementById('btn-mobile-down');
+
+    const bindDirBtn = (btn, key) => {
+        if (!btn) return;
+        const press = (e) => {
+            e.preventDefault();
+            keysPressed[key] = true;
+        };
+        const release = (e) => {
+            e.preventDefault();
+            keysPressed[key] = false;
+        };
+        btn.addEventListener('pointerdown', press);
+        btn.addEventListener('pointerup', release);
+        btn.addEventListener('pointerleave', release);
+        btn.addEventListener('pointercancel', release);
+    };
+
+    bindDirBtn(btnMobileUp, 'ArrowUp');
+    bindDirBtn(btnMobileDown, 'ArrowDown');
+
     // 抽出モードボタン
     const btnToggleExtraction = document.getElementById('btn-toggle-fusion-mode');
     if (btnToggleExtraction) {
@@ -1801,6 +1839,74 @@ function setupEventListeners() {
         const factor = e.deltaY < 0 ? 1.15 : 0.87;
         Camera.zoomBy(factor);
     }, { passive: false });
+
+    // 📱 スマホ用 タッチ操作（1本指タップ召喚、2本指ピンチズーム・カメラパン）
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isTouchDrag = false;
+    let initialPinchDist = 0;
+    let initialPinchZoom = 1.0;
+
+    canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            const t = e.touches[0];
+            touchStartX = t.clientX;
+            touchStartY = t.clientY;
+            isTouchDrag = false;
+            Camera.dragStartX = t.clientX;
+            Camera.dragStartY = t.clientY;
+            Camera.cameraStartX = Camera.x;
+            Camera.cameraStartY = Camera.y;
+
+            // マウス位置更新（コーラ照準用）
+            const wpos = Camera.screenToWorld(t.clientX, t.clientY);
+            gameState.mousePos.x = wpos.x;
+            gameState.mousePos.y = wpos.y;
+        } else if (e.touches.length === 2) {
+            // 2本指ピンチ開始
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            initialPinchDist = Math.hypot(dx, dy);
+            initialPinchZoom = Camera.zoom;
+            isTouchDrag = true;
+        }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+            const t = e.touches[0];
+            const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
+            if (dist > 10) {
+                isTouchDrag = true; // スワイプ移動中
+                const dx = (t.clientX - Camera.dragStartX) / Camera.zoom;
+                const dy = (t.clientY - Camera.dragStartY) / Camera.zoom;
+                Camera.x = Camera.cameraStartX + dx;
+                Camera.y = Camera.cameraStartY + dy;
+            }
+            const wpos = Camera.screenToWorld(t.clientX, t.clientY);
+            gameState.mousePos.x = wpos.x;
+            gameState.mousePos.y = wpos.y;
+        } else if (e.touches.length === 2 && initialPinchDist > 0) {
+            // 2本指ピンチズーム
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const curDist = Math.hypot(dx, dy);
+            const scale = curDist / initialPinchDist;
+            Camera.zoom = Math.max(Camera.minZoom, Math.min(Camera.maxZoom, initialPinchZoom * scale));
+        }
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', (e) => {
+        if (!isTouchDrag && e.changedTouches.length > 0) {
+            // タップと判定：マス目召喚・選択を実行
+            const t = e.changedTouches[0];
+            handleCanvasClick({ clientX: t.clientX, clientY: t.clientY });
+        }
+        if (e.touches.length === 0) {
+            isTouchDrag = false;
+            initialPinchDist = 0;
+        }
+    }, { passive: true });
 
     updateUnitUI();
 
@@ -2375,14 +2481,20 @@ function attemptFireCola() {
     // スペース連射防止: クールダウン中は発射しない
     if (gameState.spaceFireCooldown > 0) return;
 
-    // マウスカーソル位置をターゲットにする
-    const tx = gameState.mousePos.x;
-    const ty = gameState.mousePos.y;
+    // マウスカーソル位置をターゲットにする（スマホ等で未操作の場合は相手プレイヤー本陣を自動照準）
+    const otherSide = gameState.playerSide === 'left' ? 'right' : 'left';
+    let tx = gameState.mousePos.x;
+    let ty = gameState.mousePos.y;
+
+    if (!tx && !ty) {
+        tx = gameState.playerSide === 'left' ? CONFIG.SCREEN_WIDTH - 16 : 16;
+        ty = (gameState.players[otherSide] ? gameState.players[otherSide].y : 80) + 16;
+    }
 
     // クールダウンをセット (30フレーム = 1秒)
     gameState.spaceFireCooldown = 30;
 
-    if (gameState.isPractice) {
+    if (gameState.isPractice || gameState.isBotMatch) {
         processFireColaTargetAll(tx, ty, gameState.playerSide);
         return;
     }
@@ -2399,6 +2511,8 @@ function attemptFireCola() {
         if (gameState.isHost) {
             processFireColaTargetAll(tx, ty, gameState.playerSide);
         }
+    } else {
+        processFireColaTargetAll(tx, ty, gameState.playerSide);
     }
 }
 
