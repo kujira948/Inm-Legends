@@ -157,7 +157,9 @@ wss.on('connection', (ws) => {
 
     ws.on('message', (message) => {
         try {
-            const data = JSON.parse(message);
+            // 文字列として扱う（中継時もバイナリではなく文字で送り、受信側の変換の手間を省く）
+            const text = message.toString();
+            const data = JSON.parse(text);
 
             switch (data.type) {
                 case 'register_player':
@@ -175,13 +177,26 @@ wss.on('connection', (ws) => {
                     }
                     break;
 
-                case 'find_match':
+                case 'find_match': {
+                    // 前の試合の部屋が残っていれば片付け、二重登録も防ぐ
+                    leaveCurrentRoom(ws);
+                    removeFromQueues(ws);
+
                     ws.isRated = !!data.isRated;
                     const queueKey = ws.isRated ? 'rated' : 'unrated';
                     const queue = matchmakingQueues[queueKey];
 
-                    if (queue.length > 0) {
-                        const opponent = queue.shift();
+                    // 切断済み・自分自身は対戦相手にしない
+                    let opponent = null;
+                    while (queue.length > 0) {
+                        const candidate = queue.shift();
+                        if (candidate !== ws && candidate.readyState === WebSocket.OPEN) {
+                            opponent = candidate;
+                            break;
+                        }
+                    }
+
+                    if (opponent) {
                         const roomId = Math.floor(100000 + Math.random() * 900000).toString();
 
                         const roomData = { players: [opponent, ws], host: opponent };
@@ -209,20 +224,31 @@ wss.on('connection', (ws) => {
                         ws.send(JSON.stringify({ type: 'matching_started' }));
                     }
                     break;
+                }
 
                 case 'cancel_match':
                     removeFromQueues(ws);
                     ws.send(JSON.stringify({ type: 'matching_cancelled' }));
                     break;
 
-                case 'signal':
+                case 'leave_room':
+                    // 試合終了時にクライアントから送られる。部屋を解散する
+                    leaveCurrentRoom(ws);
+                    break;
+
+                case 'signal': {
                     const currentRoom = rooms.get(ws.roomId);
                     if (currentRoom) {
+                        const isState = data.action === 'state';
                         currentRoom.players.forEach(p => {
-                            if (p !== ws) p.send(message);
+                            if (p === ws || p.readyState !== WebSocket.OPEN) return;
+                            // 相手側の受信が詰まっているときは盤面情報だけ間引く（召喚・試合終了などは必ず届ける）
+                            if (isState && p.bufferedAmount > MAX_RELAY_BUFFER) return;
+                            p.send(text);
                         });
                     }
                     break;
+                }
             }
         } catch (err) {
             console.error('Error handling message:', err);
@@ -232,20 +258,32 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         connectedPlayers.delete(ws);
         removeFromQueues(ws);
-        if (ws.roomId) {
-            const room = rooms.get(ws.roomId);
-            if (room) {
-                rooms.delete(ws.roomId);
-                room.players.forEach(p => {
-                    if (p !== ws) {
-                        try { p.send(JSON.stringify({ type: 'signal', action: 'opponent_disconnected' })); } catch(e) {}
-                    }
-                });
-            }
-        }
+        leaveCurrentRoom(ws);
         broadcastOnlinePlayers();
     });
 });
+
+// 相手側の送信待ちがこれ以上溜まっていたら、盤面情報(state)の中継を見送る
+const MAX_RELAY_BUFFER = 64 * 1024;
+
+// ws が入っている部屋を解散する。同じ部屋に残っている相手には切断を知らせる
+// （試合終了後なら、相手側は試合中ではないので無視される）
+function leaveCurrentRoom(ws) {
+    const roomId = ws.roomId;
+    if (!roomId) return;
+    ws.roomId = null;
+    const room = rooms.get(roomId);
+    if (!room) return;
+    rooms.delete(roomId);
+    room.players.forEach(p => {
+        // 相手がすでに別の部屋へ移っていたら何もしない（新しい試合を邪魔しない）
+        if (p === ws || p.roomId !== roomId) return;
+        p.roomId = null;
+        if (p.readyState === WebSocket.OPEN) {
+            try { p.send(JSON.stringify({ type: 'signal', action: 'opponent_disconnected' })); } catch (e) {}
+        }
+    });
+}
 
 function removeFromQueues(ws) {
     matchmakingQueues.rated = matchmakingQueues.rated.filter(p => p !== ws);

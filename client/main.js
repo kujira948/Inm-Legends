@@ -1456,6 +1456,7 @@ const FieldGimmickManager = {
 
 // 状態管理
 let gameState = {
+    isPlaying: false, // 試合中フラグ（false の間はゲーム計算・送信・勝敗判定を止める）
     isHost: false,
     roomId: null,
     playerSide: 'left', // 'left' or 'right'
@@ -2387,7 +2388,7 @@ function cancelMatch() {
         gameState.matchTimeoutTimer = null;
     }
     const btnFindMatch = document.getElementById('btn-find-match');
-    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す (オンライン)';
+    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
     statusMsg.innerText = '';
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'cancel_match' }));
@@ -2488,8 +2489,10 @@ function handleServerMessage(data) {
             updateOnlinePlayersUI(data.hostName, data.players);
             break;
         case 'disconnected':
-            statusMsg.innerText = "相手が切断しました。あなたの勝利です！";
-            endGame(gameState.playerSide);
+            if (gameState.isPlaying) {
+                endGame(gameState.playerSide);
+                statusMsg.innerText = "相手が切断しました。あなたの勝利です！";
+            }
             break;
         case 'matching_started':
             // サーバー側で待ち行列に入った
@@ -2527,7 +2530,10 @@ function handleServerMessage(data) {
             }
             break;
         case 'signal':
-            if (data.action === 'sync_name') {
+            if (data.action === 'state') {
+                // ホストからの盤面情報（一番多く届くので最初に判定）
+                if (!gameState.isHost && gameState.isPlaying && data.s) NetSync.apply(data.s);
+            } else if (data.action === 'sync_name') {
                 gameState.players[data.side].name = data.name;
             } else if (data.action === 'summon') {
                 processSummon(data);
@@ -2550,10 +2556,11 @@ function handleServerMessage(data) {
             } else if (data.action === 'game_over') {
                 endGame(data.winner);
             } else if (data.action === 'opponent_disconnected') {
-                statusMsg.innerText = "相手が切断しました。あなたの勝利です！";
-                endGame(gameState.playerSide);
-            } else if (!gameState.isHost && data.state) {
-                syncGameState(data.state);
+                // 試合中に相手が抜けたときだけ勝利扱い（試合後の部屋解散通知は無視）
+                if (gameState.isPlaying) {
+                    endGame(gameState.playerSide);
+                    statusMsg.innerText = "相手が切断しました。あなたの勝利です！";
+                }
             }
             break;
     }
@@ -2670,6 +2677,8 @@ function startGame() {
     }
 
     // ゲーム状態のリセット
+    gameState.isPlaying = true;
+    NetSync.reset();
     gameState.units = [];
     gameState.bullets = [];
     gameState.summoningEffects = [];
@@ -2799,23 +2808,138 @@ function updatePlayerMovement() {
     }
 }
 
-// 同期 (クライアント側)
-function syncGameState(remoteState) {
-    // ホストからの状態を同期する
-    const otherSide = gameState.playerSide === 'left' ? 'right' : 'left';
-    gameState.players[otherSide].y = remoteState.players[otherSide].y;
-    gameState.players[otherSide].hp = remoteState.players[otherSide].hp;
-    gameState.players[gameState.playerSide].hp = remoteState.players[gameState.playerSide].hp;
-    gameState.players.left.mana = remoteState.players.left.mana;
-    gameState.players.right.mana = remoteState.players.right.mana;
+// ===============================================================
+// 📡 オンライン同期（ホスト → 参加者）の軽量化
+// 以前は gameState 全体を毎フレーム(30回/秒)送っていたため、参加者側で受信が詰まり
+// 遅延がどんどん溜まっていた。必要な情報だけを短い形で 15回/秒 送る。
+// ===============================================================
+const NetSync = {
+    SEND_EVERY: 2,             // 2フレームに1回送信（30FPS → 15回/秒）
+    KEYFRAME_EVERY: 30,        // 30回送るごと（約2秒）にユニットの全情報を送り直す
+    MAX_BUFFERED: 32 * 1024,   // 送信待ちがこれ以上溜まっていたら今回は送らない（遅延の積み重なり防止）
 
-    // ユニットと弾の同期 (単純な上書きだが、ID等がないので毎フレーム全コピーは少し重いかもしれないが、一旦これで)
-    if (!gameState.isHost) {
-        gameState.units = remoteState.units;
-        gameState.bullets = remoteState.bullets;
-        gameState.summoningEffects = remoteState.summoningEffects;
+    // 試合中に頻繁に変わる／参加者側では不要なユニット項目（全情報の比較から外す）
+    DYNAMIC_KEYS: new Set([
+        'hp', 'x', 'y', 'charge', 'fired', 'hasBubbleShield',
+        'lastFire', 'aiFireTimer', 'healTick', 'bubbleTick', 'woodRegenTick',
+        'reflectHits', 'hasBeenHitBy', 'markedForDestruction', 'woodBursted'
+    ]),
+
+    frame: 0,
+    sendCount: 0,
+    sentUnitSig: new Map(), // ホスト用: uid → 最後に送ったユニット全情報(JSON文字列)
+    unitCache: new Map(),   // 参加者用: uid → ユニット（同じオブジェクトを使い続ける）
+
+    reset() {
+        this.frame = 0;
+        this.sendCount = 0;
+        this.sentUnitSig.clear();
+        this.unitCache.clear();
+    },
+
+    r1(v) { return Math.round((v || 0) * 10) / 10; },
+    r2(v) { return Math.round((v || 0) * 100) / 100; },
+
+    staticPart(u) {
+        const o = {};
+        for (const k in u) {
+            if (!this.DYNAMIC_KEYS.has(k) && typeof u[k] !== 'function') o[k] = u[k];
+        }
+        return o;
+    },
+
+    // ホスト: 送信用の短いデータを作る
+    buildPacket(keyframe) {
+        const L = gameState.players.left, R = gameState.players.right;
+        const p = [this.r1(L.y), this.r1(L.hp), this.r1(L.mana), this.r1(R.y), this.r1(R.hp), this.r1(R.mana), L.throwTimer || 0, R.throwTimer || 0];
+
+        // ユニット: 毎回は「変わる値」だけ。全情報は新規・変化時・キーフレーム時のみ
+        const ud = [], uf = [];
+        const alive = new Set();
+        for (const u of gameState.units) {
+            if (!u.uid) continue;
+            alive.add(u.uid);
+            const sig = JSON.stringify(this.staticPart(u));
+            if (keyframe || this.sentUnitSig.get(u.uid) !== sig) {
+                uf.push(JSON.parse(sig));
+                this.sentUnitSig.set(u.uid, sig);
+            }
+            ud.push([u.uid, this.r1(u.hp), this.r1(u.x), this.r1(u.y), this.r2(u.charge), u.fired ? 1 : 0, u.hasBubbleShield ? 1 : 0]);
+        }
+        for (const uid of this.sentUnitSig.keys()) {
+            if (!alive.has(uid)) this.sentUnitSig.delete(uid);
+        }
+
+        // 弾: 描画に必要な [x, y, vx, vy, 見た目, 種類] だけ
+        const b = gameState.bullets.map(bl => [this.r1(bl.x), this.r1(bl.y), this.r2(bl.vx), this.r2(bl.vy), bl.spriteKey || 0, bl.action || 0]);
+
+        // 召喚・吸収エフェクト: unitDef は参加者側で typeKey から復元する
+        const e = gameState.summoningEffects.map(ef => {
+            const o = { ...ef, x: this.r1(ef.x), y: this.r1(ef.y), progress: this.r2(ef.progress) };
+            delete o.unitDef;
+            return o;
+        });
+
+        return { p, ud, uf, b, e };
+    },
+
+    // ホスト: ゲームループから毎フレーム呼ぶ
+    trySend() {
+        this.frame++;
+        if (this.frame % this.SEND_EVERY !== 0) return;
+        if (socket.bufferedAmount > this.MAX_BUFFERED) return; // 回線が詰まっているときは見送る
+        const keyframe = this.sendCount % this.KEYFRAME_EVERY === 0;
+        socket.send(JSON.stringify({ type: 'signal', action: 'state', s: this.buildPacket(keyframe) }));
+        this.sendCount++;
+    },
+
+    // 参加者: 受け取ったデータを盤面に反映する
+    apply(s) {
+        const P = gameState.players;
+        const otherSide = gameState.playerSide === 'left' ? 'right' : 'left';
+        const [ly, lhp, lm, ry, rhp, rm, lt, rt] = s.p;
+        // 自分の位置は自分で動かしているので、相手の位置だけ反映
+        if (otherSide === 'left') P.left.y = ly; else P.right.y = ry;
+        P.left.hp = lhp; P.left.mana = lm; P.left.throwTimer = lt;
+        P.right.hp = rhp; P.right.mana = rm; P.right.throwTimer = rt;
+
+        // ユニット全情報の更新（オブジェクトは使い回して、詳細表示中の参照が切れないようにする）
+        for (const full of (s.uf || [])) {
+            const ex = this.unitCache.get(full.uid);
+            if (ex) {
+                for (const k of Object.keys(ex)) {
+                    if (!this.DYNAMIC_KEYS.has(k)) delete ex[k];
+                }
+                Object.assign(ex, full);
+            } else {
+                this.unitCache.set(full.uid, full);
+            }
+        }
+        const units = [];
+        const alive = new Set();
+        for (const d of (s.ud || [])) {
+            const u = this.unitCache.get(d[0]);
+            if (!u) continue; // 全情報がまだ届いていない（次のキーフレームで届く）
+            u.hp = d[1]; u.x = d[2]; u.y = d[3]; u.charge = d[4];
+            u.fired = !!d[5]; u.hasBubbleShield = !!d[6];
+            units.push(u);
+            alive.add(d[0]);
+        }
+        for (const uid of this.unitCache.keys()) {
+            if (!alive.has(uid)) this.unitCache.delete(uid);
+        }
+        gameState.units = units;
+
+        gameState.bullets = (s.b || []).map(a => ({
+            x: a[0], y: a[1], vx: a[2], vy: a[3],
+            spriteKey: a[4] || undefined, action: a[5] || undefined
+        }));
+
+        gameState.summoningEffects = (s.e || []).map(ef => (
+            ef.typeKey && UNIT_TYPES[ef.typeKey] ? { ...ef, unitDef: UNIT_TYPES[ef.typeKey] } : ef
+        ));
     }
-}
+};
 
 // ゲームループ (30FPS 制限)
 let lastTime = 0;
@@ -2826,12 +2950,15 @@ function gameLoop(timestamp = 0) {
 
     if (deltaTime >= interval) {
         lastTime = timestamp - (deltaTime % interval);
-        update();
+        // 試合中だけゲームを進める（試合後に勝敗判定や送信が繰り返されるのを防ぐ）
+        if (gameState.isPlaying) update();
         draw();
         DPSManager.tick();
 
-        if (gameState.isHost && socket && socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({ type: 'signal', state: gameState }));
+        // オンライン対戦のホストだけ、盤面を相手へ送る
+        if (gameState.isPlaying && gameState.isHost && !gameState.isBotMatch && !gameState.isPractice &&
+            socket && socket.readyState === WebSocket.OPEN) {
+            NetSync.trySend();
         }
     }
 
@@ -3191,6 +3318,13 @@ function update() {
                 if (b.bounce && b.bounce > 0) { b.vy *= -1; b.bounce--; continue; }
                 removeBullet(i); continue;
             }
+        }
+    } else {
+        // 参加者側: ホストから届くのは15回/秒なので、間のフレームは弾を見た目だけ進めて滑らかにする
+        // （当たり判定はホストが行い、次に届いたデータで正しい位置に上書きされる）
+        for (const b of gameState.bullets) {
+            const speedMult = b.action === 'bounce' ? 1.6 : 1.0;
+            b.x += b.vx * speedMult; b.y += b.vy * speedMult;
         }
     }
     for (let i = gameState.summoningEffects.length - 1; i >= 0; i--) {
@@ -3987,6 +4121,22 @@ function attemptFireColaTarget(cola, tx, ty) {
 }
 
 function endGame(winner) {
+    // 1試合につき1回だけ実行（以前は試合後も毎フレーム呼ばれ、レートが何度も変動していた）
+    if (!gameState.isPlaying) return;
+    gameState.isPlaying = false;
+
+    // オンライン対戦なら、サーバーに部屋を出ることを伝えてホスト役を解除する
+    const wasOnline = !gameState.isBotMatch && !gameState.isPractice;
+    if (wasOnline && socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'leave_room' }));
+    }
+    gameState.isHost = false;
+    gameState.roomId = null;
+    gameState.isMatching = false;
+    // マッチ成立時に「キャンセル」のまま残っていたボタン表示を元に戻す
+    const btnFindMatch = document.getElementById('btn-find-match');
+    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
+
     SoundManager.playVictory();
     const winnerName = (gameState.players[winner] && gameState.players[winner].name)
         ? gameState.players[winner].name
@@ -4312,6 +4462,7 @@ function drawPlayer(side, spriteKey) {
 }
 
 function exitPracticeMode() {
+    gameState.isPlaying = false;
     gameState.isPractice = false;
     menuOverlay.classList.remove('hidden');
     gameUI.classList.add('hidden');
@@ -4335,6 +4486,7 @@ function leaveRoom() {
         socket.close();
         socket = null;
     }
+    gameState.isPlaying = false;
     gameState.roomId = null;
     gameState.isHost = false;
     gameState.isMatching = false;
@@ -4346,7 +4498,7 @@ function leaveRoom() {
     const rd = document.getElementById('room-display');
     if (rd) rd.innerText = `Room: -`;
     const btnFindMatch = document.getElementById('btn-find-match');
-    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す (オンライン)';
+    if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
     const serverInfoPanel = document.getElementById('server-info-panel');
     if (serverInfoPanel) serverInfoPanel.classList.remove('hidden');
     const dpsPanel = document.getElementById('dps-panel');

@@ -47,7 +47,7 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                     <input type="checkbox" id="check-mute-sound" style="cursor: pointer;">
-                    <label for="check-mute-sound" style="cursor: pointer; color: #ddd; font-size: 0.8rem;">消音 (MUTE)</label>
+                    <label for="check-mute-sound" style="cursor: pointer; color: #ddd; font-size: 0.8rem;">消音</label>
                 </div>
             </div>
         </div>
@@ -81,14 +81,26 @@
                 <input type="text" id="player-name" maxlength="10">
             </div>
             <div style="margin: 15px 0; display: flex; flex-direction: column; gap: 10px; align-items: center;">
-                <button id="btn-find-match" style="background: #a22; width: 220px; font-weight: bold;">対戦相手を探す (オンライン)</button>
+                <button id="btn-find-match" style="background: #a22; width: 220px; font-weight: bold;">対戦相手を探す</button>
                 <div style="font-size: 0.9rem; display: flex; align-items: center; gap: 5px;">
                     <input type="checkbox" id="check-rated" style="width: 18px; height: 18px; cursor: pointer;">
                     <label for="check-rated" style="cursor: pointer;">レート戦にする</label>
                 </div>
             </div>
-            <button id="btn-bot-match" style="background: #b58900; width: 220px; font-weight: bold; margin-bottom: 10px;">🤖 CPU対戦 (強化Bot)</button>
-            <button id="btn-practice" style="background: #252; width: 220px;">練習場 (サンドバッグ)</button>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <button id="btn-bot-match" style="background: #b58900; width: 220px; font-weight: bold;">🤖 CPU対戦</button>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem;">
+                    <label style="color: #ffd700;">難易度:</label>
+                    <select id="cpu-difficulty" style="background: #222; color: #fff; border: 1px solid #ffd700; padding: 3px 8px; border-radius: 4px; cursor: pointer;">
+                        <option value="1">⭐ 易しい</option>
+                        <option value="2" selected>⭐⭐ 普通</option>
+                        <option value="3">⭐⭐⭐ 難しい</option>
+                        <option value="4">⭐⭐⭐⭐ 超難</option>
+                        <option value="5">⭐⭐⭐⭐⭐ 鬼</option>
+                    </select>
+                </div>
+                <button id="btn-practice" style="background: #252; width: 220px;">練習場</button>
+            </div>
             <button id="btn-deck-builder" style="background: #258; margin-top: 10px; width: 220px;">デッキ編成 (最大10枚)</button>
             <button id="btn-encyclopedia" style="background: #802880; margin-top: 10px; width: 220px;">いなむー図鑑</button>
             <div id="status-message" style="margin-top: 15px; min-height: 1.2rem; color: #fbff00;"></div>
@@ -180,25 +192,64 @@
             
             <!-- チャットUI -->
             <div id="chat-container" style="position: absolute; bottom: 120px; left: 10px; width: 250px; background: rgba(0,0,0,0.55); border-radius: 5px; display: flex; flex-direction: column; z-index: 10;">
-                <div id="chat-messages" style="height: 100px; overflow-y: auto; padding: 5px; font-size: 0.8rem; color: #fff; display: flex; flex-direction: column; gap: 2px;"></div>
-                <div style="display: flex;">
-                    <input type="text" id="chat-input" placeholder="チャットを入力..." style="flex-grow: 1; padding: 4px; font-size: 0.8rem; background: rgba(255,255,255,0.85); color: #000; border: none; border-radius: 0 0 0 5px;" maxlength="50">
-                    <button id="btn-chat-send" style="padding: 4px 8px; font-size: 0.8rem; background: #08f; color: #fff; border: none; border-radius: 0 0 5px 0; cursor: pointer;">送信</button>
+                <div id="chat-header" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: rgba(0,0,0,0.4); border-radius: 5px 5px 0 0; cursor: pointer; user-select: none;">
+                    <span style="font-size: 0.75rem; color: #adf;">💬 チャット</span>
+                    <span id="chat-toggle-icon" style="font-size: 0.75rem; color: #adf;">▼</span>
+                </div>
+                <div id="chat-body" style="display: flex; flex-direction: column;">
+                    <div id="chat-messages" style="height: 100px; overflow-y: auto; padding: 5px; font-size: 0.8rem; color: #fff; display: flex; flex-direction: column; gap: 2px;"></div>
+                    <div style="display: flex;">
+                        <input type="text" id="chat-input" placeholder="チャットを入力..." style="flex-grow: 1; padding: 4px; font-size: 0.8rem; background: rgba(255,255,255,0.85); color: #000; border: none; border-radius: 0 0 0 5px;" maxlength="50">
+                        <button id="btn-chat-send" style="padding: 4px 8px; font-size: 0.8rem; background: #08f; color: #fff; border: none; border-radius: 0 0 5px 0; cursor: pointer;">送信</button>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- 操作方法メニュー -->
         <div id="help-menu" class="overlay hidden">
-            <h2>いなむーレジェンズ 操作方法</h2>
-            <div style="text-align: left; background: #222; padding: 20px; border: 1px solid #fff; max-width: 80%;">
-                <p><strong>移動</strong>: 矢印キー（上下）または W / S キー</p>
-                <p><strong>ユニット召喚</strong>: グリッドをクリック（マナ消費）。他のユニットがいるマスには置けません。</p>
+            <h2>いなむーレジェンズ 操作方法 &amp; ルール</h2>
+            <div style="text-align: left; background: #222; padding: 20px; border: 1px solid #fff; max-width: 90%; max-height: 70vh; overflow-y: auto;">
+                <h3 style="color:#0df;margin-top:0;">🎮 基本操作</h3>
+                <p><strong>移動</strong>: 矢印キー（上下）または W / S キー。スマホは画面左の ▲▼ ボタン。</p>
+                <p><strong>ユニット召喚</strong>: 下のスロットでユニットを選択 → グリッドをクリックで配置（マナ消費）。他のユニットがいるマスには置けません。</p>
                 <p><strong>スロット選択</strong>: 数字キー 1〜9, 0 でユニットを素早く選択できます。</p>
-                <p><strong>コーラ発射</strong>: 設置したコーラをクリック後、撃ちたい方向をクリック（スペースキーで一斉発射）。</p>
-                <p><strong>画面ズーム・カメラ移動</strong>: マウスホイールで拡大・縮小、右ドラッグで画面を移動できます。</p>
-                <p><strong>抽出(E)</strong>: 抽出モードON → 盤面の自ユニットを合体させてスキル継承・強化。</p>
-                <p><strong>勝利条件</strong>: 敵プレイヤー本体のHPを0にする。</p>
+                <p><strong>コーラ発射</strong>: 設置したコーラをクリック後、撃ちたい方向をクリック。スペースキーで盤面のコーラを一斉発射。スマホは「コーラ発射」ボタン。</p>
+                <p><strong>画面ズーム</strong>: マウスホイールで拡大・縮小。スマホは2本指ピンチ。</p>
+                <p><strong>カメラ移動</strong>: 右ドラッグまたはShift+左ドラッグで画面移動。スマホは1本指スワイプ。</p>
+                <p><strong>抽出モード(E)</strong>: Eキーまたは抽出ボタンでON → 盤面の自ユニットを2体クリックして合体。スキル・能力を継承し強化できる。最大5回まで（シークレットキメラは10回）。</p>
+
+                <h3 style="color:#ffd700;">🌾 ユニット種別</h3>
+                <p><strong>稲（タレット型）</strong>: グリッドに配置して自動的に弾を発射する守備ユニット。種類により8方向・追尾・狙撃・毒・氷結・拡散など様々な弾幕を持つ。</p>
+                <p><strong>コーラ（投擲型）</strong>: 配置後にプレイヤーが発射方向を指定して手動で投擲。直進・跳弾・分裂・貫通・爆散・吸引など強力な種類がある。</p>
+                <p><strong>盾（防衛型）</strong>: 弾を発射しないが高HPで前線を守る。木盾は自然回復、鉄盾は反射、魔力盾は敵弾をマナに変換する。</p>
+                <p><strong>ソーダ（支援型）</strong>: マナを継続生成し味方を支援。微風ソーダは攻撃速度UP、源泉ソーダはバブルシールド付与、大海ソーダはプレイヤーHP回復。</p>
+
+                <h3 style="color:#ff79c6;">✨ シークレットキメラ</h3>
+                <p>特定の組み合わせ・順番でユニットを抽出すると<strong>シークレットキメラ</strong>に進化する！</p>
+                <p>条件: <strong>最低3体・2種類以上の素材</strong>が必要。図鑑で一度発見したキメラは作り方が表示される。</p>
+                <p>シークレットキメラはさらに最大10回まで抽出可能で、吸収するたびに超強化される。</p>
+
+                <h3 style="color:#2ecc71;">📊 マナシステム</h3>
+                <p>マナはユニット召喚に使用する。ソーダや魔力盾が自動生成。最大200まで蓄積可能。</p>
+                <p>ユニットのコストはスロットに表示される数字と同じ。マナが足りないと召喚できない。</p>
+
+                <h3 style="color:#e74c3c;">⚔️ ゲームルール</h3>
+                <p><strong>勝利条件</strong>: 相手プレイヤー本体（左右の端にいるキャラクター）のHPを0にする。</p>
+                <p><strong>HP</strong>: 各プレイヤーの初期HPは2000。敵の弾が自プレイヤーに命中するとHP減少。</p>
+                <p><strong>ユニットのHP</strong>: 各ユニットにも個別のHPがあり、敵弾を受けると消滅する。</p>
+                <p><strong>左右配置エリア</strong>: 自分が配置できるのは自陣のみ（左プレイヤーは左半分、右プレイヤーは右半分）。</p>
+
+                <h3 style="color:#74b9ff;">🤖 CPU難易度</h3>
+                <p>CPU対戦では5段階の難易度が選択可能:</p>
+                <p>⭐ 易しい: ゆっくり行動。初心者向け。</p>
+                <p>⭐⭐ 普通: 標準的な行動速度と戦略。</p>
+                <p>⭐⭐⭐ 難しい: 積極的に攻撃・抽出を行う。</p>
+                <p>⭐⭐⭐⭐ 超難: 高速行動・効率的なユニット選択。</p>
+                <p>⭐⭐⭐⭐⭐ 鬼: 最速・最適行動。シークレットキメラも狙う。</p>
+
+                <h3 style="color:#fdcb6e;">💬 チャット</h3>
+                <p>対人戦中はゲーム画面左のチャットで相手にメッセージを送れる。ヘッダーをクリックして折りたたみ可能。</p>
             </div>
             <button id="btn-close-help" style="margin-top: 20px;">閉じる</button>
         </div>
