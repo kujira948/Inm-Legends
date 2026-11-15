@@ -9,3 +9,6 @@ Thumbs.db
 
 # サーバーが自動で作るユーザーデータ（レート・デッキなど）
 server/userdata.json
+
+# 全体チャットの履歴（サーバーが自動で作る）
+server/chat_history.json

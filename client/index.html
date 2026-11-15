@@ -26,17 +26,6 @@
             <button id="btn-close-sidebar" style="background: none; border: none; color: #aaa; font-size: 1.2rem; cursor: pointer;">✕</button>
         </div>
 
-        <!-- オンラインプレイヤー一覧 -->
-        <div class="sidebar-section">
-            <div class="sidebar-title">
-                <span class="online-indicator"></span>
-                <span>オンライン (<span id="online-count">0</span>)</span>
-            </div>
-            <ul id="online-players-list" style="list-style: none; padding-left: 2px; margin: 0; max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 0.8rem;">
-                <li style="color: #888;">接続待機中...</li>
-            </ul>
-        </div>
-
         <!-- 設定（音量・サウンド） -->
         <div class="sidebar-section">
             <div class="sidebar-title">オーディオ設定</div>
@@ -50,6 +39,15 @@
                     <label for="check-mute-sound" style="cursor: pointer; color: #ddd; font-size: 0.8rem;">消音</label>
                 </div>
             </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-title">チャット設定</div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem;">
+                <input type="checkbox" id="check-chat-enabled" checked style="cursor: pointer;">
+                <label for="check-chat-enabled" style="cursor: pointer; color: #ddd; font-size: 0.8rem;">チャットを使う</label>
+            </div>
+            <div style="color: #888; font-size: 0.7rem; margin-top: 4px;">OFFにすると対戦中のチャットとホーム画面の全体チャットが消え、メッセージも表示しません。</div>
         </div>
 
         <!-- 各種ナビゲーションボタン -->
@@ -74,7 +72,40 @@
         </div>
 
         <!-- メニュー画面 -->
-        <div id="menu" class="overlay">
+        <div id="menu" class="overlay home-layout">
+            <!-- 左: レート・ランキング -->
+            <div class="home-panel home-rate">
+                <div class="home-panel-title">🏆 レート</div>
+                <div class="home-my-elo">あなた: <span id="my-elo">1200</span></div>
+                <div class="home-sub-title">ランキング (上位10人)</div>
+                <div id="ranking-list" class="home-list"><div class="home-empty">読み込み中...</div></div>
+            </div>
+
+            <!-- 右: オンライン・対戦待ち -->
+            <div class="home-panel home-online">
+                <div class="home-panel-title"><span class="online-indicator"></span>オンライン (<span id="online-count">0</span>人)</div>
+                <ul id="online-players-list" class="home-list">
+                    <li class="home-empty">接続待機中...</li>
+                </ul>
+                <div class="home-sub-title">⏳ 対戦待ち</div>
+                <div class="home-waiting">
+                    レート戦 <span id="waiting-rated">0</span>人 ／ ノーマル戦 <span id="waiting-unrated">0</span>人
+                </div>
+            </div>
+
+            <!-- 下: 全体チャット -->
+            <div class="home-panel home-chat" id="lobby-chat">
+                <div class="home-panel-title">💬 全体チャット</div>
+                <div id="lobby-chat-messages"></div>
+                <div class="lobby-chat-row">
+                    <input type="text" id="lobby-chat-input" placeholder="みんなにメッセージ（50文字まで）" maxlength="50">
+                    <button id="btn-lobby-chat-send">送信</button>
+                </div>
+                <div id="lobby-chat-note"></div>
+            </div>
+
+            <!-- 中央: 今までのメニュー -->
+            <div class="home-main">
             <h1>いなむーレジェンズ</h1>
             <div class="input-group">
                 <label>プレイヤー名:</label>
@@ -104,6 +135,7 @@
             <button id="btn-deck-builder" style="background: #258; margin-top: 10px; width: 220px;">デッキ編成 (最大10枚)</button>
             <button id="btn-encyclopedia" style="background: #802880; margin-top: 10px; width: 220px;">いなむー図鑑</button>
             <div id="status-message" style="margin-top: 15px; min-height: 1.2rem; color: #fbff00;"></div>
+            </div>
         </div>
 
         <!-- シークレット特殊進化 カットイン演出 -->
@@ -242,14 +274,20 @@
 
                 <h3 style="color:#74b9ff;">🤖 CPU難易度</h3>
                 <p>CPU対戦では5段階の難易度が選択可能:</p>
-                <p>⭐ 易しい: ゆっくり行動。初心者向け。</p>
-                <p>⭐⭐ 普通: 標準的な行動速度と戦略。</p>
-                <p>⭐⭐⭐ 難しい: 積極的に攻撃・抽出を行う。</p>
-                <p>⭐⭐⭐⭐ 超難: 高速行動・効率的なユニット選択。</p>
-                <p>⭐⭐⭐⭐⭐ 鬼: 最速・最適行動。シークレットキメラも狙う。</p>
+                <p>⭐ 易しい: 弾をよけず、ふらふら動く。安いユニットを適当に置き、合成はしない。コーラの狙いも大きくズレる。初心者向け。</p>
+                <p>⭐⭐ 普通: 弾に気づくのが遅く、半分くらいよけ損ねる。基本の作戦でユニットを置き、ふつうの強化合成だけ行う。狙いは少しズレる。</p>
+                <p>⭐⭐⭐ 難しい: 近くまで来た弾をよける。プレイヤーの今いる位置を正確に狙い、シークレット3種（ガトリング・ミーティア・絶対零度）を狙って合成する。</p>
+                <p>⭐⭐⭐⭐ 超難: 弾の進む先を読んで早めによける。あなたの攻撃役がいる列に盾を置き、守りの薄い列を攻める。動く先を予測してコーラを撃ち、全30種のうち材料がそろったシークレットは必ず作る。</p>
+                <p>⭐⭐⭐⭐⭐ 鬼: プレイヤーと同じ速さで弾を読んでよける。シークレットの材料を狙って召喚し、高いユニットのためにマナを貯める。コーラは予測してまとめて撃ち、逃げ道をふさぐ。</p>
 
                 <h3 style="color:#fdcb6e;">💬 チャット</h3>
-                <p>対人戦中はゲーム画面左のチャットで相手にメッセージを送れる。ヘッダーをクリックして折りたたみ可能。</p>
+                <p>オンライン対戦中はゲーム画面左のチャットで相手にメッセージを送れる。ヘッダーをクリックすると折りたたみ可能。</p>
+                <p>ホーム画面の「全体チャット」では、オンラインの全員とメッセージをやり取りできる。過去の発言も残る（1回50文字まで・2秒に1回まで）。</p>
+                <p>左上のメニューの「チャット設定」でON/OFFを切り替えられる。OFFにすると対戦中のチャットと全体チャットが消え、メッセージも表示されない。CPU対戦では対戦中のチャット欄は出ない。</p>
+
+                <h3 style="color:#74b9ff;">🏆 レート</h3>
+                <p>「レート戦にする」にチェックを入れたオンライン対戦だけ、勝つと+32、負けると-32変わる。ノーマル戦・CPU対戦・練習場では変わらない。</p>
+                <p>ホーム画面に自分のレート・ランキング（上位10人）・オンラインの人のレートと状態・対戦待ちの人数が表示される。</p>
             </div>
             <button id="btn-close-help" style="margin-top: 20px;">閉じる</button>
         </div>

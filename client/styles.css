@@ -753,3 +753,194 @@ button:active {
         font-size: 0.7rem !important;
     }
 }
+
+/* ===============================================================
+   🏠 ホーム画面（レート・オンライン・対戦待ち・全体チャット）
+   =============================================================== */
+#menu.home-layout {
+    display: grid;
+    grid-template-columns: 250px minmax(300px, 1fr) 290px;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+        "rate   main chat"
+        "online main chat";
+    gap: 14px;
+    align-items: stretch;
+    width: min(1180px, 97vw);
+    max-height: 96vh;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.home-main {
+    grid-area: main;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-rate { grid-area: rate; }
+.home-online { grid-area: online; }
+.home-chat { grid-area: chat; }
+
+.home-panel {
+    background: rgba(20, 26, 42, 0.85);
+    border: 1px solid #2a3552;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.home-panel-title {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #0df;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.home-sub-title {
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #9ab;
+    margin: 10px 0 5px;
+}
+
+.home-my-elo {
+    font-size: 1rem;
+    color: #ddd;
+}
+
+#my-elo {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 6px rgba(255, 215, 0, 0.5);
+}
+
+.home-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 190px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.home-list-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    border-bottom: 1px solid #222b40;
+}
+
+.home-list-row .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.home-list-row .elo {
+    color: #0df;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.home-list-row.me .name { color: #ffd700; }
+
+.status-badge {
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+.status-idle { background: #24324a; color: #9ab; }
+.status-waiting { background: #4a3a10; color: #ffcc44; }
+.status-playing { background: #4a1c1c; color: #ff7b7b; }
+
+.home-empty { color: #777; }
+
+.home-waiting { color: #ddd; }
+.home-waiting span { color: #ffcc44; font-weight: bold; }
+
+#lobby-chat-messages {
+    flex: 1;
+    min-height: 160px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 4px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    word-break: break-all;
+    user-select: text;
+}
+
+.lobby-chat-time { color: #667; font-size: 0.7rem; margin-right: 4px; }
+.lobby-chat-name { color: #7fd8ff; font-weight: bold; }
+.lobby-chat-msg.me .lobby-chat-name { color: #ffd700; }
+
+.lobby-chat-row {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+#lobby-chat-input {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    font-size: 0.8rem;
+}
+
+#btn-lobby-chat-send {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    background: #08f;
+}
+
+#lobby-chat-note {
+    min-height: 1em;
+    margin-top: 3px;
+    font-size: 0.7rem;
+    color: #f99;
+}
+
+/* 中くらいの画面: メニューを上に、パネルを下に */
+@media (max-width: 1000px) {
+    #menu.home-layout {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto;
+        grid-template-areas:
+            "main   main"
+            "rate   online"
+            "chat   chat";
+    }
+}
+
+/* スマホ: 全部を縦に並べる */
+@media (max-width: 600px) {
+    #menu.home-layout {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "main"
+            "online"
+            "rate"
+            "chat";
+        padding: 14px 10px;
+    }
+    #lobby-chat-messages { max-height: 240px; }
+}

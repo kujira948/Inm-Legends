@@ -66,8 +66,10 @@ const CloudSyncManager = {
         let elo = parseInt(localStorage.getItem('inamu_elo') || '1200');
         elo = Math.max(0, Math.min(9999, elo + delta));
         localStorage.setItem('inamu_elo', elo.toString());
+        updateMyEloDisplay();
         const name = localStorage.getItem('inamu_player_name') || 'ゲスト';
         await this.save({ elo, name });
+        this.updateRankingDisplay();
         return elo;
     },
 
@@ -95,6 +97,11 @@ const CloudSyncManager = {
         // より高いELOを採用（どちらかを失わないように）
         const bestElo = Math.max(localElo, cloudElo);
         localStorage.setItem('inamu_elo', bestElo.toString());
+        updateMyEloDisplay();
+        // サーバー側の記録が低いときは合わせておく（オンライン一覧・ランキングに正しいレートを出すため）
+        if (bestElo !== cloudElo) {
+            this.save({ elo: bestElo, name: localStorage.getItem('inamu_player_name') || 'ゲスト' });
+        }
 
         if (cloudData.deck && Array.isArray(cloudData.deck) && cloudData.deck.length === 6) {
             localStorage.setItem('inamu_deck', JSON.stringify(cloudData.deck));
@@ -117,14 +124,26 @@ const CloudSyncManager = {
             const ranking = await res.json();
             const el = document.getElementById('ranking-list');
             if (!el) return;
-            el.innerHTML = ranking.map((r, i) =>
-                `<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #333;">
-                    <span style="color:${i === 0 ? '#ffd700' : i === 1 ? '#c0c0c0' : i === 2 ? '#cd7f32' : '#fff'}">
-                        ${i + 1}. ${r.name}
-                    </span>
-                    <span style="color:#0df;font-weight:bold;">${r.elo}</span>
-                </div>`
-            ).join('');
+            el.innerHTML = '';
+            if (!Array.isArray(ranking) || ranking.length === 0) {
+                el.innerHTML = '<div class="home-empty">まだ記録がありません</div>';
+                return;
+            }
+            const medal = ['#ffd700', '#c0c0c0', '#cd7f32'];
+            ranking.slice(0, 10).forEach((r, i) => {
+                // 名前は「ただの文字」として表示する
+                const row = document.createElement('div');
+                row.className = 'home-list-row';
+                const name = document.createElement('span');
+                name.className = 'name';
+                name.style.color = medal[i] || '#fff';
+                name.textContent = `${i + 1}. ${r.name}`;
+                const elo = document.createElement('span');
+                elo.className = 'elo';
+                elo.textContent = r.elo;
+                row.append(name, elo);
+                el.appendChild(row);
+            });
         } catch (e) {}
     }
 };
@@ -1499,192 +1518,558 @@ const statusMsg = document.getElementById('status-message');
 let keysPressed = {};
 
 // ===============================================================
-// 🤖 強化Bot AI（対戦型CPUロジック）
-// 戦略配置・シークレット合成・弾除け回避・コーラ照準射撃をフル搭載
+// 🤖 CPU対戦 AI
+// 難易度(1〜5)ごとに「弾よけ・移動・召喚・コーラの狙い・合成」の動きを変える
 // ===============================================================
+const BOT_LEVELS = {
+    // dodge    : 弾よけ (none=しない / late=遅く半分失敗 / react=近い弾をよける / predict=弾の進む先を読む)
+    // moveSpeed: 移動の速さ (px/フレーム。プレイヤーは4)
+    // maxUnits : 盤面に置けるユニット数の上限
+    // aimError : コーラの狙いのズレ(px)  lead: 動く先を予測  volley: まとめ撃ち
+    // summon   : 召喚の作戦 (random / basic / counter / goal)
+    // extract  : 合成の作戦 (none / general / known / ready / goal)
+    1: { dodge: 'none',    moveSpeed: 1.2, maxUnits: 6,  aimError: 60, lead: false, volley: false, summon: 'random',  extract: 'none' },
+    2: { dodge: 'late',    moveSpeed: 2.5, maxUnits: 10, aimError: 30, lead: false, volley: false, summon: 'basic',   extract: 'general' },
+    3: { dodge: 'react',   moveSpeed: 3.0, maxUnits: 14, aimError: 0,  lead: false, volley: false, summon: 'basic',   extract: 'known' },
+    4: { dodge: 'predict', moveSpeed: 3.5, maxUnits: 16, aimError: 0,  lead: true,  volley: false, summon: 'counter', extract: 'ready', lookahead: 40 },
+    5: { dodge: 'predict', moveSpeed: 4.0, maxUnits: 18, aimError: 0,  lead: true,  volley: true,  summon: 'goal',    extract: 'goal',  lookahead: 70 }
+};
+// 行動の間隔 [召喚, コーラ発射, 合成] (フレーム数。30フレーム = 1秒)
+const BOT_TIMERS = { 1: [70, 90, 120], 2: [45, 60, 80], 3: [35, 45, 60], 4: [25, 32, 45], 5: [18, 22, 30] };
+// 難しい が狙うシークレット
+const BOT_KNOWN_RECIPES = ['GATLING_SPRITE', 'CLUSTER_METEOR', 'ZERO_FROST'];
+
+const botPickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const botShuffle = (arr) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+};
+
 const BotAI = {
+    side: 'right',
     thinkTimer: 0,
     fireTimer: 0,
     extractTimer: 0,
+    wanderY: 128,
+    wanderTimer: 0,
+    prevHumanY: null,
+    humanVy: 0,
+    noticed: new Map(), // 普通: 弾ごとに「気づいたか」を1回だけ決める
+    dodgeY: 0,          // 普通・難しい: よける先
+    dodgeTimer: 0,
+    goal: null,         // 鬼: 今ねらっているシークレットのレシピ
+    goalsDone: 0,
+    holdCount: 0,       // 鬼: コーラをためている回数
+    _recipes: null,
+
+    reset() {
+        this.thinkTimer = 0;
+        this.fireTimer = 0;
+        this.extractTimer = 0;
+        this.wanderY = 128;
+        this.wanderTimer = 0;
+        this.prevHumanY = null;
+        this.humanVy = 0;
+        this.noticed.clear();
+        this.dodgeY = 0;
+        this.dodgeTimer = 0;
+        this.goal = null;
+        this.goalsDone = 0;
+        this.holdCount = 0;
+    },
+
+    level() {
+        return BOT_LEVELS[gameState.cpuDifficulty] || BOT_LEVELS[2];
+    },
 
     update() {
         if (!gameState.isBotMatch) return;
-        const botSide = 'right';
-        const bot = gameState.players[botSide];
+        const L = this.level();
+        const [thinkBase, fireBase, extractBase] = BOT_TIMERS[gameState.cpuDifficulty] || BOT_TIMERS[2];
+        const bot = gameState.players[this.side];
         const human = gameState.players.left;
 
-        // 難易度に応じたBot行動速度
-        const diff = gameState.cpuDifficulty || 2;
-        // diffが高いほど行動頻度UP、判断スピードUP
-        const thinkBase = diff === 1 ? 70 : diff === 2 ? 45 : diff === 3 ? 35 : diff === 4 ? 25 : 18;
-        const fireBase = diff === 1 ? 90 : diff === 2 ? 60 : diff === 3 ? 45 : diff === 4 ? 32 : 22;
-        const extractBase = diff === 1 ? 120 : diff === 2 ? 80 : diff === 3 ? 60 : diff === 4 ? 45 : 30;
+        // プレイヤーの上下の動きを記録（予測撃ち用）
+        if (this.prevHumanY !== null) this.humanVy = this.humanVy * 0.7 + (human.y - this.prevHumanY) * 0.3;
+        this.prevHumanY = human.y;
 
-        // 1. 移動・弾除け回避
-        this.updateMovement(bot, human);
+        // 1. 移動・弾よけ
+        this.updateMovement(L, bot, human);
 
-        // 2. 戦術的ユニット召喚（前衛盾・後衛ソーダ・中衛攻撃＆素材）
+        // 2. 召喚（準備時間中は少し速く）
         this.thinkTimer++;
-        const thinkInterval = gameState.prepTimer > 0 ? Math.floor(thinkBase * 0.6) : thinkBase; // 準備中は高速配置
+        const thinkInterval = gameState.prepTimer > 0 ? Math.floor(thinkBase * 0.6) : thinkBase;
         if (this.thinkTimer >= thinkInterval) {
             this.thinkTimer = 0;
-            this.trySummon(botSide, bot);
+            // 易しい は時々なにもしない
+            if (L.summon !== 'random' || Math.random() < 0.6) this.trySummon(L, bot);
         }
 
-        // 3. コーラ発射（プレイヤーを狙って一斉射撃）
+        // 3. コーラ発射
         this.fireTimer++;
         if (this.fireTimer >= fireBase && gameState.prepTimer <= 0) {
             this.fireTimer = 0;
-            this.tryFireCola(botSide, human);
+            this.tryFireCola(L, human);
         }
 
-        // 4. 抽出・キメラ進化（自陣ユニット同士を合成してシークレットキメラを生成）
+        // 4. 合成（抽出）
         this.extractTimer++;
         if (this.extractTimer >= extractBase) {
             this.extractTimer = 0;
-            this.tryExtract(botSide);
+            this.tryExtract(L);
         }
     },
 
-    updateMovement(bot, human) {
-        // 迫り来る敵弾の緊急ステップ回避
-        const incoming = gameState.bullets.filter(b => b.side === 'left' && b.vx > 0 && b.x > 450);
-        let avoidDy = 0;
-        for (const b of incoming) {
-            const distY = Math.abs(b.y - (bot.y + 16));
-            if (distY < 24) {
-                // 弾より上または下に回避
-                avoidDy = b.y > bot.y + 16 ? -5 : 5;
-                break;
-            }
-        }
+    // ---------------- 便利関数 ----------------
+    isShield(u) {
+        return typeof u.typeKey === 'string' && u.typeKey.startsWith('RICE_SHIELD');
+    },
+    canExtract(u) {
+        return (u.extractionCount || 0) < (u.isSecretChimera ? 10 : 5);
+    },
+    isFreshMaterial(u) {
+        return !u.isSecretChimera && !(u.extractionCount > 0);
+    },
+    myUnits() {
+        return gameState.units.filter(u => u.side === this.side && u.hp > 0 && !u.fired);
+    },
+    incomingSummons() {
+        return gameState.summoningEffects.filter(ef => ef.side === this.side && ef.unitDef);
+    },
 
-        if (avoidDy !== 0) {
-            bot.y = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT - 32, bot.y + avoidDy));
+    // ---------------- 移動・弾よけ ----------------
+    updateMovement(L, bot, human) {
+        const maxY = CONFIG.SCREEN_HEIGHT - 32;
+        let homeY;
+        if (L.dodge === 'none') {
+            // 易しい: ふらふら動くだけ
+            if (--this.wanderTimer <= 0) {
+                this.wanderTimer = 60 + Math.floor(Math.random() * 60);
+                this.wanderY = Math.random() * maxY;
+            }
+            homeY = this.wanderY;
         } else {
-            // 人間のY座標を滑らかに追従
-            const targetY = human.y;
-            const diff = targetY - bot.y;
-            if (Math.abs(diff) > 4) {
-                bot.y += Math.sign(diff) * 2.5;
-                bot.y = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT - 32, bot.y));
-            }
+            homeY = human.y;
         }
+
+        let targetY = homeY;
+        if (L.dodge === 'late' || L.dodge === 'react') {
+            const d = this.reactiveDodge(L, bot);
+            if (d !== null) targetY = d;
+        } else if (L.dodge === 'predict') {
+            targetY = this.planDodge(L, bot, homeY);
+        }
+
+        const dy = targetY - bot.y;
+        if (Math.abs(dy) > 1) bot.y += Math.sign(dy) * Math.min(Math.abs(dy), L.moveSpeed);
+        bot.y = Math.max(0, Math.min(maxY, bot.y));
     },
 
-    trySummon(side, bot) {
-        if (bot.mana < 15) return;
+    // 普通・難しい: 近くまで来た弾を見てからよける
+    reactiveDodge(L, bot) {
+        const startX = L.dodge === 'late' ? 440 : 400;
+        const cy = bot.y + 16;
+        const maxY = CONFIG.SCREEN_HEIGHT - 32;
+        if (this.noticed.size > 500) this.noticed.clear();
+        // よけ始めたら少しのあいだ、その場所へ動き切る（途中で戻って当たらないように）
+        if (this.dodgeTimer > 0) {
+            this.dodgeTimer--;
+            return this.dodgeY;
+        }
+        for (const b of gameState.bullets) {
+            if (b.side !== 'left' || !(b.vx > 0) || b.x < startX) continue;
+            if (Math.abs(b.y - cy) >= 24) continue;
+            if (L.dodge === 'late') {
+                // 普通: 半分くらいの弾には気づかない
+                if (!this.noticed.has(b.uid)) this.noticed.set(b.uid, Math.random() < 0.5);
+                if (!this.noticed.get(b.uid)) continue;
+            }
+            const dir = b.y > cy ? -1 : 1;
+            let ty = bot.y + dir * 40;
+            if (ty < 0 || ty > maxY) ty = bot.y - dir * 40; // 壁ぎわなら反対へ
+            this.dodgeY = ty;
+            this.dodgeTimer = 15;
+            return ty;
+        }
+        return null;
+    },
 
-        // 盤面上の自軍ユニット状況
-        const myUnits = gameState.units.filter(u => u.side === side && u.hp > 0);
-        const incoming = gameState.summoningEffects.filter(ef => ef.side === side);
-        if (myUnits.length + incoming.length >= 14) return; // 盤面上限
+    // 超難・鬼: 弾がいつ・どの高さに来るかを計算して、当たらない場所へ動く
+    planDodge(L, bot, homeY) {
+        const W = CONFIG.SCREEN_WIDTH;
+        const H = CONFIG.SCREEN_HEIGHT;
+        const maxY = H - 32;
+        const zoneL = W - 32, zoneR = W; // 自分の本体に当たる横の範囲
 
-        const hasShield = myUnits.some(u => u.col <= 11 && u.type.includes('shield'));
-        const sodaCount = myUnits.filter(u => u.type === 'soda').length;
-        const burstCount = myUnits.filter(u => u.typeKey === 'RICE_BURST').length;
-        const spreadCount = myUnits.filter(u => u.typeKey === 'RICE_SPREAD').length;
+        const threats = [];
+        for (const b of gameState.bullets) {
+            if (b.side !== 'left' || !(b.vx > 0.5)) continue;
+            const tIn = (zoneL - b.x) / b.vx;
+            const tOut = (zoneR - b.x) / b.vx;
+            if (tOut < 0 || tIn > L.lookahead) continue;
+            threats.push({ b, tIn: Math.max(0, tIn), tOut, power: b.power || 5 });
+        }
+        if (threats.length === 0) return homeY;
 
-        let unitKeyToSummon = 'RICE_BASIC';
-        let targetCol = 12;
+        const yAt = (b, t) => {
+            let y = b.y + (b.vy || 0) * t;
+            if (b.bounce) { // 上下の壁で跳ね返る弾
+                const p = 2 * H;
+                y = ((y % p) + p) % p;
+                if (y > H) y = p - y;
+            }
+            return y;
+        };
+
+        let bestY = bot.y;
+        let bestCost = Infinity;
+        for (let cand = 0; cand <= maxY; cand += 4) {
+            const d = cand - bot.y;
+            let cost = Math.abs(cand - homeY) * 0.01 + Math.abs(d) * 0.005;
+            for (const th of threats) {
+                for (const t of [th.tIn, (th.tIn + th.tOut) / 2, th.tOut]) {
+                    const by = yAt(th.b, t);
+                    if (by < 0 || by > H) continue; // 画面外に出て消える弾
+                    const py = bot.y + Math.sign(d) * Math.min(Math.abs(d), L.moveSpeed * t);
+                    if (Math.abs(by - (py + 16)) < 22) {
+                        cost += th.power * (2 - th.tIn / L.lookahead); // 近い弾ほど危険
+                        break;
+                    }
+                }
+            }
+            if (cost < bestCost) {
+                bestCost = cost;
+                bestY = cand;
+            }
+        }
+        return bestY;
+    },
+
+    // ---------------- 召喚 ----------------
+    trySummon(L, bot) {
+        if (bot.mana < 6) return;
+        const units = this.myUnits();
+        const incoming = this.incomingSummons();
+        if (units.length + incoming.length >= L.maxUnits) return;
+
+        let pick = null;
+        if (L.summon === 'random') pick = this.pickRandom();
+        else if (L.summon === 'basic') pick = this.pickBasic(units, bot);
+        else pick = this.pickSmart(L, units, incoming, bot);
+        if (!pick) return;
+
+        const def = UNIT_TYPES[pick.key];
+        if (!def || bot.mana < def.cost) return; // 足りないときはマナを貯める
+
+        const cell = this.findCell(units, incoming, pick);
+        if (cell) processSummon({ unitId: def.id, row: cell.row, col: cell.col, side: this.side });
+    },
+
+    findCell(units, incoming, pick) {
+        const busy = (c, r) => units.some(u => u.col === c && u.row === r) ||
+            incoming.some(ef => ef.col === c && ef.row === r);
+        const prefer = (pick.rows || []).filter(r => r >= 0 && r < CONFIG.GRID_ROWS);
+        const others = botShuffle([...Array(CONFIG.GRID_ROWS).keys()].filter(r => !prefer.includes(r)));
+        for (const r of prefer.concat(others)) {
+            for (const c of pick.cols) {
+                if (!busy(c, r)) return { col: c, row: r };
+            }
+        }
+        return null;
+    },
+
+    // 易しい: 安いユニットを適当な場所に置く
+    pickRandom() {
+        const cheap = ['RICE_BASIC', 'RICE_SPREAD', 'RICE_SHIELD_WOOD', 'COLA_STRAIGHT', 'COLA_ZERO', 'COLA_BOUNCE', 'SODA_SMALL'];
+        return { key: botPickOne(cheap), cols: botShuffle([9, 10, 11, 12, 13, 14, 15, 16, 17]) };
+    },
+
+    // 普通・難しい: 盾 → ソーダ → 攻撃役 の基本作戦
+    pickBasic(units, bot) {
+        const from = (start) => [start + Math.floor(Math.random() * 3)];
+        const count = (k) => units.filter(u => u.typeKey === k).length;
+        const hasShield = units.some(u => this.isShield(u));
+        const sodaCount = units.filter(u => u.type === 'soda').length;
 
         if (!hasShield && bot.mana >= 25) {
-            // 最前列に盾（鉄盾または木盾）
-            unitKeyToSummon = Math.random() < 0.6 ? 'RICE_SHIELD_IRON' : 'RICE_SHIELD_WOOD';
-            targetCol = 9 + Math.floor(Math.random() * 3); // 9〜11
-        } else if (sodaCount < 2 && bot.mana >= 20) {
-            // 後衛にマナ生成ソーダ
-            unitKeyToSummon = Math.random() < 0.5 ? 'SODA_MEDIUM' : 'SODA_LARGE';
-            targetCol = 15 + Math.floor(Math.random() * 3); // 15〜17
-        } else if (burstCount < 2 && Math.random() < 0.4) {
-            // 連射稲（ガトリング狙い）
-            unitKeyToSummon = 'RICE_BURST';
-            targetCol = 12 + Math.floor(Math.random() * 3); // 12〜14
-        } else if (spreadCount < 2 && Math.random() < 0.35) {
-            // 拡散稲（ミーティア狙い）
-            unitKeyToSummon = 'RICE_SPREAD';
-            targetCol = 12 + Math.floor(Math.random() * 3);
-        } else if (Math.random() < 0.45) {
-            // コーラ（ジャンパー・ノヴァ・メントス）
-            const colas = ['COLA_BOUNCE', 'COLA_SPREAD', 'COLA_MENTOS', 'COLA_PIERCE'];
-            unitKeyToSummon = colas[Math.floor(Math.random() * colas.length)];
-            targetCol = 11 + Math.floor(Math.random() * 4);
-        } else {
-            // 氷結・狙撃など多彩な攻撃稲
-            const rices = ['RICE_FROST', 'RICE_SNIPER', 'RICE_BURST', 'RICE_SPREAD'];
-            unitKeyToSummon = rices[Math.floor(Math.random() * rices.length)];
-            targetCol = 12 + Math.floor(Math.random() * 3);
+            return { key: Math.random() < 0.6 ? 'RICE_SHIELD_IRON' : 'RICE_SHIELD_WOOD', cols: from(9) };
         }
-
-        const unitDef = UNIT_TYPES[unitKeyToSummon];
-        if (!unitDef || bot.mana < unitDef.cost) return;
-
-        // 空きマスを探す
-        const row = Math.floor(Math.random() * CONFIG.GRID_ROWS);
-        const isOccupied = myUnits.some(u => u.col === targetCol && u.row === row) ||
-            incoming.some(ef => ef.col === targetCol && ef.row === row);
-
-        if (!isOccupied) {
-            processSummon({ unitId: unitDef.id, row, col: targetCol, side });
+        if (sodaCount < 2 && bot.mana >= 20) {
+            return { key: Math.random() < 0.5 ? 'SODA_MEDIUM' : 'SODA_LARGE', cols: from(15) };
         }
+        if (count('RICE_BURST') < 2 && Math.random() < 0.4) return { key: 'RICE_BURST', cols: from(12) };
+        if (count('RICE_SPREAD') < 2 && Math.random() < 0.35) return { key: 'RICE_SPREAD', cols: from(12) };
+        if (Math.random() < 0.45) {
+            return { key: botPickOne(['COLA_BOUNCE', 'COLA_SPREAD', 'COLA_MENTOS', 'COLA_PIERCE']), cols: [11 + Math.floor(Math.random() * 4)] };
+        }
+        return { key: botPickOne(['RICE_FROST', 'RICE_SNIPER', 'RICE_BURST', 'RICE_SPREAD']), cols: from(12) };
     },
 
-    tryExtract(side) {
-        const myUnits = gameState.units.filter(u => u.side === side && u.hp > 0);
-        if (myUnits.length < 2) return;
+    // 超難・鬼: 相手の盤面を見て、守る行・攻める行を決める
+    pickSmart(L, units, incoming, bot) {
+        const rows = CONFIG.GRID_ROWS;
+        const threat = new Array(rows).fill(0);   // 相手の攻撃の強さ（行ごと）
+        const enemyDef = new Array(rows).fill(0); // 相手の守りの厚さ（行ごと）
+        gameState.units.forEach(u => {
+            if (u.side === this.side || u.hp <= 0 || u.fired) return;
+            if (this.isShield(u)) enemyDef[u.row] += 2;
+            else if (u.type !== 'soda') {
+                threat[u.row] += (u.power || 5) * (u.type === 'cola' ? 1.5 : 1);
+                enemyDef[u.row] += 1;
+            }
+        });
 
-        // 1. ガトリング・スプライト狙い (シュトゥルム×2 + ジャンパー)
-        const bursts = myUnits.filter(u => u.typeKey === 'RICE_BURST');
-        const bounceCola = myUnits.find(u => u.typeKey === 'COLA_BOUNCE');
-        if (bursts.length >= 2) {
-            processExtraction(bursts[0].col, bursts[0].row, bursts[1].col, bursts[1].row, side);
-            return;
-        } else if (bursts.length === 1 && bursts[0].extractionHistory?.includes('RICE_BURST') && bounceCola) {
-            processExtraction(bursts[0].col, bursts[0].row, bounceCola.col, bounceCola.row, side);
-            return;
+        // 1) 守り: 相手の攻撃役が多い行に、まだ盾がなければ盾を置く
+        const shieldRows = new Set(units.filter(u => this.isShield(u)).map(u => u.row));
+        incoming.forEach(ef => { if (this.isShield(ef)) shieldRows.add(ef.row); });
+        let worstRow = -1, worst = 0;
+        threat.forEach((t, r) => {
+            if (!shieldRows.has(r) && t > worst) { worst = t; worstRow = r; }
+        });
+        const maxShields = L.summon === 'goal' ? 4 : 3;
+        if (worstRow >= 0 && worst >= 8 && shieldRows.size < maxShields) {
+            const key = worst >= 30 && bot.mana >= 24 ? 'RICE_SHIELD_MAGIC' : 'RICE_SHIELD_IRON';
+            return { key, cols: [9, 10], rows: [worstRow, worstRow - 1, worstRow + 1] };
         }
 
-        // 2. クラスター・ミーティア狙い (フェッヒャー×2 + ノヴァ)
-        const spreads = myUnits.filter(u => u.typeKey === 'RICE_SPREAD');
-        const novaCola = myUnits.find(u => u.typeKey === 'COLA_SPREAD');
-        if (spreads.length >= 2) {
-            processExtraction(spreads[0].col, spreads[0].row, spreads[1].col, spreads[1].row, side);
-            return;
-        } else if (spreads.length === 1 && spreads[0].extractionHistory?.includes('RICE_SPREAD') && novaCola) {
-            processExtraction(spreads[0].col, spreads[0].row, novaCola.col, novaCola.row, side);
-            return;
+        // 2) マナを増やすソーダ
+        const sodaCount = units.filter(u => u.type === 'soda').length + incoming.filter(ef => ef.unitDef.type === 'soda').length;
+        if (sodaCount < 2) return { key: sodaCount === 0 ? 'SODA_MEDIUM' : 'SODA_LARGE', cols: [17, 16, 15] };
+
+        // 3) 鬼: ねらっているシークレットの材料を召喚
+        if (L.summon === 'goal') {
+            const g = this.goalPick(units, incoming);
+            if (g) return g;
         }
 
-        // 3. 絶対零度狙い (フロスト + ノヴァ + ゲイザー)
-        const frost = myUnits.find(u => u.typeKey === 'RICE_FROST');
-        const mentos = myUnits.find(u => u.typeKey === 'COLA_MENTOS');
-        if (frost && novaCola && !frost.extractionHistory?.includes('COLA_SPREAD')) {
-            processExtraction(frost.col, frost.row, novaCola.col, novaCola.row, side);
-            return;
-        } else if (frost && frost.extractionHistory?.includes('COLA_SPREAD') && mentos) {
-            processExtraction(frost.col, frost.row, mentos.col, mentos.row, side);
-            return;
+        // 4) 攻め: 相手の守りが薄い行に攻撃役を置く
+        const weakRows = botShuffle([...Array(rows).keys()]).sort((a, b) => enemyDef[a] - enemyDef[b]);
+        const colaCount = units.filter(u => u.type === 'cola').length;
+        if (colaCount < 3 && Math.random() < 0.5) {
+            return { key: botPickOne(['COLA_PIERCE', 'COLA_SPREAD', 'COLA_MEGATON', 'COLA_BOUNCE', 'COLA_CHARGE']), cols: [12, 13, 11, 14], rows: weakRows.slice(0, 3) };
         }
+        return { key: botPickOne(['RICE_BURST', 'RICE_SNIPER', 'RICE_SPREAD', 'RICE_FROST', 'RICE_LASER', 'RICE_SEEKER']), cols: [12, 13, 14], rows: weakRows.slice(0, 3) };
+    },
 
-        // 4. 一般強化抽出（未抽出ユニットをベースに他ユニットを吸収）
-        const candidates = myUnits.filter(u => (u.extractionCount || 0) < 3);
-        if (candidates.length >= 2) {
-            const target = candidates[0];
-            const src = candidates.slice(1).find(u => u !== target);
-            if (target && src) {
-                processExtraction(target.col, target.row, src.col, src.row, side);
+    placeFor(key) {
+        const def = UNIT_TYPES[key];
+        if (!def) return null;
+        if (key.startsWith('RICE_SHIELD')) return { key, cols: [10, 11, 9] };
+        if (def.type === 'soda') return { key, cols: [16, 17, 15] };
+        if (def.type === 'cola') return { key, cols: [12, 13, 14, 11] };
+        return { key, cols: [12, 13, 14] };
+    },
+
+    // 鬼: 目標のシークレットに足りない材料を1つ選ぶ
+    goalPick(units, incoming) {
+        if (!this.goal) {
+            if (this.goalsDone >= 3) return null; // 3体作ったら攻撃に専念
+            const list = this.recipes().filter(r => (SECRET_CHIMERAS[r.id].power || 0) > 0);
+            if (list.length === 0) return null;
+            this.goal = botPickOne(list);
+        }
+        const r = this.goal;
+
+        // いちばん進んでいる土台ユニット
+        let base = null, step = -1;
+        units.forEach(u => {
+            const k = this.progressOf(u, r);
+            if (k > step) { step = k; base = u; }
+        });
+
+        // まだ合成に使っていない材料（召喚中のものもふくむ）
+        const pool = units.filter(u => u !== base && this.isFreshMaterial(u)).map(u => u.typeKey)
+            .concat(incoming.map(ef => ef.typeKey));
+        if (!base) {
+            const i = pool.indexOf(r.base);
+            if (i < 0) return this.placeFor(r.base);
+            pool.splice(i, 1);
+            step = 0;
+        }
+        for (let k = step; k < r.mats.length; k++) {
+            const i = pool.indexOf(r.mats[k]);
+            if (i < 0) return this.placeFor(r.mats[k]);
+            pool.splice(i, 1);
+        }
+        return null; // 材料はそろっている → 合成を待つ
+    },
+
+    // ---------------- コーラ発射 ----------------
+    tryFireCola(L, human) {
+        const reserved = this.reservedUids(L); // 合成の材料に取っておくコーラ
+        const colas = this.myUnits().filter(u => u.type === 'cola' && !reserved.has(u.uid));
+        if (colas.length === 0) { this.holdCount = 0; return; }
+
+        // 鬼: 2本以上たまるまで少し待ってから、まとめて撃つ
+        if (L.volley && colas.length < 2 && this.holdCount < 2) { this.holdCount++; return; }
+        this.holdCount = 0;
+
+        const H = CONFIG.SCREEN_HEIGHT;
+        const tx = 16;
+        colas.forEach((u, i) => {
+            let ty = human.y + 16;
+            if (L.lead) {
+                // 弾が届くまでの時間に、プレイヤーがどこまで動くかを予測
+                const t = Math.hypot(tx - u.x, ty - u.y) / (u.action === 'zero' ? 9 : 6);
+                ty += this.humanVy * t;
+            }
+            if (L.volley && colas.length >= 2) ty += [0, -20, 20][i % 3]; // ばらして逃げ道をふさぐ
+            if (L.aimError) ty += (Math.random() * 2 - 1) * L.aimError;
+            ty = Math.max(16, Math.min(H - 16, ty));
+            u.fired = true;
+            u.hp = -1;
+            fireColaTarget(u, tx, ty);
+        });
+    },
+
+    // ---------------- 合成（抽出） ----------------
+    // シークレットの判定式を試して「土台 → 素材の順番」を自動で調べる（最初の1回だけ）
+    recipes() {
+        if (this._recipes) return this._recipes;
+        const keys = Object.keys(UNIT_TYPES);
+        const test = (c, base, hist, last) => {
+            try { return !!c.recipe({ typeKey: base, extractionHistory: hist }, { typeKey: last }); }
+            catch (e) { return false; }
+        };
+        const list = [];
+        for (const id of Object.keys(SECRET_CHIMERAS)) {
+            const c = SECRET_CHIMERAS[id];
+            let found = null;
+            // 素材2つ（土台＋2体）
+            for (const base of keys) {
+                for (const h of keys) {
+                    for (const last of keys) {
+                        if (test(c, base, [h], last)) { found = { id, chimeraId: c.id, base, mats: [h, last] }; break; }
+                    }
+                    if (found) break;
+                }
+                if (found) break;
+            }
+            // 素材3つ・順番指定（土台＋3体）
+            if (!found) {
+                for (const base of keys) {
+                    for (const h1 of keys) {
+                        for (const h2 of keys) {
+                            for (const last of keys) {
+                                if (test(c, base, [h1, h2], last)) { found = { id, chimeraId: c.id, base, mats: [h1, h2, last] }; break; }
+                            }
+                            if (found) break;
+                        }
+                        if (found) break;
+                    }
+                    if (found) break;
+                }
+            }
+            if (found) list.push(found);
+        }
+        this._recipes = list;
+        return list;
+    },
+
+    // ユニット t がレシピ r の何番目まで進んでいるか（使えないなら -1）
+    progressOf(t, r) {
+        if (t.typeKey !== r.base || t.isSecretChimera || !this.canExtract(t)) return -1;
+        const h = t.extractionHistory || [];
+        if (h.length >= r.mats.length) return -1;
+        for (let i = 0; i < h.length; i++) if (h[i] !== r.mats[i]) return -1;
+        return h.length;
+    },
+
+    // 盤面で進められるレシピの候補（needAll=true なら残りの素材が全部そろっているものだけ）
+    findRecipeMoves(units, needAll, onlyIds) {
+        const moves = [];
+        for (const r of this.recipes()) {
+            if (onlyIds && !onlyIds.includes(r.id)) continue;
+            for (const t of units) {
+                const k = this.progressOf(t, r);
+                if (k < 0) continue;
+                const used = new Set([t]);
+                const picks = [];
+                for (let i = k; i < r.mats.length; i++) {
+                    const m = units.find(u => !used.has(u) && u.typeKey === r.mats[i] && this.isFreshMaterial(u));
+                    if (!m) break;
+                    used.add(m);
+                    picks.push(m);
+                }
+                if (picks.length === 0) continue;
+                const complete = picks.length === r.mats.length - k;
+                if (needAll && !complete) continue;
+                moves.push({ r, t, src: picks[0], picks, finishing: k === r.mats.length - 1, complete });
             }
         }
+        // 完成直前 → 材料がそろっている の順に優先
+        moves.sort((a, b) => (b.finishing - a.finishing) || (b.complete - a.complete));
+        return moves;
     },
 
-    tryFireCola(side, human) {
-        const myColas = gameState.units.filter(u => u.side === side && u.type === 'cola' && !u.fired && u.hp > 0);
-        if (myColas.length === 0) return;
+    recipeMoves(units, L) {
+        if (L.extract === 'none' || L.extract === 'general') return [];
+        const onlyIds = L.extract === 'known' ? BOT_KNOWN_RECIPES : null;
+        let moves = this.findRecipeMoves(units, L.extract === 'ready', onlyIds);
+        // 鬼: 材料がそろっているもの と 目標のもの だけ進める
+        if (L.extract === 'goal') moves = moves.filter(m => m.complete || m.r === this.goal);
+        return moves;
+    },
 
-        // プレイヤーの現在位置に向けて発射
-        const targetX = 16;
-        const targetY = human.y + 16;
-        processFireColaTargetAll(targetX, targetY, side);
+    reservedUids(L) {
+        const set = new Set();
+        this.recipeMoves(this.myUnits(), L).forEach(m => m.picks.forEach(p => set.add(p.uid)));
+        return set;
+    },
+
+    extract(target, src) {
+        if (!target || !src || target === src || !this.canExtract(target)) return false;
+        processExtraction(target.col, target.row, src.col, src.row, this.side);
+        return true;
+    },
+
+    tryExtract(L) {
+        if (L.extract === 'none') return;
+        const units = this.myUnits();
+        if (units.length < 2) return;
+
+        // シークレットのレシピを進める
+        const moves = this.recipeMoves(units, L);
+        if (moves.length > 0) {
+            const m = moves[0];
+            this.extract(m.t, m.src);
+            if (m.finishing && m.r === this.goal && m.t.isSecretChimera) {
+                this.goal = null;
+                this.goalsDone++;
+            }
+            return;
+        }
+
+        // 普通・難しい: ふつうの強化合成（融合度3未満どうし）
+        if (L.extract === 'general' || L.extract === 'known') {
+            let cand = units.filter(u => (u.extractionCount || 0) < 3);
+            if (L.extract === 'known') {
+                // 難しい: シークレット作りの途中のユニットと、その材料には手を出さない
+                const reserved = this.reservedUids(L);
+                const inProgress = u => this.recipes().some(r => BOT_KNOWN_RECIPES.includes(r.id) && this.progressOf(u, r) > 0);
+                cand = cand.filter(u => !reserved.has(u.uid) && !inProgress(u));
+            }
+            if (cand.length >= 2) this.extract(cand[0], cand[1]);
+            return;
+        }
+
+        // 超難・鬼: 盤面がいっぱいのときだけ、安いユニットを強い攻撃役にまとめる
+        if (units.length < L.maxUnits - 2) return;
+        const reserved = this.reservedUids(L);
+        const goalKeys = this.goal ? [this.goal.base, ...this.goal.mats] : [];
+        const targets = units
+            .filter(u => this.canExtract(u) && (u.isSecretChimera || (u.type === 'rice' && !this.isShield(u))))
+            .sort((a, b) => (!!b.isSecretChimera - !!a.isSecretChimera) || ((b.power || 0) - (a.power || 0)));
+        const target = targets[0];
+        if (!target) return;
+        const src = units
+            .filter(u => u !== target && !reserved.has(u.uid) && this.isFreshMaterial(u) &&
+                u.type !== 'soda' && !this.isShield(u) && !goalKeys.includes(u.typeKey))
+            .sort((a, b) => (a.cost || 0) - (b.cost || 0))[0];
+        this.extract(target, src);
     }
 };
 
@@ -1700,6 +2085,7 @@ function startBotMatch() {
     const difficultyEl = document.getElementById('cpu-difficulty');
     const difficulty = difficultyEl ? parseInt(difficultyEl.value) : 2;
     gameState.cpuDifficulty = difficulty;
+    BotAI.reset();
 
     const diffNames = ['', '易しい', '普通', '難しい', '超難', '鬼'];
     const botNames = ['', '🤖 よわよわBot', '🤖 普通Bot', '🤖 強化Bot', '🤖 超強Bot', '🤖 鬼Bot'];
@@ -1743,6 +2129,26 @@ function init() {
             savePlayerName();
             sendRegisterPlayerName();
         });
+        // 名前を決め終わったら、ランキングの名前も更新する
+        nameInput.addEventListener('change', () => {
+            CloudSyncManager.save({ name: localStorage.getItem('inamu_player_name') || 'ゲスト' })
+                .then(() => CloudSyncManager.updateRankingDisplay());
+        });
+    }
+
+    // 🏠 ホーム画面: 自分のレート・ランキング・全体チャット
+    updateMyEloDisplay();
+    setInterval(() => {
+        if (!menuOverlay.classList.contains('hidden')) CloudSyncManager.updateRankingDisplay();
+    }, 30000);
+    const lobbyInput = document.getElementById('lobby-chat-input');
+    const lobbySend = document.getElementById('btn-lobby-chat-send');
+    if (lobbyInput && lobbySend) {
+        lobbySend.addEventListener('click', sendLobbyChat);
+        lobbyInput.addEventListener('keydown', (e) => {
+            e.stopPropagation(); // 入力中のキーをゲーム操作として扱わない
+            if (e.key === 'Enter' && !e.isComposing) sendLobbyChat();
+        });
     }
 
     // デッキ初期化
@@ -1775,6 +2181,17 @@ function init() {
             if (icon) icon.textContent = '▲';
         }
     } catch(e) {}
+
+    // チャットのON/OFF設定の復元
+    const checkChat = document.getElementById('check-chat-enabled');
+    if (checkChat) {
+        checkChat.checked = isChatEnabled();
+        checkChat.addEventListener('change', () => {
+            try { localStorage.setItem('inamu_chat_enabled', checkChat.checked ? '1' : '0'); } catch (e) {}
+            applyChatVisibility();
+        });
+    }
+    applyChatVisibility();
 
     connectToServer(); // 起動時に自動接続してホスト・他プレイヤー名を取得
     gameLoop();
@@ -2129,7 +2546,7 @@ function setupEventListeners() {
     if (chatInput && btnChatSend) {
         btnChatSend.addEventListener('click', sendChatMessage);
         chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') sendChatMessage();
+            if (e.key === 'Enter' && !e.isComposing) sendChatMessage(); // 日本語の変換確定では送らない
             e.stopPropagation(); // ゲーム操作に干渉させない
         });
         // 入力中はキーボード操作(移動など)を無視する
@@ -2137,7 +2554,24 @@ function setupEventListeners() {
     }
 }
 
+// チャット設定（初期値はON。OFFのときだけ '0' を保存）
+function isChatEnabled() {
+    try { return localStorage.getItem('inamu_chat_enabled') !== '0'; } catch (e) { return true; }
+}
+
+// チャット欄を出すかどうか（OFF設定のとき・CPU対戦のときは出さない）
+function applyChatVisibility() {
+    const box = document.getElementById('chat-container');
+    if (!box) return;
+    const show = isChatEnabled() && !gameState.isBotMatch;
+    box.style.display = show ? 'flex' : 'none';
+    // ホーム画面の全体チャットも同じ設定に従う
+    const lobby = document.getElementById('lobby-chat');
+    if (lobby) lobby.style.display = isChatEnabled() ? '' : 'none';
+}
+
 function sendChatMessage() {
+    if (!isChatEnabled()) return;
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
     if (!text) return;
@@ -2165,8 +2599,14 @@ function sendChatMessage() {
 function appendChatMessage(name, text, color = '#fff') {
     const messages = document.getElementById('chat-messages');
     if (!messages) return;
+    // 名前とメッセージは「ただの文字」として表示する（相手が仕掛けを入れた文字を送っても動かない）
     const div = document.createElement('div');
-    div.innerHTML = `<span style="color: ${color}; font-weight: bold;">${name}:</span> ${text}`;
+    const nameSpan = document.createElement('span');
+    nameSpan.style.color = color;
+    nameSpan.style.fontWeight = 'bold';
+    nameSpan.textContent = `${String(name ?? '')}:`;
+    div.appendChild(nameSpan);
+    div.appendChild(document.createTextNode(' ' + String(text ?? '')));
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
 }
@@ -2378,37 +2818,115 @@ function cancelMatch() {
 function sendRegisterPlayerName() {
     const nameInput = document.getElementById('player-name');
     const name = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : 'プレイヤー';
+    if (!CloudSyncManager.token) CloudSyncManager.initToken();
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
             type: 'register_player',
-            name: name
+            name: name,
+            token: CloudSyncManager.token // レート表示用（サーバーは他の人には送らない）
         }));
     }
 }
 
-function updateOnlinePlayersUI(hostName, players) {
-    const hostElem = document.getElementById('host-name-display');
+// ===============================================================
+// 🏠 ホーム画面（自分のレート・オンライン一覧・対戦待ち人数・全体チャット）
+// ===============================================================
+let myPlayerId = null;
+
+function updateMyEloDisplay() {
+    const el = document.getElementById('my-elo');
+    if (el) el.textContent = parseInt(localStorage.getItem('inamu_elo') || '1200', 10);
+}
+
+const PLAYER_STATUS_LABEL = { idle: '待機中', waiting: '対戦待ち', playing: '対戦中' };
+
+function updateOnlinePlayersUI(hostName, players, waiting) {
     const countElem = document.getElementById('online-count');
     const listElem = document.getElementById('online-players-list');
-
-    if (hostElem) hostElem.innerText = hostName || '未接続';
     if (countElem) countElem.innerText = players ? players.length : 0;
 
     if (listElem) {
         listElem.innerHTML = '';
         if (!players || players.length === 0) {
-            listElem.innerHTML = '<li style="color: #aaa;">オンラインプレイヤーなし</li>';
+            listElem.innerHTML = '<li class="home-empty">オンラインプレイヤーなし</li>';
         } else {
-            players.forEach(p => {
+            // 自分を一番上に、そのあとはレートの高い順
+            const sorted = players.slice().sort((a, b) =>
+                ((b.id === myPlayerId) - (a.id === myPlayerId)) || ((b.elo || 0) - (a.elo || 0)));
+            sorted.forEach(p => {
                 const li = document.createElement('li');
-                li.style.display = 'flex';
-                li.style.alignItems = 'center';
-                li.style.gap = '5px';
-                li.innerHTML = `<span style="color:#0f0;">•</span> <span>${escapeHtml(p.name)}</span>`;
+                li.className = 'home-list-row' + (p.id === myPlayerId ? ' me' : '');
+                const name = document.createElement('span');
+                name.className = 'name';
+                name.textContent = p.name + (p.id === myPlayerId ? '（あなた）' : '');
+                const right = document.createElement('span');
+                right.style.display = 'flex';
+                right.style.gap = '5px';
+                right.style.alignItems = 'center';
+                const badge = document.createElement('span');
+                const st = PLAYER_STATUS_LABEL[p.status] ? p.status : 'idle';
+                badge.className = 'status-badge status-' + st;
+                badge.textContent = PLAYER_STATUS_LABEL[st];
+                const elo = document.createElement('span');
+                elo.className = 'elo';
+                elo.textContent = typeof p.elo === 'number' ? p.elo : '-';
+                right.append(badge, elo);
+                li.append(name, right);
                 listElem.appendChild(li);
             });
         }
     }
+
+    if (waiting) {
+        const r = document.getElementById('waiting-rated');
+        const u = document.getElementById('waiting-unrated');
+        if (r) r.textContent = waiting.rated || 0;
+        if (u) u.textContent = waiting.unrated || 0;
+    }
+}
+
+// 全体チャットに1件追加（名前・文字は「ただの文字」として表示）
+function appendLobbyChatMessage(m) {
+    const box = document.getElementById('lobby-chat-messages');
+    if (!box || !m) return;
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
+    const row = document.createElement('div');
+    const myName = (document.getElementById('player-name') || {}).value || '';
+    row.className = 'lobby-chat-msg' + (m.name && m.name === myName.trim() ? ' me' : '');
+    const time = document.createElement('span');
+    time.className = 'lobby-chat-time';
+    const d = new Date(m.time || Date.now());
+    const sameDay = d.toDateString() === new Date().toDateString();
+    const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    time.textContent = sameDay ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+    const name = document.createElement('span');
+    name.className = 'lobby-chat-name';
+    name.textContent = String(m.name ?? '') + (typeof m.elo === 'number' ? `(${m.elo})` : '') + ':';
+    row.append(time, name, document.createTextNode(' ' + String(m.text ?? '')));
+    box.appendChild(row);
+    while (box.children.length > 200) box.removeChild(box.firstChild); // 画面に出すのは200件まで
+    if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+function showLobbyChatNote(text) {
+    const note = document.getElementById('lobby-chat-note');
+    if (!note) return;
+    note.textContent = text;
+    clearTimeout(showLobbyChatNote.timer);
+    showLobbyChatNote.timer = setTimeout(() => { note.textContent = ''; }, 3000);
+}
+
+function sendLobbyChat() {
+    const input = document.getElementById('lobby-chat-input');
+    if (!input || !isChatEnabled()) return;
+    const text = input.value.trim();
+    if (!text) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        showLobbyChatNote('サーバーにつながっていません。');
+        return;
+    }
+    socket.send(JSON.stringify({ type: 'lobby_chat', text }));
+    input.value = '';
 }
 
 function escapeHtml(str) {
@@ -2458,6 +2976,13 @@ function connectToServer() {
         socket.onerror = () => {
             console.log('サーバー未起動（オフライン／練習場モードでプレイ可能）');
         };
+
+        // 切れたら5秒後につなぎ直す（サーバーの再起動・スリープ明けでもホーム画面が復活する）
+        socket.onclose = () => {
+            updateOnlinePlayersUI(null, [], { rated: 0, unrated: 0 });
+            clearTimeout(connectToServer.retryTimer);
+            connectToServer.retryTimer = setTimeout(connectToServer, 5000);
+        };
     } catch (err) {
         console.log('WebSocket接続待機（オフライン）:', err.message);
     }
@@ -2466,7 +2991,23 @@ function connectToServer() {
 function handleServerMessage(data) {
     switch (data.type) {
         case 'online_players_update':
-            updateOnlinePlayersUI(data.hostName, data.players);
+            updateOnlinePlayersUI(data.hostName, data.players, data.waiting);
+            break;
+        case 'welcome':
+            myPlayerId = data.playerId;
+            break;
+        case 'lobby_chat_history': {
+            const box = document.getElementById('lobby-chat-messages');
+            if (box) box.innerHTML = '';
+            (data.messages || []).forEach(appendLobbyChatMessage);
+            if (box) box.scrollTop = box.scrollHeight;
+            break;
+        }
+        case 'lobby_chat':
+            appendLobbyChatMessage(data.message);
+            break;
+        case 'lobby_chat_error':
+            showLobbyChatNote(data.reason || '送信できませんでした。');
             break;
         case 'matching_started':
             // サーバー側で待ち行列に入った
@@ -2518,7 +3059,8 @@ function handleServerMessage(data) {
                 processExtraction(data.targetCol, data.targetRow, data.srcCol, data.srcRow, data.side);
             } else if (data.action === 'chat') {
                 // 自分が送信したものはローカルで追加済みなので他人のみ追加
-                if (data.side !== gameState.playerSide) {
+                // チャットOFFのときは相手のメッセージを表示しない
+                if (data.side !== gameState.playerSide && isChatEnabled()) {
                     const color = data.side === 'left' ? '#0f0' : '#f55';
                     appendChatMessage(data.name, data.text, color);
                 }
@@ -2644,6 +3186,7 @@ function startGame() {
     // ゲーム状態のリセット
     gameState.isPlaying = true;
     NetSync.reset();
+    applyChatVisibility();
     gameState.units = [];
     gameState.bullets = [];
     gameState.summoningEffects = [];
@@ -3758,7 +4301,15 @@ function showSecretEvolutionCutin(name) {
 function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
     const target = gameState.units.find(u => u.col === targetCol && u.row === targetRow && u.side === side && u.hp > 0);
     const src = gameState.units.find(u => u.col === srcCol && u.row === srcRow && u.side === side && u.hp > 0);
-    if (!target || !src) return;
+    if (!target || !src || target === src) return;
+
+    // 抽出回数の上限（通常ユニット5回・シークレットキメラ10回）。
+    // CPUや通信で届いた合成もここで必ずチェックする
+    const maxLimit = target.isSecretChimera ? 10 : 5;
+    if ((target.extractionCount || 0) >= maxLimit) return;
+
+    // 自分の合成かどうか（相手の合成で自分の図鑑が埋まらないようにする）
+    const isMine = side === gameState.playerSide;
 
     SoundManager.playSummon();
 
@@ -3853,18 +4404,22 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         if (matchedChimera.manaGen) target.manaGen = matchedChimera.manaGen;
         if (matchedChimera.pierceCount) target.pierceCount = matchedChimera.pierceCount;
 
-        // 図鑑アンロック記録（ローカル + クラウド同期）
-        try {
-            let disc = JSON.parse(localStorage.getItem('inamu_discovered_chimeras') || '[]');
-            if (!disc.includes(matchedChimera.id)) {
-                disc.push(matchedChimera.id);
-                CloudSyncManager.saveDiscoveredChimeras(disc);
-            }
-        } catch (e) {}
+        // 図鑑アンロック記録（ローカル + クラウド同期）※自分が作ったときだけ
+        if (isMine) {
+            try {
+                let disc = JSON.parse(localStorage.getItem('inamu_discovered_chimeras') || '[]');
+                if (!disc.includes(matchedChimera.id)) {
+                    disc.push(matchedChimera.id);
+                    CloudSyncManager.saveDiscoveredChimeras(disc);
+                }
+            } catch (e) {}
+        }
 
         // カットイン表示
         showSecretEvolutionCutin(matchedChimera.name);
-        statusMsg.innerText = `シークレット進化！「${matchedChimera.name}」が誕生した！`;
+        statusMsg.innerText = isMine
+            ? `シークレット進化！「${matchedChimera.name}」が誕生した！`
+            : `⚠ 相手がシークレット「${matchedChimera.name}」を誕生させた！`;
     } else if (target.isSecretChimera) {
         // すでにシークレットであるユニットへの追加抽出（能力をさらに上乗せ強化！）
         const hpRatio = target.hp / (target.maxHp || target.hp || 1);
@@ -3874,7 +4429,7 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         target.cooldown = Math.max(0.4, (target.cooldown || 1.5) * 0.9);
         if (src.manaGen > 0) target.manaGen = (target.manaGen || 0) + src.manaGen * 0.6;
 
-        statusMsg.innerText = `シークレット「${target.name}」が「${src.name}」を吸収して超強化！ (抽出: ${target.extractionCount}/10)`;
+        if (isMine) statusMsg.innerText = `シークレット「${target.name}」が「${src.name}」を吸収して超強化！ (抽出: ${target.extractionCount}/10)`;
     } else {
         // 通常の融合ステータス強化
         const hpRatio = target.hp / (target.maxHp || target.hp || 1);
@@ -3883,7 +4438,7 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         target.power = (target.power || 5) + Math.max(1, Math.floor((src.power || 5) * 0.25));
         target.cooldown = Math.max(0.6, (target.cooldown || 2.0) * 0.85);
 
-        statusMsg.innerText = `「${src.name}」と「${target.name}」が抽出融合！ (融合度: ${target.extractionCount}/5)`;
+        if (isMine) statusMsg.innerText = `「${src.name}」と「${target.name}」が抽出融合！ (融合度: ${target.extractionCount}/5)`;
     }
 
     // 吸収エフェクト用に光の球パーティクルを生成
@@ -4114,11 +4669,10 @@ function endGame(winner) {
     const dpsPanel = document.getElementById('dps-panel');
     if (dpsPanel) dpsPanel.classList.add('hidden');
 
-    // ELO 計算 (簡易版)
-    if (winner === gameState.playerSide) {
-        updateElo(32);
-    } else {
-        updateElo(-32);
+    // ELO 計算 (簡易版)。レートが変わるのは「レート戦」のオンライン対戦だけ
+    // （ノーマル戦・CPU対戦・練習場では変わらない）
+    if (wasOnline && gameState.isRated) {
+        updateElo(winner === gameState.playerSide ? 32 : -32);
     }
 }
 
