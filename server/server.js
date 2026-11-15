@@ -3,7 +3,6 @@ const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
 const fs = require('fs');
-const { getLocalIp } = require('./discovery');
 
 const app = express();
 const server = http.createServer(app);
@@ -97,35 +96,13 @@ app.get('/api/ranking', (req, res) => {
 // ===============================================================
 app.use(express.static(path.join(__dirname, '../client')));
 
-app.get('/version.json', (req, res) => {
-    const versionPath = path.join(__dirname, '../version.json');
-    if (fs.existsSync(versionPath)) {
-        res.sendFile(versionPath);
-    } else {
-        res.json({ version: '1.0.0' });
-    }
-});
-
-// サーバー情報（IPアドレスなど）をクライアントに返す
-app.get('/api/server-info', (req, res) => {
-    const isCloud = !!process.env.RENDER || !!process.env.RAILWAY_ENVIRONMENT;
-    const host = isCloud ? req.hostname : getLocalIp();
-    res.json({
-        hostIp: host,
-        port: port,
-        hostName: hostPlayerName,
-        url: isCloud ? `https://${host}` : `http://${host}:${port}`,
-        isCloud
-    });
-});
-
 // ===============================================================
 // マッチメイキング & ルーム管理
 // ===============================================================
 const rooms = new Map();
 const matchmakingQueues = { rated: [], unrated: [] };
 
-let hostPlayerName = process.env.HOST_NAME || 'いなむーレジェンズ サーバー';
+const hostPlayerName = process.env.HOST_NAME || 'いなむーレジェンズ サーバー';
 let connectedPlayers = new Map(); // ws -> { id, name }
 
 function broadcastOnlinePlayers() {
@@ -168,13 +145,6 @@ wss.on('connection', (ws) => {
                     }
                     connectedPlayers.set(ws, { id: ws.playerId, name: ws.playerName });
                     broadcastOnlinePlayers();
-                    break;
-
-                case 'set_host_name':
-                    if (data.name && data.name.trim() !== '') {
-                        hostPlayerName = data.name.trim();
-                        broadcastOnlinePlayers();
-                    }
                     break;
 
                 case 'find_match': {

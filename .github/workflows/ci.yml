@@ -21,6 +21,4 @@ jobs:
     - name: Syntax Check
       run: |
         node --check server/server.js
-        node --check server/discovery.js
-        node --check server/updater.js
-        node --check main_app.js
+        node --check client/main.js

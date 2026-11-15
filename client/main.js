@@ -18,7 +18,6 @@ const CONFIG = {
 // ===============================================================
 const CloudSyncManager = {
     token: null,
-    isCloud: false,  // クラウドサーバー接続中かどうか
 
     // トークンの初期化（localStorage から取得、なければ生成）
     initToken() {
@@ -1494,9 +1493,6 @@ let socket = null;
 // UI 要素
 const menuOverlay = document.getElementById('menu');
 const gameUI = document.getElementById('game-ui');
-const btnCreate = document.getElementById('btn-create');
-const btnJoin = document.getElementById('btn-join');
-const roomInput = document.getElementById('room-code-input');
 const statusMsg = document.getElementById('status-message');
 
 
@@ -1759,9 +1755,6 @@ function init() {
         updateUnitUI();
     });
 
-    // サーバー情報取得
-    fetchServerInfo();
-
     for (let i = 0; i < 50; i++) bgParticles.push(new Particle()); // 粒子を増やす
 
     setupEventListeners();
@@ -1787,19 +1780,6 @@ function init() {
     gameLoop();
 }
 
-async function fetchServerInfo() {
-    try {
-        const res = await fetch('/api/server-info');
-        if (res.ok) {
-            const data = await res.json();
-            const urlEl = document.getElementById('my-server-url');
-            if (urlEl) urlEl.textContent = data.url;
-        }
-    } catch (e) {
-        const urlEl = document.getElementById('my-server-url');
-        if (urlEl) urlEl.textContent = `http://${window.location.host}`;
-    }
-}
 
 function setupEventListeners() {
     const btnFindMatch = document.getElementById('btn-find-match');
@@ -2488,12 +2468,6 @@ function handleServerMessage(data) {
         case 'online_players_update':
             updateOnlinePlayersUI(data.hostName, data.players);
             break;
-        case 'disconnected':
-            if (gameState.isPlaying) {
-                endGame(gameState.playerSide);
-                statusMsg.innerText = "相手が切断しました。あなたの勝利です！";
-            }
-            break;
         case 'matching_started':
             // サーバー側で待ち行列に入った
             break;
@@ -2523,11 +2497,6 @@ function handleServerMessage(data) {
             statusMsg.innerText = `マッチ成功！ ルーム: ${data.roomId}`;
             document.getElementById('room-display').innerText = `Room: ${data.roomId}`;
             startGame();
-            break;
-        case 'player_joined':
-            if (gameState.isHost) {
-                startGame();
-            }
             break;
         case 'signal':
             if (data.action === 'state') {
@@ -2661,10 +2630,6 @@ function fireCola(u) {
 function startGame() {
     menuOverlay.classList.add('hidden');
     gameUI.classList.remove('hidden');
-
-    // 試合中はサーバー情報パネルを非表示にして画面の重なりを防ぐ
-    const serverInfoPanel = document.getElementById('server-info-panel');
-    if (serverInfoPanel) serverInfoPanel.classList.add('hidden');
 
     // 練習場のみDPSパネルを表示
     const dpsPanel = document.getElementById('dps-panel');
@@ -4146,10 +4111,6 @@ function endGame(winner) {
     gameUI.classList.add('hidden');
     gameState.isBotMatch = false;
     gameState.isPractice = false;
-
-    // メニューに戻ったらサーバー情報パネルを再表示
-    const serverInfoPanel = document.getElementById('server-info-panel');
-    if (serverInfoPanel) serverInfoPanel.classList.remove('hidden');
     const dpsPanel = document.getElementById('dps-panel');
     if (dpsPanel) dpsPanel.classList.add('hidden');
 
@@ -4470,8 +4431,6 @@ function exitPracticeMode() {
     if (btnExitP) btnExitP.classList.add('hidden');
     const dpsPanel = document.getElementById('dps-panel');
     if (dpsPanel) dpsPanel.classList.add('hidden');
-    const serverInfoPanel = document.getElementById('server-info-panel');
-    if (serverInfoPanel) serverInfoPanel.classList.remove('hidden');
 }
 
 function leaveRoom() {
@@ -4499,8 +4458,6 @@ function leaveRoom() {
     if (rd) rd.innerText = `Room: -`;
     const btnFindMatch = document.getElementById('btn-find-match');
     if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
-    const serverInfoPanel = document.getElementById('server-info-panel');
-    if (serverInfoPanel) serverInfoPanel.classList.remove('hidden');
     const dpsPanel = document.getElementById('dps-panel');
     if (dpsPanel) dpsPanel.classList.add('hidden');
 }

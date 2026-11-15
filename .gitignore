@@ -3,10 +3,9 @@ node_modules/
 .env
 .DS_Store
 Thumbs.db
-node/
+
+# Windows用の起動・push用バッチ（個人のパソコン用）
 *.bat
-*.vbs
-launch.vbs
-start.bat
-join_server.bat
-unblock_first.bat
+
+# サーバーが自動で作るユーザーデータ（レート・デッキなど）
+server/userdata.json
