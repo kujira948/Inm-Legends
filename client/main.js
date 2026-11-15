@@ -1560,21 +1560,27 @@ const BOT_LEVELS = {
     // summon   : 召喚の作戦 (basic=盾→ソーダ→攻撃役 / counter=相手の盤面を見て守る行・攻める行を決める)
     // extract  : 合成の作戦 (general=ふつうの強化 / stack=強い攻撃役にまとめる)
     // timers   : 行動の間隔 [召喚, コーラ発射, 合成] (フレーム数。30フレーム = 1秒)
-    1: { dodge: 'late',    moveSpeed: 2.5, maxUnits: 10, aimError: 30, lead: false, volley: false, summon: 'basic',   extract: 'general', timers: [45, 60, 80] },
-    2: { dodge: 'react',   moveSpeed: 3.0, maxUnits: 13, aimError: 12, lead: false, volley: false, summon: 'basic',   extract: 'stack',   timers: [35, 45, 60] },
-    3: { dodge: 'predict', moveSpeed: 3.5, maxUnits: 16, aimError: 0,  lead: true,  volley: false, summon: 'counter', extract: 'stack',   timers: [25, 32, 45], lookahead: 40 },
-    4: { dodge: 'predict', moveSpeed: 4.0, maxUnits: 18, aimError: 0,  lead: true,  volley: true,  summon: 'counter', extract: 'stack',   timers: [18, 24, 32], lookahead: 60 },
-    5: { dodge: 'predict', moveSpeed: 4.0, maxUnits: 20, aimError: 0,  lead: true,  volley: true,  summon: 'counter', extract: 'stack',   timers: [12, 16, 24], lookahead: 80 }
+    // mergeAt  : この数のユニットがそろったら合成を始める
+    // buff: 難しさを広げるためのバフ（易しい以外）。マナがいちばん効く
+    1: { dodge: 'late',    moveSpeed: 3.0, maxUnits: 12, aimError: 24, lead: false, volley: false, summon: 'basic',   extract: 'general', timers: [38, 50, 70] },
+    2: { dodge: 'react',   moveSpeed: 3.5, maxUnits: 15, aimError: 8,  lead: false, volley: false, summon: 'basic',   extract: 'stack',   timers: [28, 36, 50], mergeAt: 8,
+         buff: { unitMul: 1.25, manaRate: 1.35, costMul: 1.0, bodyHp: 2000 } },
+    3: { dodge: 'predict', moveSpeed: 4.0, maxUnits: 18, aimError: 0,  lead: true,  volley: false, summon: 'counter', extract: 'stack',   timers: [20, 26, 36], lookahead: 50, mergeAt: 9,
+         buff: { unitMul: 1.3, manaRate: 1.4, costMul: 1.0, bodyHp: 2000 } },
+    4: { dodge: 'predict', moveSpeed: 4.5, maxUnits: 20, aimError: 0,  lead: true,  volley: true,  summon: 'counter', extract: 'stack',   timers: [14, 18, 26], lookahead: 70, mergeAt: 10,
+         buff: { unitMul: 1.9, manaRate: 2.0, costMul: 1.0, bodyHp: 2000 } },
+    5: { dodge: 'predict', moveSpeed: 5.0, maxUnits: 22, aimError: 0,  lead: true,  volley: true,  summon: 'counter', extract: 'stack',   timers: [9, 12, 18], lookahead: 90, mergeAt: 10,
+         buff: { unitMul: 2.3, manaRate: 2.4, costMul: 1.0, bodyHp: 2000 } }
 };
 // 鬼より上の5段階: 動きは鬼と同じで、シークレットを使わない代わりにバフが付く
 //   unitMul : CPUのユニットのHP・攻撃力の倍率   manaRate: マナ回復の倍率
 //   costMul : CPUの召喚コストの倍率            bodyHp  : CPU本体のHP
 const BOT_EXTRA_LEVELS = [
-    { level: 6,  name: '修羅',   bot: '🤖 修羅Bot',   buff: { unitMul: 1.2, manaRate: 1.2, costMul: 1.0,  bodyHp: 2000 } },
-    { level: 7,  name: '羅刹',   bot: '🤖 羅刹Bot',   buff: { unitMul: 1.4, manaRate: 1.4, costMul: 1.0,  bodyHp: 2000 } },
-    { level: 8,  name: '魔王',   bot: '🤖 魔王Bot',   buff: { unitMul: 1.6, manaRate: 1.6, costMul: 0.85, bodyHp: 2000 } },
-    { level: 9,  name: '破壊神', bot: '🤖 破壊神Bot', buff: { unitMul: 1.8, manaRate: 1.8, costMul: 0.75, bodyHp: 3000 } },
-    { level: 10, name: '無限',   bot: '🤖 無限Bot',   buff: { unitMul: 2.0, manaRate: 2.0, costMul: 0.65, bodyHp: 4000 } }
+    { level: 6,  name: '修羅',   bot: '🤖 修羅Bot',   buff: { unitMul: 2.8, manaRate: 2.8, costMul: 1.0,  bodyHp: 2500 } },
+    { level: 7,  name: '羅刹',   bot: '🤖 羅刹Bot',   buff: { unitMul: 3.3, manaRate: 3.2, costMul: 0.9,  bodyHp: 3000 } },
+    { level: 8,  name: '魔王',   bot: '🤖 魔王Bot',   buff: { unitMul: 3.8, manaRate: 3.6, costMul: 0.8,  bodyHp: 3500 } },
+    { level: 9,  name: '破壊神', bot: '🤖 破壊神Bot', buff: { unitMul: 4.7, manaRate: 4.3, costMul: 0.7,  bodyHp: 4000 } },
+    { level: 10, name: '無限',   bot: '🤖 無限Bot',   buff: { unitMul: 6.5, manaRate: 5.8, costMul: 0.6,  bodyHp: 5000 } }
 ];
 BOT_EXTRA_LEVELS.forEach(x => { BOT_LEVELS[x.level] = { ...BOT_LEVELS[5], buff: x.buff }; });
 const CPU_LEVEL_NAMES = ['', '易しい', '普通', '難しい', '超難', '鬼', ...BOT_EXTRA_LEVELS.map(x => x.name)];
@@ -1956,16 +1962,23 @@ const BotAI = {
 
         // 普通〜鬼: ある程度ユニットがそろったら、安いユニットを強い攻撃役にまとめる
         // （まとめた攻撃役が相手本体まで届く弾を撃つので、CPUの火力の中心になる）
-        const mergeAt = L.maxUnits >= 20 ? 10 : 12; // 鬼以上は早めにまとめる
-        if (units.length < Math.min(mergeAt, L.maxUnits - 3) && bot.mana < 50) return;
+        // mergeAt 体そろったら、強い攻撃役にまとめはじめる（まとめた攻撃役が CPU の火力の中心）
+        const mergeAt = L.mergeAt !== undefined ? L.mergeAt : Math.min(L.maxUnits >= 20 ? 10 : 12, L.maxUnits - 3);
+        if (units.length < mergeAt && bot.mana < 50) return;
         const targets = units
             .filter(u => this.canExtract(u) && u.type === 'rice' && !this.isShield(u))
             .sort((a, b) => ((b.extractionCount || 0) - (a.extractionCount || 0)) || ((b.power || 0) - (a.power || 0)));
+        // 素材は安い稲から。コーラは相手本体を撃つ大事な攻撃なので、ほかに素材がないときだけ使う
+        const matsFor = t => units.filter(u => u !== t && this.isFreshMaterial(u) && u.type !== 'soda' && !this.isShield(u));
+        const byCost = (a, b) => (a.cost || 0) - (b.cost || 0);
+        // 同じ種類どうしの重ね合成（能力のレベルアップ・伸び1.5倍）を優先する
+        for (const t of targets) {
+            const same = matsFor(t).find(u => u.typeKey === t.typeKey);
+            if (same) { this.extract(t, same); return; }
+        }
         const target = targets[0];
         if (!target) return;
-        // 素材は安い稲から。コーラは相手本体を撃つ大事な攻撃なので、ほかに素材がないときだけ使う
-        const mats = units.filter(u => u !== target && this.isFreshMaterial(u) && u.type !== 'soda' && !this.isShield(u));
-        const byCost = (a, b) => (a.cost || 0) - (b.cost || 0);
+        const mats = matsFor(target);
         const src = mats.filter(u => u.type !== 'cola').sort(byCost)[0] || (L.volley ? null : mats.sort(byCost)[0]);
         this.extract(target, src);
     }
@@ -3074,8 +3087,8 @@ function finalizeSummon(effect) {
     if (buff && buff.unitMul !== 1) {
         unit.maxHp = Math.round(unit.maxHp * buff.unitMul);
         unit.hp = unit.maxHp;
-        if (unit.power) unit.power = Math.round(unit.power * buff.unitMul);
-        unit.powerMul = buff.unitMul; // 撃つ弾の威力にも掛ける
+        // 攻撃力は撃つ弾の威力にだけ掛ける（以前は unit.power にも掛けていて、稲の弾には2回かかっていた）
+        unit.powerMul = buff.unitMul;
     }
     gameState.units.push(unit);
     Particles.summon(unit.x, unit.y, unit.side);
@@ -3120,6 +3133,9 @@ function withPowerBuff(fn) {
 
 // 図鑑・詳細表示の攻撃力も、実際に撃つ強さに合わせる
 Object.values(UNIT_TYPES).forEach(d => { if (d.type === 'cola') d.power = colaPower(d.action); });
+// 弾幕のごり押し対策: すべてのユニットのコストを1.2倍
+const UNIT_COST_RATE = 1.2;
+Object.values(UNIT_TYPES).forEach(d => { d.cost = Math.round(d.cost * UNIT_COST_RATE); });
 
 function fireCola(u) {
     const own = u.action;
@@ -3648,6 +3664,7 @@ function update() {
     // 物理・弾の移動および当たり判定（ホスト／練習場／Bot戦が一元計算）
     if (isAuthority) {
         PoisonMist.update();
+        resolveBulletCollisions(); // 💥 弾どうしの衝突
         for (let i = gameState.bullets.length - 1; i >= 0; i--) {
             const b = gameState.bullets[i];
             let speedMult = CONFIG.BULLET_SPEED_RATE;
@@ -3655,35 +3672,6 @@ function update() {
             speedMult *= SecretSkills.bulletSpeedMul(b); // 凍てつく領域: 半分の速さ
             if (!SecretSkills.bulletFrozen(b)) { b.x += b.vx * speedMult; b.y += b.vy * speedMult; } // 時間停止中は動かない
             SecretSkills.typhoonReflect(b); // 竜巻返し
-
-            // 💥 コーラ同士の衝突: 攻撃力の大きい方が残り、相手の分だけ攻撃力が減る（同じなら両方消える）
-            if (b.isCola) {
-                let destroyedSelf = false;
-                for (let k = gameState.bullets.length - 1; k >= 0; k--) {
-                    const eb = gameState.bullets[k];
-                    if (eb === b || !eb.isCola || eb.side === b.side) continue;
-                    const reach = ((b.size || 16) + (eb.size || 16)) / 2 - 2;
-                    if (Math.abs(b.x - eb.x) > reach || Math.abs(b.y - eb.y) > reach) continue;
-                    // ゲイザーは70%で衝突をかわす（同じ相手には1回だけ判定）
-                    if (geyserEvades(b, eb) || geyserEvades(eb, b)) continue;
-                    const pb = b.power || 0, pe = eb.power || 0;
-                    addCollisionSpark((b.x + eb.x) / 2, (b.y + eb.y) / 2);
-                    if (pb > pe) {
-                        b.power = pb - pe;
-                        removeBullet(k);
-                        if (k < i) i--;
-                    } else if (pe > pb) {
-                        eb.power = pe - pb;
-                        destroyedSelf = true;
-                    } else {
-                        removeBullet(k);
-                        if (k < i) i--;
-                        destroyedSelf = true;
-                    }
-                    break;
-                }
-                if (destroyedSelf) { removeBullet(i); continue; }
-            }
 
             // 重力黒コーラ（ネビュラ）: 近くの敵弾を引き寄せて消し、マナに変える（弱体化: 範囲45→30、引く力0.9→0.35）
             if (bAct(b, 'blackhole')) {
@@ -3868,6 +3856,10 @@ function update() {
                             }
                         }
 
+                        // 🛡️ 盾の装甲: 1発ごとに決まった量だけダメージをへらす（小さい弾はほとんど通らない。重い一撃は通る）
+                        const armor = shieldArmor(u);
+                        if (armor) dmg = Math.max(1, dmg - armor);
+
                         // 🛡️ アウラ シルト（魔力盾）: 被弾ダメージを自軍マナへ変換
                         const auraLv = abLv(u, 'aura_absorb');
                         if (auraLv) {
@@ -3919,15 +3911,21 @@ function update() {
                 }
             }
 
-            // 壁際での拡散
-            if (bAct(b, 'spread') && (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT)) {
-                const spreadX = Math.max(0, Math.min(CONFIG.SCREEN_WIDTH, b.x));
-                const spreadY = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT, b.y));
-                handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side, sk: b.sk, fu: b.fu, owner: b.owner, lv: bLv(b, 'spread'), kw: b.kw });
-                removeBullet(i); continue;
-            }
-            if (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT) {
-                if (b.bounce && b.bounce > 0) { b.vy *= -1; b.bounce--; SecretSkills.onBounce(b); continue; }
+            // 壁: 跳弾は上下・左右（自分のうしろ・相手のうしろ）すべての壁で跳ね返り、決まった回数のあとは次の壁で消える
+            //       爆散（ノヴァ）は壁に当たるたびに爆発する
+            //   （以前は左右の壁でも上下を反対にしていたため、うしろの壁では跳ね返らずに回数を使い切って消えていた）
+            const SW = CONFIG.SCREEN_WIDTH, SH = CONFIG.SCREEN_HEIGHT;
+            if (b.x < 0 || b.x > SW || b.y < 0 || b.y > SH) {
+                const wx = Math.max(0, Math.min(SW, b.x)), wy = Math.max(0, Math.min(SH, b.y));
+                if (bAct(b, 'spread')) handleSpreadEffect({ x: wx, y: wy, side: b.side, sk: b.sk, fu: b.fu, owner: b.owner, lv: bLv(b, 'spread'), kw: b.kw });
+                if (b.bounce && b.bounce > 0) {
+                    if (b.x < 0 || b.x > SW) { b.vx = -b.vx; b.x = wx; }
+                    if (b.y < 0 || b.y > SH) { b.vy = -b.vy; b.y = wy; }
+                    if (b.headAng !== undefined) b.headAng = Math.atan2(b.vy, b.vx); // ゲイザーの向きも反対に
+                    b.bounce--;
+                    SecretSkills.onBounce(b);
+                    continue;
+                }
                 removeBullet(i); continue;
             }
         }
@@ -4498,6 +4496,14 @@ function unitAbilityKeys(u) {
     return [...keys];
 }
 
+// 🛡️ 盾の装甲（1発ごとにへらすダメージ）。盾の能力を合成で受け継いだユニットにも付き、重ね合成でLvごとに+2
+const SHIELD_ARMOR = { wood_regen: 5, iron_reflect: 8, aura_absorb: 6 };
+function shieldArmor(u) {
+    let a = 0;
+    for (const k in SHIELD_ARMOR) { const lv = abLv(u, k); if (lv) a = Math.max(a, SHIELD_ARMOR[k] + 2 * (lv - 1)); }
+    return a;
+}
+
 // ユニットの能力のレベル（持っていなければ0）
 function abLv(u, key) {
     if (!u) return 0;
@@ -4599,6 +4605,53 @@ const BattleFx = {
         this.bolts = this.bolts.filter(z => z[4] > 0);
     }
 };
+
+// 💥 弾どうしの衝突（すべての弾・コーラも）: 攻撃力の大きい方が残り、消えた弾の攻撃力の分だけ減る（同じなら両方消える）
+//   何回でもぶつかって削れる。ゲイザーは70%でかわす。
+//   氷結・重力・竜巻返しの弾は、それぞれの決まりで敵の弾を消すので、ここでは扱わない
+function bulletCollides(b) { return !bAct(b, 'frost') && !bAct(b, 'blackhole') && !(b.reflectLeft > 0); }
+function resolveBulletCollisions() {
+    const list = gameState.bullets;
+    if (list.length < 2) return;
+    const CELL = 24, grid = new Map();
+    for (const b of list) {
+        if (b.side !== 'right' || !bulletCollides(b)) continue;
+        const k = Math.floor(b.x / CELL) * 1000 + Math.floor(b.y / CELL);
+        let cell = grid.get(k);
+        if (!cell) { cell = []; grid.set(k, cell); }
+        cell.push(b);
+    }
+    if (grid.size === 0) return;
+    const rate = CONFIG.BULLET_SPEED_RATE;
+    const dead = new Set();
+    for (const b of list) {
+        if (b.side !== 'left' || !bulletCollides(b)) continue;
+        const cx = Math.floor(b.x / CELL), cy = Math.floor(b.y / CELL);
+        for (let gx = cx - 1; gx <= cx + 1; gx++) for (let gy = cy - 1; gy <= cy + 1; gy++) {
+            const cell = grid.get(gx * 1000 + gy);
+            if (!cell) continue;
+            for (const eb of cell) {
+                if (dead.has(b)) break;
+                if (dead.has(eb)) continue;
+                const reach = ((b.size || 6) + (eb.size || 6)) / 2 - 1;
+                // 1フレームの動きの間でいちばん近づいた距離（すれちがいも当たる）
+                const px = b.x - eb.x, py = b.y - eb.y;
+                const vx = (b.vx - eb.vx) * rate, vy = (b.vy - eb.vy) * rate;
+                const vv = vx * vx + vy * vy;
+                const t = vv > 0 ? Math.max(-1, Math.min(0, -(px * vx + py * vy) / vv)) : 0;
+                const dx = px + vx * t, dy = py + vy * t;
+                if (dx * dx + dy * dy > reach * reach) continue;
+                if (geyserEvades(b, eb) || geyserEvades(eb, b)) continue; // ゲイザーは70%でかわす
+                const pb = b.power || 0, pe = eb.power || 0;
+                if (b.isCola || eb.isCola) addCollisionSpark((b.x + eb.x) / 2, (b.y + eb.y) / 2);
+                if (pb > pe) { b.power = pb - pe; dead.add(eb); }
+                else if (pe > pb) { eb.power = pe - pb; dead.add(b); }
+                else { dead.add(b); dead.add(eb); }
+            }
+        }
+    }
+    if (dead.size) for (let i = list.length - 1; i >= 0; i--) if (dead.has(list[i])) removeBullet(i);
+}
 
 function addCollisionSpark(x, y) {
     BattleFx.sparks.push([x, y, 12]);
@@ -5564,21 +5617,30 @@ const DamageNumbers = {
 
 // 合成できる回数。シークレットは誕生した時点で0に戻り、また5回まで合成できる
 const EXTRACTION_LIMIT = 5;
+// 合成1回にかかるマナ
+const EXTRACTION_MANA_COST = 4;
 // 最終形態（シークレット同士の合成）の強さ: 2体の合計 × この倍率
 const FINAL_FORM_RATE = 0.8;
 // 「極」（同じシークレットどうし）の1発の威力の倍率（弾の数が2倍になるため）
 const KIWAMI_POWER_RATE = 0.6;
 
+// 合成のマナが足りないとき
+function extractionManaReason(target) {
+    const P = gameState.players[target.side];
+    if (P && P.mana < EXTRACTION_MANA_COST) return `合成には${EXTRACTION_MANA_COST}マナ必要です！`;
+    return null;
+}
+
 // 合成できない理由（できるなら null）
 function getExtractionBlockReason(target, src) {
     if (!target || !src || target === src) return '合成できません。';
     if (target.isFinalForm || src.isFinalForm) return '「？？？」はこれ以上合成できません！';
-    if (target.isSecretChimera && src.isSecretChimera) return null; // シークレット同士は回数に関係なく最終進化できる
+    if (target.isSecretChimera && src.isSecretChimera) return extractionManaReason(target); // シークレット同士は回数に関係なく最終進化できる
     if (src.isSecretChimera) return 'シークレットは、ふつうのユニットの素材にはできません！（シークレットをあとに選ぶと、シークレットが土台になります）';
     if ((target.extractionCount || 0) >= EXTRACTION_LIMIT) {
         return `「${target.name}」は既に最大合成数（${EXTRACTION_LIMIT}回）に達しています！`;
     }
-    return null;
+    return extractionManaReason(target);
 }
 
 // シークレット同士の合成 → 最終形態「？？？」（黒い靄）。それぞれの合成は消え、これ以上合成できない
@@ -5776,8 +5838,9 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
     const src = gameState.units.find(u => u.col === srcCol && u.row === srcRow && u.side === side && u.hp > 0);
     if (!target || !src || target === src) return;
 
-    // 合成できるか（回数の上限・最終形態など）。CPUや通信で届いた合成もここで必ずチェックする
+    // 合成できるか（回数の上限・最終形態・マナなど）。CPUや通信で届いた合成もここで必ずチェックする
     if (getExtractionBlockReason(target, src)) return;
+    gameState.players[side].mana -= EXTRACTION_MANA_COST; // 合成にはマナがかかる
 
     // 自分の合成かどうか（相手の合成で自分の図鑑が埋まらないようにする）
     const isMine = side === gameState.playerSide;
@@ -5968,7 +6031,7 @@ function mergedBulletExt(u) {
     effects.forEach(a => { ext.alv[a] = L(a); });
     if (acts.includes('homing')) { ext.homing = true; ext.alv.homing = L('homing'); }
     if (acts.includes('split')) { ext.split = true; ext.lifetime = 40; ext.alv.split = L('split'); }
-    if (acts.includes('bounce')) ext.bounce = 3 + 2 * (L('bounce') - 1);
+    if (acts.includes('bounce')) ext.bounce = 3 + (L('bounce') - 1); // 重ね合成で+1回
     if (acts.includes('frost')) ext.frostLeft = L('frost');
     if (acts.includes('straight')) { ext.chain = true; ext.alv.straight = L('straight'); }
     if (acts.includes('megaton')) { ext.size = 12 + 2 * (L('megaton') - 1); powerMul *= 1.5 + 0.1 * (L('megaton') - 1); }
@@ -6097,7 +6160,7 @@ function applyColaMerge(u, b, own) {
     if (full('homing')) b.homing = true;
     if (full('straight')) b.chain = true;
     if (full('frost')) b.frostLeft = Math.max(b.frostLeft || 0, full('frost'));
-    if (full('bounce')) b.bounce = Math.max(b.bounce || 0, 3 + 2 * (full('bounce') - 1));
+    if (full('bounce')) b.bounce = Math.max(b.bounce || 0, 3 + (full('bounce') - 1));
     if (full('pierce')) b.pierceCount = Math.max(b.pierceCount || 0, 2 * full('pierce'));
     if (full('split') && !b.split) { b.split = true; b.lifetime = Math.round(40 / CONFIG.BULLET_SPEED_RATE); }
     b.owner = u.uid;
