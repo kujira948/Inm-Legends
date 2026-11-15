@@ -245,7 +245,7 @@ wss.on('connection', (ws) => {
                     leaveCurrentRoom(ws);
                     removeFromQueues(ws);
 
-                    ws.isRated = !!data.isRated;
+                    ws.isRated = true; // オンライン対戦はすべてレート戦（ノーマル戦は廃止）
                     const queueKey = ws.isRated ? 'rated' : 'unrated';
                     const queue = matchmakingQueues[queueKey];
 

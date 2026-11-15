@@ -42,6 +42,15 @@
         </div>
 
         <div class="sidebar-section">
+            <div class="sidebar-title">表示設定</div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem;">
+                <input type="checkbox" id="check-damage-numbers" checked style="cursor: pointer;">
+                <label for="check-damage-numbers" style="cursor: pointer; color: #ddd; font-size: 0.8rem;">ダメージを表示</label>
+            </div>
+            <div style="color: #888; font-size: 0.7rem; margin-top: 4px;">弾が当たった場所にダメージの数字を出します。</div>
+        </div>
+
+        <div class="sidebar-section">
             <div class="sidebar-title">チャット設定</div>
             <div style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem;">
                 <input type="checkbox" id="check-chat-enabled" checked style="cursor: pointer;">
@@ -89,7 +98,7 @@
                 </ul>
                 <div class="home-sub-title">⏳ 対戦待ち</div>
                 <div class="home-waiting">
-                    レート戦 <span id="waiting-rated">0</span>人 ／ ノーマル戦 <span id="waiting-unrated">0</span>人
+                    対戦相手を探している人: <span id="waiting-count">0</span>人
                 </div>
             </div>
 
@@ -113,10 +122,7 @@
             </div>
             <div style="margin: 15px 0; display: flex; flex-direction: column; gap: 10px; align-items: center;">
                 <button id="btn-find-match" style="background: #a22; width: 220px; font-weight: bold;">対戦相手を探す</button>
-                <div style="font-size: 0.9rem; display: flex; align-items: center; gap: 5px;">
-                    <input type="checkbox" id="check-rated" style="width: 18px; height: 18px; cursor: pointer;">
-                    <label for="check-rated" style="cursor: pointer;">レート戦にする</label>
-                </div>
+                <div style="font-size: 0.8rem; color: #ccc;">🏆 オンライン対戦はすべてレート戦です</div>
             </div>
             <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 10px;">
                 <button id="btn-bot-match" style="background: #b58900; width: 220px; font-weight: bold;">🤖 CPU対戦</button>
@@ -140,7 +146,7 @@
 
         <!-- シークレット特殊進化 カットイン演出 -->
         <div id="secret-evolution-cutin" class="hidden" style="position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); z-index: 150; pointer-events: none; text-align: center; animation: popIn 0.5s ease-out;">
-            <div style="font-size: 1.8rem; font-weight: bold; color: #ffd700; text-shadow: 0 0 10px #ff0, 0 0 20px #f80, 2px 2px 4px #000; letter-spacing: 2px;">
+            <div id="cutin-evolution-title" style="font-size: 1.8rem; font-weight: bold; color: #ffd700; text-shadow: 0 0 10px #ff0, 0 0 20px #f80, 2px 2px 4px #000; letter-spacing: 2px;">
                 SECRET EVOLUTION
             </div>
             <div id="cutin-evolution-name" style="font-size: 1.4rem; font-weight: bold; color: #fff; text-shadow: 2px 2px 5px #000; margin-top: 5px;">
@@ -244,12 +250,12 @@
             <div style="text-align: left; background: #222; padding: 20px; border: 1px solid #fff; max-width: 90%; max-height: 70vh; overflow-y: auto;">
                 <h3 style="color:#0df;margin-top:0;">🎮 基本操作</h3>
                 <p><strong>移動</strong>: 矢印キー（上下）または W / S キー。スマホは画面左の ▲▼ ボタン。</p>
-                <p><strong>ユニット召喚</strong>: 下のスロットでユニットを選択 → グリッドをクリックで配置（マナ消費）。他のユニットがいるマスには置けません。</p>
+                <p><strong>ユニット召喚</strong>: 下のスロットでユニットを選択 → グリッドをクリックで配置（マナ消費）。他のユニットがいるマスには置けません。置いてから1.5秒は無敵（点滅中は弾がすり抜ける）。</p>
                 <p><strong>スロット選択</strong>: 数字キー 1〜9, 0 でユニットを素早く選択できます。</p>
-                <p><strong>コーラ発射</strong>: 設置したコーラをクリック後、撃ちたい方向をクリック。スペースキーで盤面のコーラを一斉発射。スマホは「コーラ発射」ボタン。</p>
+                <p><strong>コーラ発射</strong>: 設置したコーラ（そのマス）をクリック後、撃ちたい方向をクリック。スペースキーで盤面のコーラを一斉発射。スマホの「コーラ発射」ボタンは相手本体を自動で狙う。準備時間中は撃てない。</p>
                 <p><strong>画面ズーム</strong>: マウスホイールで拡大・縮小。スマホは2本指ピンチ。</p>
-                <p><strong>カメラ移動</strong>: 右ドラッグまたはShift+左ドラッグで画面移動。スマホは1本指スワイプ。</p>
-                <p><strong>抽出モード(E)</strong>: Eキーまたは抽出ボタンでON → 盤面の自ユニットを2体クリックして合体。スキル・能力を継承し強化できる。最大5回まで（シークレットキメラは10回）。</p>
+                <p><strong>カメラ移動</strong>: 画面を長押し（0.4秒）してから動かす。指でもマウスでもOK。右ドラッグ・Shift+左ドラッグでも移動できる。</p>
+                <p><strong>抽出モード(E)</strong>: Eキーまたは抽出ボタンでON → 盤面の自ユニットを2体クリックして合体。スキル・能力を継承し強化できる。最大5回まで。</p>
 
                 <h3 style="color:#ffd700;">🌾 ユニット種別</h3>
                 <p><strong>稲（タレット型）</strong>: グリッドに配置して自動的に弾を発射する守備ユニット。種類により8方向・追尾・狙撃・毒・氷結・拡散など様々な弾幕を持つ。</p>
@@ -260,25 +266,28 @@
                 <h3 style="color:#ff79c6;">✨ シークレットキメラ</h3>
                 <p>特定の組み合わせ・順番でユニットを抽出すると<strong>シークレットキメラ</strong>に進化する！</p>
                 <p>条件: <strong>最低3体・2種類以上の素材</strong>が必要。図鑑で一度発見したキメラは作り方が表示される。</p>
-                <p>シークレットキメラはさらに最大10回まで抽出可能で、吸収するたびに超強化される。</p>
+                <p>シークレットキメラが誕生すると抽出回数が0に戻り、そこからさらに5回まで抽出できる。同じレシピの材料をもう一度合成しても再進化はしない。</p>
+                <p><strong>最終進化</strong>: シークレット同士を合成すると、正体不明の<strong>「？？？」</strong>（黒い靄）になる。2体の能力をすべて受け継ぎ、HP・攻撃力は2体の合計の0.8倍。それぞれの抽出は消え、これ以上は合成できない。</p>
 
                 <h3 style="color:#2ecc71;">📊 マナシステム</h3>
-                <p>マナはユニット召喚に使用する。ソーダや魔力盾が自動生成。最大200まで蓄積可能。</p>
+                <p>マナはユニット召喚に使用する。時間とともに回復し、ソーダや魔力盾でも増える。最大100まで蓄積可能。</p>
                 <p>ユニットのコストはスロットに表示される数字と同じ。マナが足りないと召喚できない。</p>
 
                 <h3 style="color:#e74c3c;">⚔️ ゲームルール</h3>
                 <p><strong>勝利条件</strong>: 相手プレイヤー本体（左右の端にいるキャラクター）のHPを0にする。</p>
                 <p><strong>HP</strong>: 各プレイヤーの初期HPは2000。敵の弾が自プレイヤーに命中するとHP減少。</p>
-                <p><strong>ユニットのHP</strong>: 各ユニットにも個別のHPがあり、敵弾を受けると消滅する。</p>
+                <p><strong>ユニットのHP</strong>: 各ユニットにも個別のHPがあり、HPが0になると消滅する。</p>
+                <p><strong>ダメージ表示</strong>: 弾が当たると、その場所にダメージの数字が出る。左上のメニューの「表示設定」でOFFにできる。</p>
                 <p><strong>左右配置エリア</strong>: 自分が配置できるのは自陣のみ（左プレイヤーは左半分、右プレイヤーは右半分）。</p>
 
                 <h3 style="color:#74b9ff;">🤖 CPU難易度</h3>
                 <p>CPU対戦では5段階の難易度が選択可能:</p>
-                <p>⭐ 易しい: 弾をよけず、ふらふら動く。安いユニットを適当に置き、合成はしない。コーラの狙いも大きくズレる。初心者向け。</p>
-                <p>⭐⭐ 普通: 弾に気づくのが遅く、半分くらいよけ損ねる。基本の作戦でユニットを置き、ふつうの強化合成だけ行う。狙いは少しズレる。</p>
-                <p>⭐⭐⭐ 難しい: 近くまで来た弾をよける。プレイヤーの今いる位置を正確に狙い、シークレット3種（ガトリング・ミーティア・絶対零度）を狙って合成する。</p>
-                <p>⭐⭐⭐⭐ 超難: 弾の進む先を読んで早めによける。あなたの攻撃役がいる列に盾を置き、守りの薄い列を攻める。動く先を予測してコーラを撃ち、全30種のうち材料がそろったシークレットは必ず作る。</p>
-                <p>⭐⭐⭐⭐⭐ 鬼: プレイヤーと同じ速さで弾を読んでよける。シークレットの材料を狙って召喚し、高いユニットのためにマナを貯める。コーラは予測してまとめて撃ち、逃げ道をふさぐ。</p>
+                <p>⭐ 易しい: 弾に気づくのが遅く、半分くらいよけ損ねる。盾→ソーダ→攻撃役の基本作戦。コーラの狙いは少しズレる。</p>
+                <p>⭐⭐ 普通: 近くまで来た弾を見てよける。ほぼ正確に狙い、強いユニットに合成をまとめる。</p>
+                <p>⭐⭐⭐ 難しい: 弾の進む先を読んでよける。あなたの攻撃役がいる列に盾を置き、守りの薄い列を攻める。動く先を予測してコーラを撃つ。</p>
+                <p>⭐⭐⭐⭐ 超難: 難しいより速く・たくさん動く。コーラをまとめて撃ち、逃げ道をふさぐ。</p>
+                <p>⭐⭐⭐⭐⭐ 鬼: 最速で行動し、ユニットも最大20体まで並べる。</p>
+                <p>※ CPUはシークレット・最終形態を作らない。</p>
 
                 <h3 style="color:#fdcb6e;">💬 チャット</h3>
                 <p>オンライン対戦中はゲーム画面左のチャットで相手にメッセージを送れる。ヘッダーをクリックすると折りたたみ可能。</p>
@@ -286,7 +295,7 @@
                 <p>左上のメニューの「チャット設定」でON/OFFを切り替えられる。OFFにすると対戦中のチャットと全体チャットが消え、メッセージも表示されない。CPU対戦では対戦中のチャット欄は出ない。</p>
 
                 <h3 style="color:#74b9ff;">🏆 レート</h3>
-                <p>「レート戦にする」にチェックを入れたオンライン対戦だけ、勝つと+32、負けると-32変わる。ノーマル戦・CPU対戦・練習場では変わらない。</p>
+                <p>オンライン対戦はすべてレート戦。勝つと+32、負けると-32変わる。CPU対戦・練習場では変わらない。</p>
                 <p>ホーム画面に自分のレート・ランキング（上位10人）・オンラインの人のレートと状態・対戦待ちの人数が表示される。</p>
             </div>
             <button id="btn-close-help" style="margin-top: 20px;">閉じる</button>
