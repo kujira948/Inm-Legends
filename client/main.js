@@ -1566,6 +1566,33 @@ const BOT_LEVELS = {
     4: { dodge: 'predict', moveSpeed: 4.0, maxUnits: 18, aimError: 0,  lead: true,  volley: true,  summon: 'counter', extract: 'stack',   timers: [18, 24, 32], lookahead: 60 },
     5: { dodge: 'predict', moveSpeed: 4.0, maxUnits: 20, aimError: 0,  lead: true,  volley: true,  summon: 'counter', extract: 'stack',   timers: [12, 16, 24], lookahead: 80 }
 };
+// 鬼より上の5段階: 動きは鬼と同じで、シークレットを使わない代わりにバフが付く
+//   unitMul : CPUのユニットのHP・攻撃力の倍率   manaRate: マナ回復の倍率
+//   costMul : CPUの召喚コストの倍率            bodyHp  : CPU本体のHP
+const BOT_EXTRA_LEVELS = [
+    { level: 6,  name: '修羅',   bot: '🤖 修羅Bot',   buff: { unitMul: 1.2, manaRate: 1.2, costMul: 1.0,  bodyHp: 2000 } },
+    { level: 7,  name: '羅刹',   bot: '🤖 羅刹Bot',   buff: { unitMul: 1.4, manaRate: 1.4, costMul: 1.0,  bodyHp: 2000 } },
+    { level: 8,  name: '魔王',   bot: '🤖 魔王Bot',   buff: { unitMul: 1.6, manaRate: 1.6, costMul: 0.85, bodyHp: 2000 } },
+    { level: 9,  name: '破壊神', bot: '🤖 破壊神Bot', buff: { unitMul: 1.8, manaRate: 1.8, costMul: 0.75, bodyHp: 3000 } },
+    { level: 10, name: '無限',   bot: '🤖 無限Bot',   buff: { unitMul: 2.0, manaRate: 2.0, costMul: 0.65, bodyHp: 4000 } }
+];
+BOT_EXTRA_LEVELS.forEach(x => { BOT_LEVELS[x.level] = { ...BOT_LEVELS[5], buff: x.buff }; });
+const CPU_LEVEL_NAMES = ['', '易しい', '普通', '難しい', '超難', '鬼', ...BOT_EXTRA_LEVELS.map(x => x.name)];
+const CPU_BOT_NAMES = ['', '🤖 よわよわBot', '🤖 普通Bot', '🤖 強化Bot', '🤖 超強Bot', '🤖 鬼Bot', ...BOT_EXTRA_LEVELS.map(x => x.bot)];
+
+// 今のCPUのバフ（なければ null）。side を渡すと、その陣営がCPUのときだけ返す
+function cpuBuff(side) {
+    const active = gameState.isBotMatch || (typeof Sandbox !== 'undefined' && Sandbox.cpuActive());
+    if (!active) return null;
+    if (side && side !== BotAI.side) return null;
+    const lv = gameState.isBotMatch ? gameState.cpuDifficulty : Sandbox.settings.cpuLevel;
+    return (BOT_LEVELS[lv] && BOT_LEVELS[lv].buff) || null;
+}
+// 召喚コスト（CPUのバフで安くなる）
+function summonCost(unitDef, side) {
+    const b = cpuBuff(side);
+    return b ? Math.max(1, Math.round(unitDef.cost * b.costMul)) : unitDef.cost;
+}
 
 const botPickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const botShuffle = (arr) => {
@@ -1774,7 +1801,7 @@ const BotAI = {
         if (!pick) return;
 
         const def = UNIT_TYPES[pick.key];
-        if (!def || bot.mana < def.cost) return; // 足りないときはマナを貯める
+        if (!def || bot.mana < summonCost(def, this.side)) return; // 足りないときはマナを貯める
 
         const cell = this.findCell(units, incoming, pick);
         if (cell) processSummon({ unitId: def.id, row: cell.row, col: cell.col, side: this.side });
@@ -1935,8 +1962,8 @@ function startBotMatch() {
     gameState.cpuDifficulty = difficulty;
     BotAI.reset();
 
-    const diffNames = ['', '易しい', '普通', '難しい', '超難', '鬼'];
-    const botNames = ['', '🤖 よわよわBot', '🤖 普通Bot', '🤖 強化Bot', '🤖 超強Bot', '🤖 鬼Bot'];
+    const diffNames = CPU_LEVEL_NAMES;
+    const botNames = CPU_BOT_NAMES;
 
     gameState.roomId = 'CPU_BOT';
     gameState.isHost = true;
@@ -1963,6 +1990,12 @@ function startBotMatch() {
 
     Camera.reset();
     startGame();
+    // 鬼より上の難易度: CPU本体のHPもバフ
+    const buff = cpuBuff();
+    if (buff) {
+        gameState.players.right.maxHp = buff.bodyHp;
+        gameState.players.right.hp = buff.bodyHp;
+    }
     statusMsg.innerText = `CPU対戦開始！ 難易度: ${diffNames[difficulty]}`;
 }
 
@@ -2959,8 +2992,8 @@ function processSummon(data) {
 
     SoundManager.playSummon();
 
-    // マナ消費
-    gameState.players[data.side].mana -= unitDef.cost;
+    // マナ消費（CPUのバフでコストが下がることがある）
+    gameState.players[data.side].mana -= summonCost(unitDef, data.side);
 
     const cell = CONFIG.TILE_SIZE;
     const targetX = data.col * cell + cell / 2;
@@ -3012,6 +3045,14 @@ function finalizeSummon(effect) {
         if (c.manaGen) unit.manaGen = c.manaGen;
         if (c.pierceCount) unit.pierceCount = c.pierceCount;
     }
+    // CPUのバフ（鬼より上の難易度）: HP・攻撃力を強くする
+    const buff = cpuBuff(unit.side);
+    if (buff && buff.unitMul !== 1) {
+        unit.maxHp = Math.round(unit.maxHp * buff.unitMul);
+        unit.hp = unit.maxHp;
+        if (unit.power) unit.power = Math.round(unit.power * buff.unitMul);
+        unit.powerMul = buff.unitMul; // 撃つ弾の威力にも掛ける
+    }
     gameState.units.push(unit);
     Particles.summon(unit.x, unit.y, unit.side);
 }
@@ -3035,6 +3076,22 @@ const COLA_BASE_POWER = {
 };
 function colaPower(action) {
     return Math.round((COLA_BASE_POWER[action] || COLA_BASE_POWER.default) * COLA_POWER_RATE);
+}
+
+// ユニットに powerMul（CPUのバフ）があれば、その関数で出た弾の威力に掛ける
+function withPowerBuff(fn) {
+    return function (u, ...rest) {
+        const n = gameState.bullets.length;
+        const r = fn.call(this, u, ...rest);
+        const m = u && u.powerMul;
+        if (m && m !== 1) {
+            for (let i = n; i < gameState.bullets.length; i++) {
+                const b = gameState.bullets[i];
+                b.power = Math.round((b.power || 0) * m);
+            }
+        }
+        return r;
+    };
 }
 
 // 図鑑・詳細表示の攻撃力も、実際に撃つ強さに合わせる
@@ -3451,7 +3508,8 @@ function update() {
     if (gameState.manaTimer >= 0.4) { // 0.4秒に1回復（従来の2.5倍）
         gameState.manaTimer = 0;
         gameState.players.left.mana = Math.min(100, gameState.players.left.mana + 1);
-        gameState.players.right.mana = Math.min(100, gameState.players.right.mana + 1);
+        const rb = cpuBuff('right');
+        gameState.players.right.mana = Math.min(100, gameState.players.right.mana + (rb ? rb.manaRate : 1));
     }
     if (gameState.players.left.throwTimer > 0) gameState.players.left.throwTimer--;
     if (gameState.players.right.throwTimer > 0) gameState.players.right.throwTimer--;
@@ -3502,20 +3560,6 @@ function update() {
             }
         }
     });
-
-    // 練習場: 的（まと）のユニットを自動で出す（設定でON/OFF。かかしがCPUのときはCPUが置くので出さない）
-    if (gameState.isPractice && Sandbox.settings.autoTargets && !Sandbox.cpuActive()) {
-        const enemies = gameState.units.filter(u => u.side === 'right' && u.hp > 0);
-        const incoming = gameState.summoningEffects.filter(ef => ef.side === 'right');
-        if (enemies.length + incoming.length < 3) {
-            const row = Math.floor(Math.random() * CONFIG.GRID_ROWS);
-            const col = 9 + Math.floor(Math.random() * 9);
-            const keys = ['RICE_BASIC', 'RICE_SPREAD', 'RICE_SEEKER', 'COLA_STRAIGHT', 'COLA_BOUNCE'];
-            const rKey = keys[Math.floor(Math.random() * keys.length)];
-            const unitDef = UNIT_TYPES[rKey];
-            processSummon({ unitId: unitDef.id, row, col, side: 'right' });
-        }
-    }
 
     // スペース発射クールダウンのデクリメント
     if (gameState.spaceFireCooldown > 0) gameState.spaceFireCooldown--;
@@ -4482,10 +4526,15 @@ const PoisonMist = {
 // 🧪 練習場サンドボックス
 // ===============================================================
 const Sandbox = {
-    settings: { cpuLevel: 0, autoTargets: true, infMana: false, infHpMe: false, infHpEnemy: true, bothSides: false, allUnits: false },
+    settings: { v: 2, cpuLevel: 0, infMana: false, infHpMe: false, infHpEnemy: true, bothSides: true, allUnits: false },
 
     load() {
-        try { Object.assign(this.settings, JSON.parse(localStorage.getItem('inamu_sandbox') || '{}')); } catch (e) {}
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem('inamu_sandbox') || '{}'); } catch (e) {}
+        // 古い保存データ（v1）は「両方の陣地に置ける」を一度ONにする
+        if (!(saved.v >= 2)) { saved.bothSides = true; saved.v = 2; }
+        delete saved.autoTargets;
+        Object.assign(this.settings, saved);
     },
     save() {
         try { localStorage.setItem('inamu_sandbox', JSON.stringify(this.settings)); } catch (e) {}
@@ -4559,7 +4608,7 @@ const Sandbox = {
                 this.save();
             });
         }
-        const toggles = { 'sb-auto-targets': 'autoTargets', 'sb-inf-mana': 'infMana', 'sb-inf-hp-me': 'infHpMe', 'sb-inf-hp-enemy': 'infHpEnemy', 'sb-both-sides': 'bothSides', 'sb-all-units': 'allUnits' };
+        const toggles = { 'sb-inf-mana': 'infMana', 'sb-inf-hp-me': 'infHpMe', 'sb-inf-hp-enemy': 'infHpEnemy', 'sb-both-sides': 'bothSides', 'sb-all-units': 'allUnits' };
         Object.entries(toggles).forEach(([id, key]) => {
             const el = byId(id);
             if (!el) return;
@@ -5742,3 +5791,9 @@ function handleSpreadEffect(b) {
 }
 
 init();
+
+// 🤖 CPUのバフ: 撃つ関数を包んで、弾の威力に倍率を掛ける（関数がすべて定義された後に行う）
+fireUnit = withPowerBuff(fireUnit);
+fireExtractionUnit = withPowerBuff(fireExtractionUnit);
+fireColaTarget = withPowerBuff(fireColaTarget);
+fireCola = withPowerBuff(fireCola);

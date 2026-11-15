@@ -143,6 +143,11 @@
                         <option value="3">⭐⭐⭐ 難しい</option>
                         <option value="4">⭐⭐⭐⭐ 超難</option>
                         <option value="5">⭐⭐⭐⭐⭐ 鬼</option>
+                        <option value="6">🔥 修羅</option>
+                        <option value="7">🔥🔥 羅刹</option>
+                        <option value="8">👑 魔王</option>
+                        <option value="9">💀 破壊神</option>
+                        <option value="10">♾ 無限</option>
                     </select>
                 </div>
                 <button id="btn-practice" style="background: #252; width: 220px;">練習場</button>
@@ -245,9 +250,13 @@
                         <option value="3">CPU ⭐⭐⭐ 難しい</option>
                         <option value="4">CPU ⭐⭐⭐⭐ 超難</option>
                         <option value="5">CPU ⭐⭐⭐⭐⭐ 鬼</option>
+                        <option value="6">CPU 🔥 修羅</option>
+                        <option value="7">CPU 🔥🔥 羅刹</option>
+                        <option value="8">CPU 👑 魔王</option>
+                        <option value="9">CPU 💀 破壊神</option>
+                        <option value="10">CPU ♾ 無限</option>
                     </select>
                 </label>
-                <label class="sandbox-row"><input type="checkbox" id="sb-auto-targets"> 的のユニットを自動で出す（3体）</label>
                 <label class="sandbox-row"><input type="checkbox" id="sb-inf-mana"> マナ無限</label>
                 <label class="sandbox-row"><input type="checkbox" id="sb-inf-hp-me"> 自分のHP無限</label>
                 <label class="sandbox-row"><input type="checkbox" id="sb-inf-hp-enemy"> 相手のHP無限</label>
@@ -307,15 +316,16 @@
                 <p><strong>左右配置エリア</strong>: 自分が配置できるのは自陣のみ（左プレイヤーは左半分、右プレイヤーは右半分）。</p>
 
                 <h3 style="color:#95d5b2;">🧪 練習場</h3>
-                <p>試合中に上の「⚙ 練習場設定」から、かかしの動き（何もしない／CPU 易しい〜鬼）、的のユニットを自動で出す、マナ無限・自分のHP無限・相手のHP無限、両方の陣地に置ける（相手の陣地に置くと相手側のユニットになる）、全ユニット＋発見済みシークレットを使う、を切り替えられる。準備時間のスキップ・弾を消す・盤をリセット・最初からやり直す、もできる。</p>
+                <p>試合中に上の「⚙ 練習場設定」から、かかしの動き（何もしない／CPU 易しい〜無限。何もしないときは何も置かない）、マナ無限・自分のHP無限・相手のHP無限、両方の陣地に置ける（最初からON。相手の陣地に置くと相手側のユニットになる）、全ユニット＋発見済みシークレットを使う、を切り替えられる。準備時間のスキップ・弾を消す・盤をリセット・最初からやり直す、もできる。</p>
 
                 <h3 style="color:#74b9ff;">🤖 CPU難易度</h3>
-                <p>CPU対戦では5段階の難易度が選択可能:</p>
+                <p>CPU対戦では10段階の難易度が選択可能:</p>
                 <p>⭐ 易しい: 弾に気づくのが遅く、半分くらいよけ損ねる。盾→ソーダ→攻撃役の基本作戦。コーラの狙いは少しズレる。</p>
                 <p>⭐⭐ 普通: 近くまで来た弾を見てよける。ほぼ正確に狙い、強いユニットに合成をまとめる。</p>
                 <p>⭐⭐⭐ 難しい: 弾の進む先を読んでよける。あなたの攻撃役がいる列に盾を置き、守りの薄い列を攻める。動く先を予測してコーラを撃つ。</p>
                 <p>⭐⭐⭐⭐ 超難: 難しいより速く・たくさん動く。コーラをまとめて撃ち、逃げ道をふさぐ。</p>
                 <p>⭐⭐⭐⭐⭐ 鬼: 最速で行動し、ユニットも最大20体まで並べる。</p>
+                <p>🔥 修羅・🔥🔥 羅刹・👑 魔王・💀 破壊神・♾ 無限: 鬼と同じ動きに、バフが付く。CPUのユニットのHP・攻撃力が +20%／+40%／+60%／+80%／+100%、マナ回復が ×1.2〜×2.0。魔王から召喚コストが下がり（-15%／-25%／-35%）、破壊神・無限はCPU本体のHPも 3000／4000 になる。</p>
                 <p>※ CPUはシークレット・最終形態を作らない。</p>
 
                 <h3 style="color:#fdcb6e;">💬 チャット</h3>
