@@ -2014,16 +2014,6 @@ function init() {
         mobileControls.style.display = isMobileDevice ? 'flex' : 'none';
     }
 
-    // チャット折りたたみ状態の復元
-    try {
-        if (localStorage.getItem('chatCollapsed') === '1') {
-            const body = document.getElementById('chat-body');
-            const icon = document.getElementById('chat-toggle-icon');
-            if (body) body.style.display = 'none';
-            if (icon) icon.textContent = '▲';
-        }
-    } catch(e) {}
-
     // ダメージ表示のON/OFF設定の復元（最初はON）
     const checkDamage = document.getElementById('check-damage-numbers');
     if (checkDamage) {
@@ -2427,19 +2417,6 @@ function setupEventListeners() {
     });
 
     updateUnitUI();
-
-    // チャット機能
-    const chatInput = document.getElementById('chat-input');
-    const btnChatSend = document.getElementById('btn-chat-send');
-    if (chatInput && btnChatSend) {
-        btnChatSend.addEventListener('click', sendChatMessage);
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.isComposing) sendChatMessage(); // 日本語の変換確定では送らない
-            e.stopPropagation(); // ゲーム操作に干渉させない
-        });
-        // 入力中はキーボード操作(移動など)を無視する
-        chatInput.addEventListener('focus', () => { keysPressed = {}; });
-    }
 }
 
 // チャット設定（初期値はON。OFFのときだけ '0' を保存）
@@ -2447,56 +2424,10 @@ function isChatEnabled() {
     try { return localStorage.getItem('inamu_chat_enabled') !== '0'; } catch (e) { return true; }
 }
 
-// チャット欄を出すかどうか（OFF設定のとき・CPU対戦のときは出さない）
+// ホーム画面の全体チャットを出すかどうか（試合中のチャットは廃止）
 function applyChatVisibility() {
-    const box = document.getElementById('chat-container');
-    if (!box) return;
-    const show = isChatEnabled() && !gameState.isBotMatch;
-    box.style.display = show ? 'flex' : 'none';
-    // ホーム画面の全体チャットも同じ設定に従う
     const lobby = document.getElementById('lobby-chat');
     if (lobby) lobby.style.display = isChatEnabled() ? '' : 'none';
-}
-
-function sendChatMessage() {
-    if (!isChatEnabled()) return;
-    const input = document.getElementById('chat-input');
-    const text = input.value.trim();
-    if (!text) return;
-    
-    input.value = '';
-    const myName = gameState.players[gameState.playerSide].name || '名無し';
-    
-    // 練習場はローカル表示のみ
-    if (gameState.isPractice) {
-        appendChatMessage(myName, text, '#aaa');
-        return;
-    }
-
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({
-            type: 'signal', action: 'chat',
-            name: myName, text: text,
-            side: gameState.playerSide
-        }));
-    // ホスト処理用（自分用ローカル表示）
-    }
-    appendChatMessage(myName, text, gameState.playerSide === 'left' ? '#0f0' : '#f55');
-}
-
-function appendChatMessage(name, text, color = '#fff') {
-    const messages = document.getElementById('chat-messages');
-    if (!messages) return;
-    // 名前とメッセージは「ただの文字」として表示する（相手が仕掛けを入れた文字を送っても動かない）
-    const div = document.createElement('div');
-    const nameSpan = document.createElement('span');
-    nameSpan.style.color = color;
-    nameSpan.style.fontWeight = 'bold';
-    nameSpan.textContent = `${String(name ?? '')}:`;
-    div.appendChild(nameSpan);
-    div.appendChild(document.createTextNode(' ' + String(text ?? '')));
-    messages.appendChild(div);
-    messages.scrollTop = messages.scrollHeight;
 }
 
 function savePlayerName() {
@@ -2943,13 +2874,6 @@ function handleServerMessage(data) {
                 processFireColaTargetAll(data.tx, data.ty, data.side);
             } else if (data.action === 'extraction_process') {
                 processExtraction(data.targetCol, data.targetRow, data.srcCol, data.srcRow, data.side);
-            } else if (data.action === 'chat') {
-                // 自分が送信したものはローカルで追加済みなので他人のみ追加
-                // チャットOFFのときは相手のメッセージを表示しない
-                if (data.side !== gameState.playerSide && isChatEnabled()) {
-                    const color = data.side === 'left' ? '#0f0' : '#f55';
-                    appendChatMessage(data.name, data.text, color);
-                }
             } else if (data.action === 'game_over') {
                 endGame(data.winner);
             } else if (data.action === 'opponent_disconnected') {
@@ -2995,8 +2919,6 @@ function processSummon(data) {
     gameState.summoningEffects.push(effect);
 }
 
-const SUMMON_INVULN_FRAMES = 45; // 30フレーム = 1秒 → 1.5秒
-
 function finalizeSummon(effect) {
     const unit = {
         ...effect.unitDef,
@@ -3009,8 +2931,7 @@ function finalizeSummon(effect) {
         side: effect.side,
         hp: effect.unitDef.hp,
         maxHp: effect.unitDef.hp,
-        lastFire: 0,
-        invulnTimer: SUMMON_INVULN_FRAMES // 置いてから1.5秒は無敵（弾はすり抜ける）
+        lastFire: 0
     };
     gameState.units.push(unit);
 }
@@ -3223,7 +3144,7 @@ const NetSync = {
     DYNAMIC_KEYS: new Set([
         'hp', 'x', 'y', 'charge', 'fired', 'hasBubbleShield',
         'lastFire', 'aiFireTimer', 'healTick', 'bubbleTick', 'woodRegenTick',
-        'reflectHits', 'hasBeenHitBy', 'markedForDestruction', 'woodBursted', 'invulnTimer'
+        'reflectHits', 'hasBeenHitBy', 'markedForDestruction', 'woodBursted'
     ]),
 
     frame: 0,
@@ -3294,7 +3215,7 @@ const NetSync = {
                 uf.push(JSON.parse(sig));
                 this.sentUnitSig.set(u.uid, sig);
             }
-            ud.push([u.uid, this.r1(u.hp), this.r1(u.x), this.r1(u.y), this.r2(u.charge), u.fired ? 1 : 0, u.hasBubbleShield ? 1 : 0, u.invulnTimer > 0 ? 1 : 0]);
+            ud.push([u.uid, this.r1(u.hp), this.r1(u.x), this.r1(u.y), this.r2(u.charge), u.fired ? 1 : 0, u.hasBubbleShield ? 1 : 0]);
         }
         for (const uid of this.sentUnitSig.keys()) {
             if (!alive.has(uid)) this.sentUnitSig.delete(uid);
@@ -3354,7 +3275,7 @@ const NetSync = {
             const u = this.unitCache.get(d[0]);
             if (!u) continue; // 全情報がまだ届いていない（次のキーフレームで届く）
             u.hp = d[1]; u.x = d[2]; u.y = d[3]; u.charge = d[4];
-            u.fired = !!d[5]; u.hasBubbleShield = !!d[6]; u.invulnTimer = d[7] ? 1 : 0;
+            u.fired = !!d[5]; u.hasBubbleShield = !!d[6];
             units.push(u);
             this.noticeEvolution(u);
             alive.add(d[0]);
@@ -3498,9 +3419,6 @@ function update() {
     const isAuthority = gameState.isHost || gameState.isPractice || gameState.isBotMatch;
 
     if (isAuthority) {
-        // 置いた直後の無敵時間を減らす
-        gameState.units.forEach(u => { if (u.invulnTimer > 0) u.invulnTimer--; });
-
         gameState.units.forEach(u => {
             if (u.type === 'rice' || u.extractionCount > 0) {
                 // 🫧 ソーダ ブリーゼ【追い風エール】: 同列(同じrow)にブリーゼがいる場合、攻撃速度+25%加速！
@@ -3678,8 +3596,7 @@ function update() {
             let hitUnit = false;
             for (let j = 0; j < gameState.units.length; j++) {
                 const u = gameState.units[j];
-                // 置いた直後の無敵中(invulnTimer)は当たらず、弾はすり抜ける
-                if (u.side !== b.side && u.hp > 0 && !(u.invulnTimer > 0) && u.fireType !== 'mine' && !u.hasBeenHitBy?.includes(b.uid)) {
+                if (u.side !== b.side && u.hp > 0 && u.fireType !== 'mine' && !u.hasBeenHitBy?.includes(b.uid)) {
                     if (Math.abs(b.x - u.x) < 20 && Math.abs(b.y - u.y) < 20) {
                         // 🫧 ソーダ クヴェレの「泡の防護膜（バブルシールド）」判定
                         if (u.hasBubbleShield) {
@@ -4876,12 +4793,6 @@ function draw() {
         // キメラの場合はキメラスプライト、通常はtypeKeyのスプライトを使用
         const sprKey = (u.isSecretChimera && u.chimeraId) ? u.chimeraId : u.typeKey;
         const sprite = ASSETS[sprKey] || ASSETS[u.typeKey];
-        // 置いた直後の無敵中は点滅させる
-        const blinking = u.invulnTimer > 0;
-        if (blinking) {
-            ctx.save();
-            ctx.globalAlpha = Math.floor(Date.now() / 100) % 2 === 0 ? 0.35 : 0.85;
-        }
         if (u.isFinalForm) {
             drawBlackMist(u);
         } else if (sprite) {
@@ -4893,7 +4804,6 @@ function draw() {
                 ctx.fillStyle = '#ff0'; ctx.fillRect(gx, gy, 24 * (u.charge || 0), 4);
             }
         }
-        if (blinking) ctx.restore();
 
         // 🫧 バブルシールド描画（クヴェレの泡バリア）
         if (u.hasBubbleShield) {

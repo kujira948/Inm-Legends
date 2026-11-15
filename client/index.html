@@ -56,7 +56,7 @@
                 <input type="checkbox" id="check-chat-enabled" checked style="cursor: pointer;">
                 <label for="check-chat-enabled" style="cursor: pointer; color: #ddd; font-size: 0.8rem;">チャットを使う</label>
             </div>
-            <div style="color: #888; font-size: 0.7rem; margin-top: 4px;">OFFにすると対戦中のチャットとホーム画面の全体チャットが消え、メッセージも表示しません。</div>
+            <div style="color: #888; font-size: 0.7rem; margin-top: 4px;">OFFにするとホーム画面の全体チャットが消え、メッセージも表示しません。</div>
         </div>
 
         <!-- 各種ナビゲーションボタン -->
@@ -227,21 +227,6 @@
                 <button id="btn-mobile-up" class="mobile-dir-btn" aria-label="上移動">▲</button>
                 <button id="btn-mobile-down" class="mobile-dir-btn" aria-label="下移動">▼</button>
             </div>
-            
-            <!-- チャットUI -->
-            <div id="chat-container" style="position: absolute; bottom: 120px; left: 10px; width: 250px; background: rgba(0,0,0,0.55); border-radius: 5px; display: flex; flex-direction: column; z-index: 10;">
-                <div id="chat-header" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: rgba(0,0,0,0.4); border-radius: 5px 5px 0 0; cursor: pointer; user-select: none;">
-                    <span style="font-size: 0.75rem; color: #adf;">💬 チャット</span>
-                    <span id="chat-toggle-icon" style="font-size: 0.75rem; color: #adf;">▼</span>
-                </div>
-                <div id="chat-body" style="display: flex; flex-direction: column;">
-                    <div id="chat-messages" style="height: 100px; overflow-y: auto; padding: 5px; font-size: 0.8rem; color: #fff; display: flex; flex-direction: column; gap: 2px;"></div>
-                    <div style="display: flex;">
-                        <input type="text" id="chat-input" placeholder="チャットを入力..." style="flex-grow: 1; padding: 4px; font-size: 0.8rem; background: rgba(255,255,255,0.85); color: #000; border: none; border-radius: 0 0 0 5px;" maxlength="50">
-                        <button id="btn-chat-send" style="padding: 4px 8px; font-size: 0.8rem; background: #08f; color: #fff; border: none; border-radius: 0 0 5px 0; cursor: pointer;">送信</button>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- 操作方法メニュー -->
@@ -250,7 +235,7 @@
             <div style="text-align: left; background: #222; padding: 20px; border: 1px solid #fff; max-width: 90%; max-height: 70vh; overflow-y: auto;">
                 <h3 style="color:#0df;margin-top:0;">🎮 基本操作</h3>
                 <p><strong>移動</strong>: 矢印キー（上下）または W / S キー。スマホは画面左の ▲▼ ボタン。</p>
-                <p><strong>ユニット召喚</strong>: 下のスロットでユニットを選択 → グリッドをクリックで配置（マナ消費）。他のユニットがいるマスには置けません。置いてから1.5秒は無敵（点滅中は弾がすり抜ける）。</p>
+                <p><strong>ユニット召喚</strong>: 下のスロットでユニットを選択 → グリッドをクリックで配置（マナ消費）。他のユニットがいるマスには置けません。</p>
                 <p><strong>スロット選択</strong>: 数字キー 1〜9, 0 でユニットを素早く選択できます。</p>
                 <p><strong>コーラ発射</strong>: 設置したコーラ（そのマス）をクリック後、撃ちたい方向をクリック。スペースキーで盤面のコーラを一斉発射。スマホの「コーラ発射」ボタンは相手本体を自動で狙う。準備時間中は撃てない。</p>
                 <p><strong>画面ズーム</strong>: マウスホイールで拡大・縮小。スマホは2本指ピンチ。</p>
@@ -290,9 +275,8 @@
                 <p>※ CPUはシークレット・最終形態を作らない。</p>
 
                 <h3 style="color:#fdcb6e;">💬 チャット</h3>
-                <p>オンライン対戦中はゲーム画面左のチャットで相手にメッセージを送れる。ヘッダーをクリックすると折りたたみ可能。</p>
                 <p>ホーム画面の「全体チャット」では、オンラインの全員とメッセージをやり取りできる。過去の発言も残る（1回50文字まで・2秒に1回まで）。</p>
-                <p>左上のメニューの「チャット設定」でON/OFFを切り替えられる。OFFにすると対戦中のチャットと全体チャットが消え、メッセージも表示されない。CPU対戦では対戦中のチャット欄は出ない。</p>
+                <p>左上のメニューの「チャット設定」でON/OFFを切り替えられる。OFFにすると全体チャットが消え、メッセージも表示されない。試合中のチャットはない。</p>
 
                 <h3 style="color:#74b9ff;">🏆 レート</h3>
                 <p>オンライン対戦はすべてレート戦。勝つと+32、負けると-32変わる。CPU対戦・練習場では変わらない。</p>
