@@ -267,9 +267,9 @@ const UNIT_TYPES = {
     // 🌾 稲（タレット型・弱体化調整）
     RICE_BASIC: { id: 'rice_1', name: 'ライス プリムス', cost: 7, hp: 29, type: 'rice', cooldown: 2.6, fireType: '8dir', power: 4, desc: '基本となる稲。周囲8方向に米粒を放つ。' },
     RICE_SPREAD: { id: 'rice_2', name: 'フェッヒャー ライス', cost: 8, hp: 27, type: 'rice', cooldown: 3.0, fireType: 'circle6', power: 6, desc: '円形に6発の弾を放つ扇の稲。広範囲をカバー。' },
-    RICE_SEEKER: { id: 'rice_3', name: 'イェーガー ライス', cost: 9, hp: 25, type: 'rice', cooldown: 2.2, fireType: 'single', action: 'homing', power: 12, desc: '敵を追尾する狩人の稲。' },
+    RICE_SEEKER: { id: 'rice_3', name: 'イェーガー ライス', cost: 9, hp: 25, type: 'rice', cooldown: 2.0, fireType: 'single', action: 'homing', power: 12, desc: '敵を追尾する狩人の稲。' },
     RICE_BURST: { id: 'rice_4', name: 'シュトゥルム ライス', cost: 10, hp: 27, type: 'rice', cooldown: 1.5, fireType: 'burst', power: 4, desc: '3連射を放つ嵐の稲。' },
-    RICE_LASER: { id: 'rice_5', name: 'ルクス ライス', cost: 12, hp: 29, type: 'rice', cooldown: 3.8, fireType: 'single', action: 'laser', power: 20, desc: '【新種】一直線に貫く光の稲。高速レーザーを照射。' },
+    RICE_LASER: { id: 'rice_5', name: 'ルクス ライス', cost: 12, hp: 29, type: 'rice', cooldown: 3.8, fireType: 'single', action: 'laser', power: 26, desc: '【新種】一直線に貫く光の稲。高速レーザーを照射。' },
     RICE_POISON: { id: 'rice_p', name: 'ギフト ライス', cost: 9, hp: 32, type: 'rice', cooldown: 3.2, fireType: 'circle6', action: 'poison', power: 5, desc: '【新種】毒胞子を撒き散らす稲。当たった場所に3秒間「毒の霧」を残す。霧の中の敵ユニットは毎秒ダメージ、霧を通る敵の弾は威力が半分。' },
     RICE_FROST: { id: 'rice_f', name: 'フロスト ライス', cost: 11, hp: 32, type: 'rice', cooldown: 3.0, fireType: '8dir', action: 'frost', power: 9, desc: '【新種】氷結の冷気を放つ稲。冷気弾で敵弾を相殺。' },
     RICE_SNIPER: { id: 'rice_s', name: 'プレツィザ ライス', cost: 13, hp: 22, type: 'rice', cooldown: 4.5, fireType: 'single', action: 'sniper', power: 30, desc: '【新種】敵本体を遠距離から直接撃ち抜く狙撃の稲。' },
@@ -1595,6 +1595,16 @@ function summonCost(unitDef, side) {
 }
 
 const botPickOne = (arr) => arr[Math.floor(Math.random() * arr.length)];
+// 重み付きで選ぶ: [[キー, 重み], ...]
+const botPickWeighted = (list) => {
+    const total = list.reduce((a, x) => a + x[1], 0);
+    let r = Math.random() * total;
+    for (const [k, w] of list) { r -= w; if (r <= 0) return k; }
+    return list[list.length - 1][0];
+};
+// 性能調整の測定（1マナあたりの強さ）をもとにした、CPUが選ぶユニットの重み
+const BOT_ATTACKERS = [['RICE_SNIPER', 3], ['RICE_BURST', 3], ['RICE_POISON', 2], ['RICE_BASIC', 2], ['RICE_LASER', 2], ['RICE_SPREAD', 1], ['RICE_SEEKER', 1], ['RICE_FROST', 1]];
+const BOT_COLAS = [['COLA_STRAIGHT', 3], ['COLA_SPREAD', 2], ['COLA_MEGATON', 2], ['COLA_SPLIT', 2], ['COLA_PIERCE', 2], ['COLA_BOUNCE', 1], ['COLA_CHARGE', 1]];
 const botShuffle = (arr) => {
     for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -1850,7 +1860,8 @@ const BotAI = {
             if (u.side === this.side || u.hp <= 0 || u.fired) return;
             if (this.isShield(u)) enemyDef[u.row] += 2;
             else if (u.type !== 'soda') {
-                threat[u.row] += (u.power || 5) * (u.type === 'cola' ? 1.5 : 1);
+                // シークレット・？？？は特に危険とみなす
+                threat[u.row] += (u.power || 5) * (u.type === 'cola' ? 1.5 : 1) * (u.isFinalForm ? 3 : u.isSecretChimera ? 2 : 1);
                 enemyDef[u.row] += 1;
             }
         });
@@ -1878,9 +1889,9 @@ const BotAI = {
         const colaCount = units.filter(u => u.type === 'cola').length;
         const colaCap = L.volley ? 6 : 4; // 超難・鬼はコーラを多めに持つ
         if (colaCount < colaCap && Math.random() < (L.volley ? 0.6 : 0.5)) {
-            return { key: botPickOne(['COLA_PIERCE', 'COLA_SPREAD', 'COLA_MEGATON', 'COLA_BOUNCE', 'COLA_CHARGE']), cols: [12, 13, 11, 14], rows: weakRows.slice(0, 3) };
+            return { key: botPickWeighted(BOT_COLAS), cols: [12, 13, 11, 14], rows: weakRows.slice(0, 3) };
         }
-        return { key: botPickOne(['RICE_BURST', 'RICE_SNIPER', 'RICE_SPREAD', 'RICE_FROST', 'RICE_LASER', 'RICE_SEEKER']), cols: [12, 13, 14], rows: weakRows.slice(0, 3) };
+        return { key: botPickWeighted(BOT_ATTACKERS), cols: [12, 13, 14], rows: weakRows.slice(0, 3) };
     },
 
     // ---------------- コーラ発射 ----------------
@@ -1893,8 +1904,19 @@ const BotAI = {
         this.holdCount = 0;
 
         const H = CONFIG.SCREEN_HEIGHT;
-        const tx = 16;
+        // 難しい以上: 相手のシークレット・？？？がいれば、2本に1本はそれを狙う
+        const foeSide = this.side === 'right' ? 'left' : 'right';
+        const bigTarget = L.lead ? gameState.units
+            .filter(t => t.side === foeSide && t.hp > 0 && !t.fired && t.isSecretChimera)
+            .sort((a, b) => ((b.isFinalForm ? 3 : 1) * (b.power || 1)) - ((a.isFinalForm ? 3 : 1) * (a.power || 1)))[0] : null;
         colas.forEach((u, i) => {
+            if (bigTarget && i % 2 === 1) {
+                u.fired = true;
+                u.hp = -1;
+                fireColaTarget(u, bigTarget.x, bigTarget.y);
+                return;
+            }
+            const tx = 16;
             let ty = human.y + 16;
             if (L.lead) {
                 // 弾が届くまでの時間に、プレイヤーがどこまで動くかを予測
@@ -1934,7 +1956,8 @@ const BotAI = {
 
         // 普通〜鬼: ある程度ユニットがそろったら、安いユニットを強い攻撃役にまとめる
         // （まとめた攻撃役が相手本体まで届く弾を撃つので、CPUの火力の中心になる）
-        if (units.length < Math.min(12, L.maxUnits - 3) && bot.mana < 50) return;
+        const mergeAt = L.maxUnits >= 20 ? 10 : 12; // 鬼以上は早めにまとめる
+        if (units.length < Math.min(mergeAt, L.maxUnits - 3) && bot.mana < 50) return;
         const targets = units
             .filter(u => this.canExtract(u) && u.type === 'rice' && !this.isShield(u))
             .sort((a, b) => ((b.extractionCount || 0) - (a.extractionCount || 0)) || ((b.power || 0) - (a.power || 0)));
@@ -3044,6 +3067,7 @@ function finalizeSummon(effect) {
         if (c.isManaProducer) unit.isManaProducer = true;
         if (c.manaGen) unit.manaGen = c.manaGen;
         if (c.pierceCount) unit.pierceCount = c.pierceCount;
+        assignSecretSkill(unit, effect.secretKey);
     }
     // CPUのバフ（鬼より上の難易度）: HP・攻撃力を強くする
     const buff = cpuBuff(unit.side);
@@ -3071,7 +3095,7 @@ function processFireCola(side) {
 // コーラの攻撃力（大幅強化: 元の数字 × COLA_POWER_RATE）
 const COLA_POWER_RATE = 1.5;
 const COLA_BASE_POWER = {
-    straight: 25, bounce: 26, split: 18, charge: 35, pierce: 22, spread: 20,
+    straight: 20, bounce: 30, split: 18, charge: 35, pierce: 26, spread: 20,
     megaton: 38, blackhole: 24, geyser: 28, zero: 16, default: 15
 };
 function colaPower(action) {
@@ -3152,6 +3176,7 @@ function startGame() {
     requestAnimationFrame(layoutGameScreen);
     BattleFx.reset();
     PoisonMist.reset();
+    SecretSkills.reset();
     applyChatVisibility();
     gameState.units = [];
     gameState.bullets = [];
@@ -3369,7 +3394,7 @@ const NetSync = {
                 uf.push(JSON.parse(sig));
                 this.sentUnitSig.set(u.uid, sig);
             }
-            ud.push([u.uid, this.r1(u.hp), this.r1(u.x), this.r1(u.y), this.r2(u.charge), u.fired ? 1 : 0, u.hasBubbleShield ? 1 : 0]);
+            ud.push([u.uid, this.r1(u.hp), this.r1(u.x), this.r1(u.y), this.r2(u.charge), u.fired ? 1 : 0, u.hasBubbleShield ? 1 : 0, SecretSkills.statusBits(u)]);
         }
         for (const uid of this.sentUnitSig.keys()) {
             if (!alive.has(uid)) this.sentUnitSig.delete(uid);
@@ -3430,7 +3455,7 @@ const NetSync = {
             const u = this.unitCache.get(d[0]);
             if (!u) continue; // 全情報がまだ届いていない（次のキーフレームで届く）
             u.hp = d[1]; u.x = d[2]; u.y = d[3]; u.charge = d[4];
-            u.fired = !!d[5]; u.hasBubbleShield = !!d[6];
+            u.fired = !!d[5]; u.hasBubbleShield = !!d[6]; u.fxBits = d[7] || 0;
             units.push(u);
             this.noticeEvolution(u);
             alive.add(d[0]);
@@ -3567,21 +3592,34 @@ function update() {
     const isAuthority = gameState.isHost || gameState.isPractice || gameState.isBotMatch;
 
     if (isAuthority) {
+        // 🌟 固有スキル・合体奥義・状態異常・置き物
+        SecretSkills.update();
+
         gameState.units.forEach(u => {
             // シークレット・最終形態は合成回数が0でも、合体した能力で撃つ
             const usesMergedAbilities = u.extractionCount > 0 || u.isSecretChimera;
             if (u.type === 'rice' || usesMergedAbilities) {
                 // 🫧 ソーダ ブリーゼ【追い風エール】: 同列(同じrow)にブリーゼがいる場合、攻撃速度+25%加速！
                 const hasBreeze = gameState.units.some(s => s.side === u.side && s.hp > 0 && s.row === u.row && (s.special === 'breeze_haste' || s.actions?.includes('breeze_haste')));
-                const fireInc = hasBreeze ? 1.25 : 1.0;
+                // 凍らされている間は撃てない
+                const stunned = u.stunUntil > SecretSkills.tick;
+                const fireInc = stunned ? 0 : (hasBreeze ? 1.25 : 1.0) * SecretSkills.attackSpeedMul(u);
+                if (stunned) u.heat = 0; // 加速連射は止まると元に戻る
                 u.lastFire = (u.lastFire || 0) + fireInc;
-                if (u.lastFire >= (u.cooldown || 2) * CONFIG.FPS) {
-                    u.lastFire = 0;
-                    if (usesMergedAbilities) {
-                        // （以前はシークレット誕生で回数を0に戻した結果、元のユニットの撃ち方に戻っていた）
-                        fireExtractionUnit(u);
-                    } else if (u.type === 'rice') {
-                        fireUnit(u);
+                const readyAt = (u.cooldown || 2) * CONFIG.FPS;
+                if (u.lastFire >= readyAt) {
+                    if (SecretSkills.holdFire(u)) {
+                        u.lastFire = readyAt; // 溜め撃ち: 撃たずに力を溜める
+                    } else {
+                        u.lastFire = 0;
+                        const before = gameState.bullets.length;
+                        if (usesMergedAbilities) {
+                            // （以前はシークレット誕生で回数を0に戻した結果、元のユニットの撃ち方に戻っていた）
+                            fireExtractionUnit(u);
+                        } else if (u.type === 'rice') {
+                            fireUnit(u);
+                        }
+                        SecretSkills.afterFire(u, before);
                     }
                 }
             }
@@ -3609,7 +3647,9 @@ function update() {
             const b = gameState.bullets[i];
             let speedMult = CONFIG.BULLET_SPEED_RATE;
             if (b.action === 'bounce') speedMult *= 1.6;
-            b.x += b.vx * speedMult; b.y += b.vy * speedMult;
+            speedMult *= SecretSkills.bulletSpeedMul(b); // 凍てつく領域: 半分の速さ
+            if (!SecretSkills.bulletFrozen(b)) { b.x += b.vx * speedMult; b.y += b.vy * speedMult; } // 時間停止中は動かない
+            SecretSkills.typhoonReflect(b); // 竜巻返し
 
             // 💥 コーラ同士の衝突: 攻撃力の大きい方が残り、相手の分だけ攻撃力が減る（同じなら両方消える）
             if (b.isCola) {
@@ -3679,8 +3719,13 @@ function update() {
                     if (eb.side !== b.side && eb !== b) {
                         if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
                             if (geyserEvades(eb, b)) continue; // ゲイザーは70%で相殺をかわす
+                            const ex = eb.x, ey = eb.y;
                             removeBullet(k);
                             if (k < i) i--;
+                            // 反撃爆発（絶対零度）
+                            if (SecretSkills.bHas(b, 'ZERO_FROST')) handleSpreadEffect({ x: ex, y: ey, side: b.side, sk: b.sk, fu: b.fu, owner: b.owner });
+                            // 氷結弾（フロスト・ノヴァ）: 2発まで消せる
+                            if (b.frostLeft > 1) { b.frostLeft--; continue; }
                             hitFrost = true;
                             break;
                         }
@@ -3688,7 +3733,7 @@ function update() {
                 }
                 if (hitFrost) {
                     if (b.action === 'spread' || b.actions?.includes('spread') || b.spread) {
-                        handleSpreadEffect({ x: b.x, y: b.y, side: b.side });
+                        handleSpreadEffect({ x: b.x, y: b.y, side: b.side, sk: b.sk, fu: b.fu, owner: b.owner });
                     }
                     removeBullet(i);
                     continue;
@@ -3720,9 +3765,10 @@ function update() {
                 const dx = targetX - b.x; const dy = targetY - b.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist > 0) {
-                    b.vx += (dx / dist) * 0.1; b.vy += (dy / dist) * 0.1;
+                    const acc = b.lockon ? 0.45 : 0.1, cap = b.lockon ? 4 : 3; // ロックオンはよく曲がる
+                    b.vx += (dx / dist) * acc; b.vy += (dy / dist) * acc;
                     const speed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-                    if (speed > 3) { b.vx = (b.vx / speed) * 3; b.vy = (b.vy / speed) * 3; }
+                    if (speed > cap) { b.vx = (b.vx / speed) * cap; b.vy = (b.vy / speed) * cap; }
                 }
             }
             if (b.lifetime !== undefined) {
@@ -3740,8 +3786,8 @@ function update() {
             let hitPlayer = false;
             if (b.side === 'right' && Math.abs(b.x - 16) < 16 && Math.abs(b.y - (leftP.y + 16)) < 16) {
                 if (!b.hitPlayers?.includes('left')) {
-                    leftP.hp -= (b.power || 5);
-                    DamageNumbers.add(16, leftP.y, b.power || 5, 'player', 'P_left');
+                    const pd = applyPlayerDamage('left', b.power || 5, b);
+                    SecretSkills.onHitPlayer(b, 'left', b.x, b.y, pd);
                     if (b.action === 'poison') PoisonMist.spawn(b.x, b.y, b.side);
                     SoundManager.playHit();
                     if (!b.hitPlayers) b.hitPlayers = [];
@@ -3751,11 +3797,9 @@ function update() {
             }
             if (b.side === 'left' && Math.abs(b.x - (CONFIG.SCREEN_WIDTH - 16)) < 16 && Math.abs(b.y - (rightP.y + 16)) < 16) {
                 if (!b.hitPlayers?.includes('right')) {
-                    const dmg = (b.power || 5);
-                    rightP.hp -= dmg;
-                    DamageNumbers.add(CONFIG.SCREEN_WIDTH - 16, rightP.y, dmg, 'player', 'P_right');
+                    const pd = applyPlayerDamage('right', b.power || 5, b);
+                    SecretSkills.onHitPlayer(b, 'right', b.x, b.y, pd);
                     if (b.action === 'poison') PoisonMist.spawn(b.x, b.y, b.side);
-                    DPSManager.recordDamage(dmg);
                     SoundManager.playHit();
                     if (!b.hitPlayers) b.hitPlayers = [];
                     b.hitPlayers.push('right');
@@ -3769,16 +3813,19 @@ function update() {
                     if (b.action === 'spread') {
                         const spreadX = b.x - b.vx * 0.5;
                         const spreadY = b.y - b.vy * 0.5;
-                        handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+                        handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side, sk: b.sk, fu: b.fu, owner: b.owner });
                     }
                     removeBullet(i); continue;
                 }
             }
-            let hitUnit = false;
-            for (let j = 0; j < gameState.units.length; j++) {
+            let hitUnit = false, reflected = false;
+            // すり抜け（亡霊）の弾はユニットに当たらない
+            if (!b.ghost) for (let j = 0; j < gameState.units.length; j++) {
                 const u = gameState.units[j];
                 if (u.side !== b.side && u.hp > 0 && u.fireType !== 'mine' && !u.hasBeenHitBy?.includes(b.uid)) {
                     if (Math.abs(b.x - u.x) < 20 && Math.abs(b.y - u.y) < 20) {
+                        // 氷の鏡（グレイシア）: 半分の確率で跳ね返す
+                        if (SecretSkills.tryReflect(u, b)) { reflected = true; break; }
                         // 🫧 ソーダ クヴェレの「泡の防護膜（バブルシールド）」判定
                         if (u.hasBubbleShield) {
                             u.hasBubbleShield = false;
@@ -3807,8 +3854,8 @@ function update() {
                             if (p) p.mana = Math.min(100, p.mana + dmg * 0.2);
                         }
 
-                        u.hp -= dmg;
-                        DamageNumbers.add(u.x, u.y - 12, dmg, 'unit', u.uid);
+                        dmg = applyUnitDamage(u, dmg, b);
+                        SecretSkills.onHitUnit(b, u, dmg);
                         // ⚡ 電撃チェーン（コーラ ブリッツ）: 最初に当たったときだけ連鎖
                         if (b.chain) { b.chain = false; chainLightning(u, dmg); }
                         // ☠ 毒の霧（ギフト ライス）
@@ -3824,9 +3871,6 @@ function update() {
                             });
                         }
 
-                        if (b.side === 'left') {
-                            DPSManager.recordDamage(dmg);
-                        }
                         SoundManager.playHit();
                         hitUnit = true;
                         if (b.pierceCount !== undefined) {
@@ -3839,6 +3883,7 @@ function update() {
                     }
                 }
             }
+            if (reflected) continue;
             if (hitUnit) {
                 if (b.pierceCount && b.pierceCount > 0) {
                     b.pierceCount--;
@@ -3846,7 +3891,7 @@ function update() {
                     if (b.action === 'spread') {
                         const spreadX = b.x - b.vx * 0.5;
                         const spreadY = b.y - b.vy * 0.5;
-                        handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+                        handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side, sk: b.sk, fu: b.fu, owner: b.owner });
                     }
                     removeBullet(i); continue;
                 }
@@ -3856,11 +3901,11 @@ function update() {
             if (b.action === 'spread' && (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT)) {
                 const spreadX = Math.max(0, Math.min(CONFIG.SCREEN_WIDTH, b.x));
                 const spreadY = Math.max(0, Math.min(CONFIG.SCREEN_HEIGHT, b.y));
-                handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side });
+                handleSpreadEffect({ x: spreadX, y: spreadY, side: b.side, sk: b.sk, fu: b.fu, owner: b.owner });
                 removeBullet(i); continue;
             }
             if (b.x < 0 || b.x > CONFIG.SCREEN_WIDTH || b.y < 0 || b.y > CONFIG.SCREEN_HEIGHT) {
-                if (b.bounce && b.bounce > 0) { b.vy *= -1; b.bounce--; continue; }
+                if (b.bounce && b.bounce > 0) { b.vy *= -1; b.bounce--; SecretSkills.onBounce(b); continue; }
                 removeBullet(i); continue;
             }
         }
@@ -4022,6 +4067,7 @@ function spawnBullet(x, y, vx, vy, side, extra = {}) {
     b.action = undefined; // アクションもリセット
     b.hitTargets = undefined; b.hitPlayers = undefined; b.hasBeenHitBy = undefined;
     b.isCola = false; b.chain = false; b.evadedFrom = undefined; b.mistSlowed = false; b.geyserTimer = 0; b.headAng = undefined;
+    b.sk = undefined; b.fu = undefined; b.owner = undefined; b.ghost = false; b.lockon = false; b.reflectLeft = 0; b.frostLeft = 0; b.reflectedBy = undefined; b.mirage = false;
     Object.assign(b, { x, y, vx, vy, side, ...extra });
     // 弾が遅くなった分、寿命(フレーム数)を延ばして届く距離は今までと同じにする
     if (extra.lifetime !== undefined) b.lifetime = Math.round(extra.lifetime / CONFIG.BULLET_SPEED_RATE);
@@ -4269,6 +4315,22 @@ function showUnitPreview(unit) {
         });
     }
 
+    // 固有スキル（シークレット）
+    if (unit.skills && unit.skills.length && !unit.isFinalForm) {
+        const d = SECRET_SKILL_DEFS[unit.skills[0]];
+        if (d) {
+            const label = document.createElement('div');
+            label.style.cssText = 'font-size:0.5rem;color:#668;margin-bottom:1px;margin-top:3px;';
+            label.textContent = '── 固有スキル ──';
+            skillsDiv.appendChild(label);
+            const tag = document.createElement('div');
+            tag.className = 'preview-skill-tag';
+            tag.style.cssText = 'background:rgba(255,215,0,0.15);border-color:rgba(255,215,0,0.5);color:#ffd700;';
+            tag.textContent = `${d.skill}（${FAMILY_JP[d.family]}）`;
+            skillsDiv.appendChild(tag);
+        }
+    }
+
     // ── 説明文 ──
     document.getElementById('unit-preview-desc').textContent = unit.desc || '';
 
@@ -4393,13 +4455,15 @@ const BattleFx = {
         return {
             k: this.sparks.map(s => [r(s[0]), r(s[1]), s[2]]),
             z: this.bolts.map(z => [r(z[0]), r(z[1]), r(z[2]), r(z[3]), z[4]]),
-            m: PoisonMist.list.map(m => [r(m.x), r(m.y), m.r, m.life, m.side === 'left' ? 0 : 1])
+            m: PoisonMist.list.map(m => [r(m.x), r(m.y), m.r, m.life, m.side === 'left' ? 0 : 1]),
+            s: SecretSkills.pack()
         };
     },
     unpack(fx) {
         if (!fx) return;
         this.sparks = (fx.k || []).map(a => a.slice());
         this.bolts = (fx.z || []).map(a => a.slice());
+        SecretSkills.unpack(fx.s);
         PoisonMist.list = (fx.m || []).map(a => ({ x: a[0], y: a[1], r: a[2], life: a[3], side: a[4] ? 'right' : 'left', id: 'm' + a[0] + '_' + a[1] }));
     },
     draw(c) {
@@ -4483,8 +4547,7 @@ function chainLightning(hitUnit, dmg) {
             if (d < bestD) { bestD = d; best = t; }
         });
         if (!best) break;
-        best.hp -= half;
-        DamageNumbers.add(best.x, best.y - 12, half, 'unit', best.uid);
+        applyUnitDamage(best, half, null, 1);
         BattleFx.bolts.push([from.x, from.y, best.x, best.y, 10]);
         done.add(best);
         from = best;
@@ -4496,7 +4559,7 @@ const PoisonMist = {
     list: [],
     LIFE: 90,       // 3秒
     RADIUS: 26,
-    DPS: 6,         // 霧の中の敵ユニットが1秒に受けるダメージ
+    DPS: 4,         // 霧の中の敵ユニットが1秒に受けるダメージ（性能調整: 6→4）
     seq: 0,
     spawn(x, y, side) {
         // 近くに同じ陣営の霧があれば、新しく作らず時間を延ばす（霧だらけにならないように）
@@ -4513,14 +4576,562 @@ const PoisonMist = {
             gameState.units.forEach(u => {
                 if (u.side === m.side || u.hp <= 0 || u.fired) return;
                 if (Math.hypot(u.x - m.x, u.y - m.y) > m.r) return;
-                u.hp -= this.DPS;
-                DamageNumbers.add(u.x, u.y - 12, this.DPS, 'unit', u.uid);
+                applyUnitDamage(u, this.DPS, null, 1);
             });
         }
         this.list = this.list.filter(m => m.life > 0);
     },
     reset() { this.list = []; }
 };
+
+// ===============================================================
+// 🌟 シークレットの固有スキル（30種）と「？？？」の合体奥義（7系統の組み合わせ28種）
+//   - シークレット1種につき、ほかと重ならない固有スキルを1つ持つ（u.skills = [キー]）
+//   - 「？？？」は材料2体の固有スキルを両方持ち、2体の系統の組み合わせで決まる合体奥義が付く（u.fusion）
+//   - 計算はすべて「計算する側」（ホスト・CPU戦・練習場）で行う
+// ===============================================================
+const FAMILY_ORDER = ['rapid', 'area', 'snipe', 'homing', 'guard', 'hinder', 'support'];
+const FAMILY_JP = { rapid: '連射', area: '範囲', snipe: '狙撃', homing: '追尾', guard: '防御', hinder: '妨害', support: '支援' };
+
+// シークレットの系統・固有スキル・撃ち方の整理（似ていた能力を外して、固有スキルで個性を出す）
+const SECRET_SKILL_DEFS = {
+    // ---- 連射 ----
+    GATLING_SPRITE: { family: 'rapid', skill: '加速連射', actions: ['bounce'],
+        desc: '【固有スキル: 加速連射】撃ち続けるほど連射が速くなる（最大2倍）。凍らされると元に戻る。' },
+    TYPHOON_GEYSER: { family: 'rapid', skill: '竜巻返し', actions: ['bounce'],
+        desc: '【固有スキル: 竜巻返し】撃った弾が触れた敵の弾を跳ね返し、味方の弾に変える（1発につき2回まで）。' },
+    COCYTUS_DRAKE: { family: 'rapid', skill: '氷結停止', actions: ['pierce'],
+        desc: '【固有スキル: 氷結停止】当たった敵ユニットを1.5秒凍らせ、攻撃を止める。' },
+    INAMU_THE_END: { family: 'rapid', skill: '日輪', actions: ['bounce'], cooldown: 1.0,
+        desc: '【固有スキル: 日輪】10秒ごとに、画面にある敵の弾をすべて消し去る。' },
+    // ---- 範囲 ----
+    CLUSTER_METEOR: { family: 'area', skill: '隕石落とし', actions: ['spread'],
+        desc: '【固有スキル: 隕石落とし】弾が当たった場所に、0.8秒後に隕石が落ちて周りに大ダメージ。' },
+    DIAMOND_METEOR: { family: 'area', skill: '結晶の壁', actions: ['spread'],
+        desc: '【固有スキル: 結晶の壁】爆発の跡に氷の結晶が3秒残り、触れた敵の弾を消す（4発まで）。' },
+    ZERO_FROST: { family: 'area', skill: '反撃爆発', actions: ['frost'],
+        desc: '【固有スキル: 反撃爆発】冷気弾が敵の弾を消した瞬間、その場で反撃の爆発を起こす。' },
+    NIFLHEIM_GOD: { family: 'area', skill: '凍てつく領域', fireTypes: ['8dir'], actions: [],
+        desc: '【固有スキル: 凍てつく領域】周り2マスに入った敵の弾の速さを半分にする。' },
+    VOLCANO_FORTRESS: { family: 'area', skill: '噴火', fireTypes: ['burst'], actions: [],
+        desc: '【固有スキル: 噴火】6秒ごとに、周り8方向へ大きな火山弾を一斉に打ち上げる。' },
+    FLORA_FRAGMENT: { family: 'area', skill: '種まき', actions: ['split'],
+        desc: '【固有スキル: 種まき】弾が当たった場所に種が残り、2秒後に花のように8方向へ弾が咲く。' },
+    // ---- 狙撃 ----
+    ZERO_DRAGOON: { family: 'snipe', skill: 'レールガン', fireTypes: ['none'], actions: [], cooldown: 1.8,
+        desc: '【固有スキル: レールガン】弾の代わりに、同じ行の端まで一瞬で届くビームを撃つ。行にいる敵すべてに当たる。' },
+    ICICLE_SNIPER: { family: 'snipe', skill: '弱点狙撃', actions: ['pierce'], cooldown: 1.0,
+        desc: '【固有スキル: 弱点狙撃】相手本体に当たったときだけ、ダメージが2倍になる。' },
+    MIRAGE_SNIPER: { family: 'snipe', skill: '分身射撃', actions: ['bounce'],
+        desc: '【固有スキル: 分身射撃】撃つたびに、上下の行からも幻の弾（半分の威力）が一緒に飛ぶ。' },
+    VOLTEC_LASER: { family: 'snipe', skill: '帯電', actions: ['pierce'],
+        desc: '【固有スキル: 帯電】当たった敵ユニットが帯電し、次に受けるダメージが2倍になる。' },
+    PROMINENCE_VULCAN: { family: 'snipe', skill: '溜め撃ち', actions: ['spread'],
+        desc: '【固有スキル: 溜め撃ち】同じ行に敵がいない間は撃たずに力を溜め、溜めるほど強い弾を撃つ（最大3倍）。' },
+    // ---- 追尾 ----
+    PHANTOM_HUNTER: { family: 'homing', skill: 'すり抜け', actions: ['homing'], power: 34,
+        desc: '【固有スキル: すり抜け】弾が敵ユニットや盾をすり抜けて、相手本体だけを狙う。' },
+    AURORA_PHANTOM: { family: 'homing', skill: '幻惑', actions: ['homing', 'bounce'], power: 30,
+        desc: '【固有スキル: 幻惑】当たった敵ユニットは3秒間、撃つ弾があらぬ方向へ曲がる。' },
+    VALKYRIE_BLIZZARD: { family: 'homing', skill: '反射強化', actions: ['bounce'], power: 30,
+        desc: '【固有スキル: 反射強化】弾が壁で跳ね返るたびに、威力が1.5倍になる。' },
+    // ---- 防御 ----
+    MEGALITH_TITAN: { family: 'guard', skill: '不動', actions: ['megaton'], power: 20,
+        desc: '【固有スキル: 不動】受けるダメージを毎回8へらす。小さい弾はほとんど効かない。' },
+    AVALANCHE_TITAN: { family: 'guard', skill: '雪崩', fireTypes: ['single'], actions: ['megaton'],
+        desc: '【固有スキル: 雪崩】HPが半分を切ると1回だけ、同じ行の敵すべてに大ダメージの雪崩を起こす。' },
+    EMPEROR_SHIELD: { family: 'guard', skill: '王の加護', fireTypes: ['circle6'], actions: [],
+        desc: '【固有スキル: 王の加護】同じ行にいる味方ユニット（自分も）が受けるダメージを30%へらす。' },
+    GLACIA_FORTRESS: { family: 'guard', skill: '氷の鏡', actions: [],
+        desc: '【固有スキル: 氷の鏡】当たった敵の弾の半分を、ダメージを受けずに跳ね返す。' },
+    // ---- 妨害 ----
+    NEBULA_HARVESTER: { family: 'hinder', skill: '魔力吸収', actions: ['blackhole'],
+        desc: '【固有スキル: 魔力吸収】受けたダメージに応じて、自軍のマナが増える。' },
+    FREEZE_NEBULA: { family: 'hinder', skill: '凍える霧', fireTypes: ['8dir'], actions: [],
+        desc: '【固有スキル: 凍える霧】周り1.5マスの敵ユニットの攻撃の速さを半分にする。' },
+    HADES_POISON: { family: 'hinder', skill: '猛毒', actions: ['poison'],
+        desc: '【固有スキル: 猛毒】当たった敵ユニットを猛毒にする（5秒で最大HPの20%のダメージ）。弾は毒の霧も残す。' },
+    FROST_NOVA: { family: 'hinder', skill: '氷結弾', actions: ['frost'],
+        desc: '【固有スキル: 氷結弾】冷気弾が敵の弾を2発まで消す（ふつうの氷結は1発）。' },
+    // ---- 支援 ----
+    AURA_GENESIS: { family: 'support', skill: '生命の樹', fireTypes: ['none'], actions: [],
+        desc: '【固有スキル: 生命の樹】自軍プレイヤー本体のHPを毎秒4回復し、マナも作る。' },
+    FROST_GENESIS: { family: 'support', skill: '癒しの冷気', fireTypes: ['none'], actions: [],
+        desc: '【固有スキル: 癒しの冷気】周り2マスの味方ユニットのHPを毎秒回復し、マナも作る。' },
+    VORTEX_QUELLE: { family: 'support', skill: '渦の吸い込み', fireTypes: ['none'], actions: [],
+        desc: '【固有スキル: 渦の吸い込み】周り2マスの敵の弾を吸い込んで消し、1発ごとにマナ+1。' },
+    GAIA_HARVEST: { family: 'support', skill: '芽吹き', fireTypes: ['none'], actions: [],
+        desc: '【固有スキル: 芽吹き】8秒ごとに、隣の空いたマスへ木盾（ホルツ シルト）を生やす。マナも作る。' }
+};
+
+// 「？？？」の合体奥義（2体の系統の組み合わせ）
+const FUSION_DEFS = {
+    'rapid+rapid': '弾幕地獄', 'rapid+area': '爆撃', 'rapid+snipe': '一斉掃射', 'rapid+homing': '群れ蜂',
+    'rapid+guard': '移動要塞', 'rapid+hinder': '凍てつく弾雨', 'rapid+support': '無尽蔵',
+    'area+area': '大災害', 'area+snipe': '精密爆撃', 'area+homing': '誘導ミサイル', 'area+guard': '爆発装甲',
+    'area+hinder': '毒爆', 'area+support': '恵みの雨',
+    'snipe+snipe': '一撃必殺', 'snipe+homing': 'ロックオン', 'snipe+guard': '砲台', 'snipe+hinder': '麻痺弾',
+    'snipe+support': '弱点看破',
+    'homing+homing': '亡霊の群れ', 'homing+guard': '守護霊', 'homing+hinder': '呪い', 'homing+support': '吸血',
+    'guard+guard': '絶対防御', 'guard+hinder': '茨の鎧', 'guard+support': '聖域',
+    'hinder+hinder': '時間停止', 'hinder+support': '吸魔',
+    'support+support': '楽園'
+};
+function fusionKey(f1, f2) {
+    const [a, b] = [f1, f2].sort((x, y) => FAMILY_ORDER.indexOf(x) - FAMILY_ORDER.indexOf(y));
+    return a + '+' + b;
+}
+
+// 起動時: シークレットの定義に新しい撃ち方・説明を反映する
+Object.entries(SECRET_SKILL_DEFS).forEach(([key, d]) => {
+    const c = SECRET_CHIMERAS[key];
+    if (!c) return;
+    c.family = d.family;
+    c.skillName = d.skill;
+    c.actions = [...d.actions];
+    if (d.fireTypes) c.fireTypes = [...d.fireTypes];
+    if (d.cooldown) c.cooldown = d.cooldown;
+    if (d.power !== undefined) c.power = d.power; // 性能調整
+    c.desc = d.desc;
+});
+
+// 合成の計算から呼ぶ: シークレットにスキルを付ける
+function assignSecretSkill(u, chimeraKey) {
+    const d = SECRET_SKILL_DEFS[chimeraKey];
+    if (!d) return;
+    u.skills = [chimeraKey];
+    u.families = [d.family];
+    u.fusion = undefined;
+}
+// 最終形態: 2体のスキルを両方持ち、系統の組み合わせで合体奥義が決まる
+function assignFinalSkills(target, src) {
+    const skills = [...(target.skills || []), ...(src.skills || [])];
+    const fams = [(target.families || [])[0], (src.families || [])[0]].filter(Boolean);
+    target.skills = [...new Set(skills)];
+    target.families = fams;
+    target.fusion = fams.length === 2 ? fusionKey(fams[0], fams[1]) : undefined;
+}
+
+const SecretSkills = {
+    tick: 0,
+    field: [],      // 隕石・種・結晶・爆撃 { type, x, y, side, timer, power, hp }
+    beams: [],      // 見た目: [x1, y1, x2, y2, life, color]
+    zones: null,
+    timeStopUntil: { left: 0, right: 0 }, // この陣営の弾が止まる時刻
+
+    reset() {
+        this.tick = 0;
+        this.field = [];
+        this.beams = [];
+        this.timeStopUntil = { left: 0, right: 0 };
+    },
+
+    has(u, key) { return !!(u && u.skills && u.skills.includes(key)); },
+    fu(u, id) { return !!(u && u.fusion === id); },
+    bHas(b, key) { return !!(b && b.sk && b.sk.includes(key)); },
+    enemyOf(side) { return side === 'left' ? 'right' : 'left'; },
+
+    // ---------- 毎フレーム（計算する側） ----------
+    update() {
+        this.tick++;
+        const T = this.tick, FPS = CONFIG.FPS;
+        const z = { slowBullet: [], slowAttack: [], emperorRows: { left: new Set(), right: new Set() }, sanctuary: [], weakpoint: { left: false, right: false } };
+        this.zones = z;
+
+        for (const u of gameState.units) {
+            if (u.hp <= 0 || u.fired) continue;
+            // 状態異常: 猛毒（1秒ごと）
+            if (u.poisonUntil > T && T % FPS === 0) applyUnitDamage(u, u.poisonDps || 1, null, 1);
+            if (!u.skills && !u.fusion) continue;
+            const side = u.side, foe = this.enemyOf(side);
+            const P = gameState.players[side], E = gameState.players[foe];
+
+            if (this.has(u, 'NIFLHEIM_GOD')) z.slowBullet.push({ x: u.x, y: u.y, r: 64, side });
+            if (this.has(u, 'FREEZE_NEBULA')) z.slowAttack.push({ x: u.x, y: u.y, r: 48, side });
+            if (this.has(u, 'EMPEROR_SHIELD')) z.emperorRows[side].add(u.row);
+            if (this.fu(u, 'guard+support')) z.sanctuary.push({ x: u.x, y: u.y, r: 64, side });
+            if (this.fu(u, 'snipe+support')) z.weakpoint[side] = true;
+
+            u.skillT = (u.skillT || 0) + 1;
+            const every = (sec) => u.skillT % Math.round(sec * FPS) === 0;
+
+            if (this.has(u, 'AURA_GENESIS') && every(1)) P.hp = Math.min(P.maxHp || 2000, P.hp + 4);
+            if (this.has(u, 'FROST_GENESIS') && every(1)) {
+                gameState.units.forEach(a => {
+                    if (a.side === side && a.hp > 0 && Math.hypot(a.x - u.x, a.y - u.y) <= 64) {
+                        a.hp = Math.min(a.maxHp || a.hp, a.hp + Math.max(3, Math.round((a.maxHp || 30) * 0.03)));
+                    }
+                });
+            }
+            if (this.has(u, 'VORTEX_QUELLE')) {
+                let n = 0;
+                for (let i = gameState.bullets.length - 1; i >= 0 && n < 2; i--) {
+                    const b = gameState.bullets[i];
+                    if (b.side !== side && Math.hypot(b.x - u.x, b.y - u.y) <= 64) {
+                        removeBullet(i); n++;
+                        P.mana = Math.min(100, P.mana + 1);
+                    }
+                }
+            }
+            if (this.has(u, 'GAIA_HARVEST') && every(8)) this.sprout(u);
+            if (this.has(u, 'VOLCANO_FORTRESS') && every(6)) {
+                for (let k = 0; k < 8; k++) {
+                    const a = (Math.PI * 2 / 8) * k;
+                    spawnBullet(u.x, u.y, Math.cos(a) * 5, Math.sin(a) * 5, side, { power: Math.round((u.power || 30) * 1.2), size: 10, spriteKey: 'bullet', sk: u.skills, fu: u.fusion });
+                }
+                this.beams.push([u.x - 20, u.y, u.x + 20, u.y, 8, '#ff7b00']);
+            }
+            if (this.has(u, 'INAMU_THE_END') && every(10)) {
+                for (let i = gameState.bullets.length - 1; i >= 0; i--) if (gameState.bullets[i].side === foe) removeBullet(i);
+                BattleFx.sparks.push([u.x, u.y, 12]);
+            }
+            if (this.fu(u, 'hinder+hinder') && every(10)) this.timeStopUntil[foe] = T + 2 * FPS;
+            if (this.fu(u, 'hinder+support') && every(1)) { E.mana = Math.max(0, E.mana - 1); P.mana = Math.min(100, P.mana + 1); }
+            if (this.fu(u, 'support+support') && every(1)) { P.hp = Math.min(P.maxHp || 2000, P.hp + 5); P.mana = Math.min(100, P.mana + 2.5); }
+            if (this.fu(u, 'area+snipe') && every(5)) {
+                const ex = foe === 'left' ? 16 : CONFIG.SCREEN_WIDTH - 16;
+                this.field.push({ type: 'meteor', x: ex, y: E.y + 16, side, timer: 24, power: Math.round((u.power || 20) * 1.5), r: 30 });
+            }
+            if (this.fu(u, 'homing+guard') && every(0.5)) {
+                let best = -1, bd = 90;
+                gameState.bullets.forEach((b, i) => {
+                    if (b.side === side) return;
+                    const d = Math.hypot(b.x - u.x, b.y - u.y);
+                    if (d < bd) { bd = d; best = i; }
+                });
+                if (best >= 0) {
+                    const b = gameState.bullets[best];
+                    BattleFx.bolts.push([u.x, u.y, b.x, b.y, 6]);
+                    removeBullet(best);
+                }
+            }
+        }
+
+        // 置き物（隕石・種・結晶）
+        for (let i = this.field.length - 1; i >= 0; i--) {
+            const f = this.field[i];
+            f.timer--;
+            if (f.type === 'crystal') {
+                for (let k = gameState.bullets.length - 1; k >= 0 && f.hp > 0; k--) {
+                    const b = gameState.bullets[k];
+                    if (b.side !== f.side && Math.hypot(b.x - f.x, b.y - f.y) < 14) { removeBullet(k); f.hp--; }
+                }
+                if (f.hp <= 0) f.timer = 0;
+            }
+            if (f.timer > 0) continue;
+            if (f.type === 'meteor') {
+                areaDamage(f.x, f.y, f.r || 36, f.power, f.side);
+                BattleFx.sparks.push([f.x, f.y, 12]);
+                SoundManager.playExplosion();
+            } else if (f.type === 'seed') {
+                for (let k = 0; k < 8; k++) {
+                    const a = (Math.PI * 2 / 8) * k;
+                    spawnBullet(f.x, f.y, Math.cos(a) * 4, Math.sin(a) * 4, f.side, { power: f.power, size: 5, spriteKey: 'bullet' });
+                }
+            }
+            this.field.splice(i, 1);
+        }
+        if (this.field.length > 80) this.field.splice(0, this.field.length - 80);
+    },
+
+    // 隣の空いたマス（自分の陣地）に木盾を生やす
+    sprout(u) {
+        const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        for (const [dc, dr] of dirs) {
+            const col = u.col + dc, row = u.row + dr;
+            const mine = u.side === 'left' ? col >= 0 && col < 9 : col >= 9 && col < CONFIG.GRID_COLS;
+            if (!mine || row < 0 || row >= CONFIG.GRID_ROWS || isCellOccupied(col, row)) continue;
+            const def = UNIT_TYPES.RICE_SHIELD_WOOD;
+            finalizeSummon({ unitDef: def, typeKey: 'RICE_SHIELD_WOOD', row, col, side: u.side, targetX: col * 32 + 16, targetY: row * 32 + 16 });
+            return;
+        }
+    },
+
+    // ---------- 撃つとき ----------
+    // 攻撃の速さの倍率
+    attackSpeedMul(u) {
+        let m = 1;
+        if (this.has(u, 'GATLING_SPRITE')) m *= 1 + (u.heat || 0);
+        if (this.fu(u, 'rapid+rapid')) m *= 1.6;
+        m = Math.min(m, 2.5); // 速くなりすぎないように上限
+        const z = this.zones;
+        if (z && z.slowAttack.some(a => a.side !== u.side && Math.hypot(a.x - u.x, a.y - u.y) <= a.r)) m *= 0.5;
+        return m;
+    },
+    // 溜め撃ち: 同じ行に敵がいない間は撃たずに力を溜める
+    holdFire(u) {
+        if (!this.has(u, 'PROMINENCE_VULCAN')) return false;
+        const foe = this.enemyOf(u.side);
+        const rowY = u.row * 32 + 16;
+        const E = gameState.players[foe];
+        const enemyInRow = gameState.units.some(t => t.side === foe && t.hp > 0 && t.row === u.row) || Math.abs(E.y + 16 - rowY) < 24;
+        if (enemyInRow) return false;
+        u.promCharge = Math.min(2, (u.promCharge || 0) + 1 / 90);
+        return true;
+    },
+    // 撃った直後（n: 撃つ前の弾の数）
+    afterFire(u, n) {
+        const shots = gameState.bullets.slice(n);
+        const T = this.tick;
+        // 状態異常（ふつうのユニットにも効く）
+        if (u.confusedUntil > T) shots.forEach(b => { const a = (Math.random() - 0.5) * 2.4, c = Math.cos(a), s = Math.sin(a); const vx = b.vx; b.vx = vx * c - b.vy * s; b.vy = vx * s + b.vy * c; });
+        if (u.cursedUntil > T) shots.forEach(b => { b.power = Math.max(1, Math.round((b.power || 5) * 0.7)); });
+        if (!u.skills && !u.fusion) return;
+
+        shots.forEach(b => { b.sk = u.skills; b.fu = u.fusion; b.owner = u.uid; });
+        if (this.has(u, 'GATLING_SPRITE')) u.heat = Math.min(1, (u.heat || 0) + 0.08);
+        if (this.has(u, 'TYPHOON_GEYSER')) shots.forEach(b => { b.reflectLeft = 2; });
+        if (this.has(u, 'FROST_NOVA')) shots.forEach(b => { b.frostLeft = 2; });
+        if (this.has(u, 'PHANTOM_HUNTER')) shots.forEach(b => { b.ghost = true; b.homing = true; });
+        if (this.has(u, 'PROMINENCE_VULCAN') && u.promCharge > 0) {
+            shots.forEach(b => { b.power = Math.round((b.power || 5) * (1 + u.promCharge)); b.size = Math.max(b.size || 6, 6 + u.promCharge * 4); });
+            u.promCharge = 0;
+        }
+        if (this.has(u, 'MIRAGE_SNIPER')) {
+            shots.forEach(b => {
+                [-32, 32].forEach(dy => {
+                    if (b.y + dy < 0 || b.y + dy > CONFIG.SCREEN_HEIGHT) return;
+                    spawnBullet(b.x, b.y + dy, b.vx, b.vy, b.side, { power: Math.max(1, Math.round((b.power || 5) / 2)), spriteKey: b.spriteKey, size: b.size, bounce: b.bounce, sk: u.skills, fu: u.fusion, owner: u.uid, mirage: true });
+                });
+            });
+        }
+        if (this.has(u, 'ZERO_DRAGOON')) this.railgun(u, u.power || 35, false);
+        // 合体奥義（撃つとき）
+        if (this.fu(u, 'rapid+snipe') || this.fu(u, 'snipe+guard')) shots.forEach(b => { b.pierceCount = (b.pierceCount || 0) + (this.fu(u, 'rapid+snipe') ? 3 : 2); });
+        if (this.fu(u, 'rapid+homing') || this.fu(u, 'area+homing') || this.fu(u, 'snipe+homing')) shots.forEach(b => { b.homing = true; });
+        if (this.fu(u, 'snipe+homing')) shots.forEach(b => { b.lockon = true; });
+        if (this.fu(u, 'area+homing')) shots.forEach(b => { if (!b.action) b.action = 'spread'; });
+        if (this.fu(u, 'homing+homing')) shots.forEach(b => {
+            const a = 0.35, c = Math.cos(a), s = Math.sin(a);
+            spawnBullet(b.x, b.y, b.vx * c - b.vy * s, b.vx * s + b.vy * c, b.side, { power: b.power, spriteKey: b.spriteKey, size: b.size, homing: true, sk: u.skills, fu: u.fusion, owner: u.uid });
+        });
+        if (this.fu(u, 'rapid+support')) { const P = gameState.players[u.side]; P.mana = Math.min(100, P.mana + 0.3); }
+    },
+
+    // レールガン・雪崩: 同じ行の敵すべてにダメージ
+    railgun(u, power, avalanche) {
+        const foe = this.enemyOf(u.side);
+        const rowY = u.row * 32 + 16;
+        gameState.units.forEach(t => { if (t.side === foe && t.hp > 0 && t.row === u.row) applyUnitDamage(t, power, null, 1); });
+        const E = gameState.players[foe];
+        if (Math.abs(E.y + 16 - rowY) < 24) applyPlayerDamage(foe, power, null);
+        const ex = foe === 'left' ? 0 : CONFIG.SCREEN_WIDTH;
+        this.beams.push([u.x, rowY, ex, rowY, avalanche ? 16 : 8, avalanche ? '#e0f7ff' : '#7df9ff']);
+        SoundManager.playFire();
+    },
+
+    // ---------- 敵の弾がユニットに当たる直前 ----------
+    // 氷の鏡: 半分の確率で跳ね返す（true なら当たらない）
+    tryReflect(u, b) {
+        if (!this.has(u, 'GLACIA_FORTRESS') || b.reflectedBy === u.uid) return false;
+        if (Math.random() >= 0.5) return false;
+        b.side = u.side;
+        b.vx = -b.vx; b.vy = -b.vy;
+        b.reflectedBy = u.uid;
+        b.hitPlayers = undefined;
+        b.sk = undefined; b.fu = undefined;
+        return true;
+    },
+
+    // ユニットが受けるダメージを減らす
+    reduceDamage(u, d) {
+        if (this.has(u, 'MEGALITH_TITAN')) d = Math.max(1, d - 8);
+        if (this.fu(u, 'rapid+guard') || this.fu(u, 'snipe+guard')) d *= 0.7;
+        if (this.fu(u, 'guard+guard')) d *= 0.5;
+        const z = this.zones;
+        if (z) {
+            if (z.emperorRows[u.side].has(u.row)) d *= 0.7;
+            if (z.sanctuary.some(s => s.side === u.side && Math.hypot(s.x - u.x, s.y - u.y) <= s.r)) d *= 0.7;
+        }
+        return d;
+    },
+
+    // ユニットがダメージを受けた後（受けた側の能力）
+    onDamaged(u, d, depth) {
+        if (this.has(u, 'NEBULA_HARVESTER')) { const P = gameState.players[u.side]; P.mana = Math.min(100, P.mana + d * 0.1); }
+        if (this.has(u, 'AVALANCHE_TITAN') && !u.avalanched && u.hp > 0 && u.hp < (u.maxHp || u.hp) / 2) {
+            u.avalanched = true;
+            this.railgun(u, Math.round((u.power || 30) * 3), true);
+        }
+        if (depth > 0) return; // 反撃の反撃はしない
+        if (this.fu(u, 'guard+hinder')) {
+            let best = null, bd = 96;
+            gameState.units.forEach(t => { if (t.side !== u.side && t.hp > 0) { const dd = Math.hypot(t.x - u.x, t.y - u.y); if (dd < bd) { bd = dd; best = t; } } });
+            if (best) { applyUnitDamage(best, d * 0.5, null, 1); BattleFx.bolts.push([u.x, u.y, best.x, best.y, 6]); }
+        }
+        if (this.fu(u, 'area+guard') && !(u.armorCdUntil > this.tick)) {
+            u.armorCdUntil = this.tick + 15;
+            areaDamage(u.x, u.y, 44, Math.round((u.power || 20) * 0.5), u.side, 1);
+            BattleFx.sparks.push([u.x, u.y, 12]);
+        }
+    },
+
+    // 自分の弾が敵ユニットに当たった後（撃った側の能力）
+    onHitUnit(b, t, d) {
+        if (!b) return;
+        const T = this.tick;
+        if (this.bHas(b, 'COCYTUS_DRAKE')) t.stunUntil = Math.max(t.stunUntil || 0, T + 45);
+        if (this.bHas(b, 'VOLTEC_LASER')) t.charged = true;
+        if (this.bHas(b, 'HADES_POISON')) { t.poisonUntil = T + 150; t.poisonDps = Math.max(1, Math.round((t.maxHp || 50) * 0.2 / 5)); }
+        if (this.bHas(b, 'AURORA_PHANTOM')) t.confusedUntil = T + 90;
+        if (b.fu === 'rapid+hinder') t.stunUntil = Math.max(t.stunUntil || 0, T + 30);
+        if (b.fu === 'snipe+hinder') t.stunUntil = Math.max(t.stunUntil || 0, T + 60);
+        if (b.fu === 'homing+hinder') t.cursedUntil = T + 150;
+        this.onHitAnything(b, t.x, t.y, d);
+    },
+    // 相手本体に当たったときのダメージ倍率
+    playerDamageMul(b, side) {
+        if (!b) return 1;
+        let m = 1;
+        if (this.bHas(b, 'ICICLE_SNIPER')) m *= 2;
+        if (b.fu === 'snipe+snipe') m *= 3;
+        const z = this.zones;
+        if (z && z.weakpoint[b.side]) m *= 1.2;
+        return m;
+    },
+    onHitPlayer(b, side, x, y, d) { if (b) this.onHitAnything(b, x, y, d); },
+    // ユニット・本体どちらに当たっても起きること
+    onHitAnything(b, x, y, d) {
+        const owner = b.owner ? gameState.units.find(u => u.uid === b.owner) : null;
+        if (this.bHas(b, 'CLUSTER_METEOR') && owner && !(owner.meteorCdUntil > this.tick)) {
+            owner.meteorCdUntil = this.tick + 20;
+            this.field.push({ type: 'meteor', x, y, side: b.side, timer: 24, power: Math.round((owner.power || 25) * 0.9), r: 36 });
+        }
+        if (this.bHas(b, 'FLORA_FRAGMENT') && owner && !(owner.seedCdUntil > this.tick)) {
+            owner.seedCdUntil = this.tick + 20;
+            this.field.push({ type: 'seed', x, y, side: b.side, timer: 60, power: Math.max(3, Math.round((owner.power || 18) * 0.5)) });
+        }
+        if (b.fu === 'rapid+area') areaDamage(x, y, 24, Math.max(1, Math.round((b.power || 10) * 0.3)), b.side, 1);
+        if (b.fu === 'homing+support' && owner && owner.hp > 0) owner.hp = Math.min(owner.maxHp || owner.hp, owner.hp + d * 0.5);
+    },
+
+    // ---------- 弾の動き ----------
+    bulletSpeedMul(b) {
+        const z = this.zones;
+        if (z && z.slowBullet.length && z.slowBullet.some(s => s.side !== b.side && Math.hypot(s.x - b.x, s.y - b.y) <= s.r)) return 0.5;
+        return 1;
+    },
+    bulletFrozen(b) { return this.timeStopUntil[b.side] > this.tick; },
+    // 竜巻返し: 触れた敵の弾を跳ね返して味方の弾にする
+    typhoonReflect(b) {
+        if (!(b.reflectLeft > 0)) return;
+        for (const eb of gameState.bullets) {
+            if (eb === b || eb.side === b.side || eb.isCola) continue;
+            if (Math.abs(eb.x - b.x) < 12 && Math.abs(eb.y - b.y) < 12) {
+                eb.side = b.side;
+                eb.vx = -eb.vx; eb.vy = -eb.vy * 0.5;
+                eb.hitPlayers = undefined; eb.sk = undefined; eb.fu = undefined;
+                b.reflectLeft--;
+                if (b.reflectLeft <= 0) return;
+            }
+        }
+    },
+    // 反射強化: 壁で跳ね返るたびに威力1.5倍
+    onBounce(b) { if (this.bHas(b, 'VALKYRIE_BLIZZARD')) b.power = Math.round((b.power || 5) * 1.5); },
+    // 爆発（拡散）の後
+    onExplosion(e) {
+        if (this.bHas(e, 'DIAMOND_METEOR')) this.field.push({ type: 'crystal', x: e.x, y: e.y, side: e.side, timer: 90, hp: 4 });
+        if (e.fu === 'area+area') areaDamage(e.x, e.y, 48, 20, e.side, 1);
+        if (e.fu === 'area+hinder') PoisonMist.spawn(e.x, e.y, e.side);
+        if (e.fu === 'area+support') gameState.units.forEach(a => { if (a.side === e.side && a.hp > 0 && Math.hypot(a.x - e.x, a.y - e.y) <= 40) a.hp = Math.min(a.maxHp || a.hp, a.hp + 10); });
+    },
+
+    // ---------- 見た目 ----------
+    statusBits(u) {
+        const T = this.tick;
+        return (u.stunUntil > T ? 1 : 0) | (u.poisonUntil > T ? 2 : 0) | (u.charged ? 4 : 0) | (u.confusedUntil > T ? 8 : 0) | (u.cursedUntil > T ? 16 : 0) | (u.promCharge > 0.2 ? 32 : 0);
+    },
+    pack() {
+        const r = v => Math.round(v);
+        return {
+            f: this.field.map(f => [f.type === 'meteor' ? 0 : f.type === 'seed' ? 1 : 2, r(f.x), r(f.y), f.timer]),
+            w: this.beams.map(w => [r(w[0]), r(w[1]), r(w[2]), r(w[3]), w[4], w[5]])
+        };
+    },
+    unpack(o) {
+        if (!o) return;
+        this.field = (o.f || []).map(a => ({ type: ['meteor', 'seed', 'crystal'][a[0]], x: a[1], y: a[2], timer: a[3], side: 'left' }));
+        this.beams = (o.w || []).map(a => a.slice());
+    },
+    draw(c) {
+        const t = Date.now() / 200;
+        this.field.forEach(f => {
+            c.save();
+            if (f.type === 'meteor') {
+                const p = Math.max(0, f.timer / 24);
+                c.strokeStyle = 'rgba(255, 80, 40, 0.9)'; c.lineWidth = 2;
+                c.beginPath(); c.arc(f.x, f.y, 6 + 26 * p, 0, Math.PI * 2); c.stroke();
+                c.fillStyle = 'rgba(255, 120, 40, 0.25)';
+                c.beginPath(); c.arc(f.x, f.y, 30, 0, Math.PI * 2); c.fill();
+            } else if (f.type === 'seed') {
+                c.fillStyle = `rgba(120, 220, 90, ${0.6 + 0.4 * Math.sin(t * 2)})`;
+                c.beginPath(); c.arc(f.x, f.y, 4, 0, Math.PI * 2); c.fill();
+            } else {
+                c.fillStyle = 'rgba(170, 240, 255, 0.75)'; c.strokeStyle = '#e8fbff'; c.lineWidth = 1;
+                c.beginPath(); c.moveTo(f.x, f.y - 9); c.lineTo(f.x + 6, f.y); c.lineTo(f.x, f.y + 9); c.lineTo(f.x - 6, f.y); c.closePath(); c.fill(); c.stroke();
+            }
+            c.restore();
+        });
+        for (let i = this.beams.length - 1; i >= 0; i--) {
+            const w = this.beams[i];
+            c.save();
+            c.globalAlpha = Math.min(1, w[4] / 6);
+            c.strokeStyle = w[5] || '#7df9ff';
+            c.shadowColor = w[5] || '#7df9ff'; c.shadowBlur = 10;
+            c.lineWidth = 4;
+            c.beginPath(); c.moveTo(w[0], w[1]); c.lineTo(w[2], w[3]); c.stroke();
+            c.restore();
+            w[4]--;
+            if (w[4] <= 0) this.beams.splice(i, 1);
+        }
+    },
+    // ユニットの状態異常の見た目
+    drawStatus(c, u, bits) {
+        if (!bits) return;
+        c.save();
+        if (bits & 1) { c.fillStyle = 'rgba(150, 220, 255, 0.45)'; c.fillRect(u.x - 14, u.y - 14, 28, 28); }
+        if (bits & 2) { c.fillStyle = 'rgba(90, 220, 90, 0.85)'; c.beginPath(); c.arc(u.x + 10, u.y - 10 + Math.sin(Date.now() / 150) * 2, 3, 0, Math.PI * 2); c.fill(); }
+        if (bits & 4) { c.strokeStyle = '#fff36b'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(u.x - 12, u.y - 12); c.lineTo(u.x - 6, u.y - 6); c.lineTo(u.x - 10, u.y - 4); c.lineTo(u.x - 4, u.y + 2); c.stroke(); }
+        if (bits & 8) { c.fillStyle = '#d58cff'; c.font = `9px ${GAME_FONT}`; c.textAlign = 'center'; c.fillText('?', u.x + 11, u.y - 8); }
+        if (bits & 16) { c.strokeStyle = 'rgba(120, 40, 160, 0.9)'; c.lineWidth = 2; c.beginPath(); c.arc(u.x, u.y, 16, 0, Math.PI * 2); c.stroke(); }
+        if (bits & 32) { c.fillStyle = `rgba(255, 140, 0, ${0.3 + 0.2 * Math.sin(Date.now() / 120)})`; c.beginPath(); c.arc(u.x, u.y, 15, 0, Math.PI * 2); c.fill(); }
+        c.restore();
+    }
+};
+
+// ユニットにダメージを与える（固有スキル・状態異常をここでまとめて反映）
+//   depth: 反撃などから呼ぶときは 1（反撃の反撃を防ぐ）
+function applyUnitDamage(u, dmg, b, depth = 0) {
+    if (!u || u.hp <= 0) return 0;
+    let d = dmg;
+    if (u.charged) { d *= 2; u.charged = false; } // 帯電: 次のダメージ2倍
+    d = SecretSkills.reduceDamage(u, d);
+    d = Math.max(0, Math.round(d * 10) / 10);
+    u.hp -= d;
+    DamageNumbers.add(u.x, u.y - 12, d, 'unit', u.uid);
+    if (b && b.side === 'left') DPSManager.recordDamage(d);
+    SecretSkills.onDamaged(u, d, depth);
+    return d;
+}
+// 相手本体にダメージを与える
+function applyPlayerDamage(side, dmg, b) {
+    const P = gameState.players[side];
+    const d = Math.round(dmg * SecretSkills.playerDamageMul(b, side) * 10) / 10;
+    P.hp -= d;
+    DamageNumbers.add(side === 'left' ? 16 : CONFIG.SCREEN_WIDTH - 16, P.y, d, 'player', 'P_' + side);
+    if (side === 'right') DPSManager.recordDamage(d);
+    return d;
+}
+// 範囲ダメージ（side の敵だけに当たる）
+function areaDamage(x, y, r, dmg, side, depth = 0) {
+    const foe = side === 'left' ? 'right' : 'left';
+    gameState.units.forEach(t => {
+        if (t.side === foe && t.hp > 0 && !t.fired && Math.hypot(t.x - x, t.y - y) <= r) applyUnitDamage(t, dmg, null, depth);
+    });
+    const E = gameState.players[foe];
+    const px = foe === 'left' ? 16 : CONFIG.SCREEN_WIDTH - 16;
+    if (Math.abs(px - x) <= r && Math.abs(E.y + 16 - y) <= r) applyPlayerDamage(foe, dmg, null);
+}
 
 // ===============================================================
 // 🧪 練習場サンドボックス
@@ -4568,6 +5179,8 @@ const Sandbox = {
         PoisonMist.reset();
         BattleFx.reset();
         Particles.reset();
+        SecretSkills.field = [];
+        SecretSkills.beams = [];
         DPSManager.reset();
     },
 
@@ -4860,6 +5473,7 @@ function getExtractionBlockReason(target, src) {
 
 // シークレット同士の合成 → 最終形態「？？？」（黒い靄）。それぞれの合成は消え、これ以上合成できない
 function processFinalFusion(target, src, side, isMine) {
+    assignFinalSkills(target, src); // 2体の固有スキル＋合体奥義
     const list = (arr, single) => (Array.isArray(arr) ? arr : (single ? [single] : []));
     const union = (...lists) => [...new Set([].concat(...lists))].filter(v => v && v !== 'none');
     const tMax = target.maxHp || target.hp, sMax = src.maxHp || src.hp;
@@ -4871,7 +5485,7 @@ function processFinalFusion(target, src, side, isMine) {
     target.maxHp = Math.floor((tMax + sMax) * FINAL_FORM_RATE);
     target.hp = Math.floor(target.maxHp * hpRatio);
     target.power = Math.floor(((target.power || 0) + (src.power || 0)) * FINAL_FORM_RATE);
-    target.cooldown = Math.min(target.cooldown || 2, src.cooldown || 2);
+    target.cooldown = ((target.cooldown || 2) + (src.cooldown || 2)) / 2; // 攻撃の間隔は2体の平均
     target.pierceCount = Math.max(target.pierceCount || 0, src.pierceCount || 0) || undefined;
     target.manaGen = ((target.manaGen || 0) + (src.manaGen || 0)) * FINAL_FORM_RATE || undefined;
     if (target.isManaProducer || src.isManaProducer) target.isManaProducer = true;
@@ -5013,6 +5627,7 @@ function applySecretInheritance(target, src, chimera, chimeraKey) {
     if (chimera.pierceCount) target.pierceCount = Math.max(chimera.pierceCount, target.pierceCount || 0);
 
     // 合成回数: レシピに使わなかった分だけ残る（残りの回数だけまた合成できる）
+    assignSecretSkill(target, chimeraKey); // 固有スキル
     target.extractionLog = kept;
     target.extractionCount = kept.length;
     target.extractionHistory = kept.map(e => e.key);
@@ -5190,12 +5805,7 @@ function fireExtractionUnit(u) {
         (!u.fireTypes || u.fireTypes.length === 0 || u.fireTypes.every(ft => ft === 'none'));
 
     if (isPureManaProducer) {
-        // 生命樹のリジェネ能力のみ実行
-        if (u.isSecretChimera && (u.chimeraId === 'chimera_genesis' || u.id === 'chimera_genesis')) {
-            const p = gameState.players[u.side];
-            if (p) p.hp = Math.min(p.maxHp || 2000, p.hp + 4);
-        }
-        return;
+        return; // マナを作るだけ（世界樹の回復は固有スキル「生命の樹」で行う）
     }
 
     SoundManager.playFire();
@@ -5225,11 +5835,6 @@ function fireExtractionUnit(u) {
         spawnBullet(x, y, vx, vy, side, { power, pierceCount: pCount, ...actExt, ...extra });
     };
 
-    // リジェネ能力（アウラ・ジェネシス等: リバランスで毎発射HP+2回復）
-    if (u.isSecretChimera && u.chimeraId === 'chimera_genesis') {
-        const p = gameState.players[u.side];
-        if (p) p.hp = Math.min(p.maxHp || 2000, p.hp + 2);
-    }
 
     u.fireTypes.forEach(ft => {
         if (ft === 'none') return;
@@ -5488,6 +6093,12 @@ function draw() {
             }
         }
 
+        // 状態異常（凍結・猛毒・帯電・幻惑・呪い・溜め）
+        {
+            const auth = gameState.isHost || gameState.isPractice || gameState.isBotMatch;
+            SecretSkills.drawStatus(ctx, u, auth ? SecretSkills.statusBits(u) : (u.fxBits || 0));
+        }
+
         // 🫧 バブルシールド描画（クヴェレの泡バリア）
         if (u.hasBubbleShield) {
             ctx.save();
@@ -5645,6 +6256,9 @@ function draw() {
         }
     });
 
+    // 🌟 隕石・種・結晶・ビーム
+    SecretSkills.draw(ctx);
+
     // ⚡ 衝突の火花・電撃チェーン・毒の霧
     BattleFx.draw(ctx);
 
@@ -5778,7 +6392,14 @@ function leaveRoom() {
     if (dpsPanel) dpsPanel.classList.add('hidden');
 }
 
+const _lastExplosion = new Map(); // シークレット・？？？の爆散は同じユニットから0.2秒に1回まで
 function handleSpreadEffect(b) {
+    if (b.owner) {
+        const t = SecretSkills.tick, last = _lastExplosion.get(b.owner);
+        if (last !== undefined && t - last < 6 && t >= last) return;
+        _lastExplosion.set(b.owner, t);
+        if (_lastExplosion.size > 200) _lastExplosion.clear();
+    }
     const num = 12; // 8から12に増やして豪華に
     for (let i = 0; i < num; i++) {
         const angle = (Math.PI * 2 / num) * i;
@@ -5788,6 +6409,7 @@ function handleSpreadEffect(b) {
         const oy = Math.sin(angle) * 10;
         spawnBullet(b.x + ox, b.y + oy, Math.cos(angle) * spd, Math.sin(angle) * spd, b.side, { power: 10, spriteKey: 'bullet', size: 4 });
     }
+    SecretSkills.onExplosion(b); // 結晶の壁・大災害・毒爆・恵みの雨
 }
 
 init();
