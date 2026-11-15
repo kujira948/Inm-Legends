@@ -13,6 +13,9 @@ const CONFIG = {
     BULLET_SPEED_RATE: 2 / 3, // 弾の速さの倍率（全体的に3分の2に調整）
 };
 
+// ゲーム全体で使うフォント（ドット絵風の DotGothic16。読み込めないときは代わりのフォント）
+const GAME_FONT = '"DotGothic16", "Courier New", sans-serif';
+
 // ===============================================================
 // ☁️ クラウドデータ同期システム
 // ユーザートークンを使ってサーバーとELO・デッキ・図鑑を同期
@@ -267,7 +270,7 @@ const UNIT_TYPES = {
     RICE_SEEKER: { id: 'rice_3', name: 'イェーガー ライス', cost: 9, hp: 25, type: 'rice', cooldown: 2.2, fireType: 'single', action: 'homing', power: 12, desc: '敵を追尾する狩人の稲。' },
     RICE_BURST: { id: 'rice_4', name: 'シュトゥルム ライス', cost: 10, hp: 27, type: 'rice', cooldown: 1.5, fireType: 'burst', power: 4, desc: '3連射を放つ嵐の稲。' },
     RICE_LASER: { id: 'rice_5', name: 'ルクス ライス', cost: 12, hp: 29, type: 'rice', cooldown: 3.8, fireType: 'single', action: 'laser', power: 20, desc: '【新種】一直線に貫く光の稲。高速レーザーを照射。' },
-    RICE_POISON: { id: 'rice_p', name: 'ギフト ライス', cost: 9, hp: 32, type: 'rice', cooldown: 3.2, fireType: 'circle6', action: 'poison', power: 5, desc: '【新種】毒胞子を撒き散らす稲。触れた敵弾を弱体化。' },
+    RICE_POISON: { id: 'rice_p', name: 'ギフト ライス', cost: 9, hp: 32, type: 'rice', cooldown: 3.2, fireType: 'circle6', action: 'poison', power: 5, desc: '【新種】毒胞子を撒き散らす稲。当たった場所に3秒間「毒の霧」を残す。霧の中の敵ユニットは毎秒ダメージ、霧を通る敵の弾は威力が半分。' },
     RICE_FROST: { id: 'rice_f', name: 'フロスト ライス', cost: 11, hp: 32, type: 'rice', cooldown: 3.0, fireType: '8dir', action: 'frost', power: 9, desc: '【新種】氷結の冷気を放つ稲。冷気弾で敵弾を相殺。' },
     RICE_SNIPER: { id: 'rice_s', name: 'プレツィザ ライス', cost: 13, hp: 22, type: 'rice', cooldown: 4.5, fireType: 'single', action: 'sniper', power: 30, desc: '【新種】敵本体を遠距離から直接撃ち抜く狙撃の稲。' },
 
@@ -286,16 +289,16 @@ const UNIT_TYPES = {
     },
 
     // 🥤 コーラ（手動投擲・新種追加）
-    COLA_STRAIGHT: { id: 'cola_1', name: 'コーラ ブリッツ', cost: 5, hp: 90, type: 'cola', action: 'straight', power: 25, desc: '直線的に突き進む電撃のコーラ。' },
-    COLA_BOUNCE: { id: 'cola_2', name: 'コーラ ジャンパー', cost: 8, hp: 81, type: 'cola', action: 'bounce', power: 26, desc: '壁を跳ね回る跳躍のコーラ。' },
-    COLA_SPLIT: { id: 'cola_3', name: 'コーラ フラグメント', cost: 9, hp: 72, type: 'cola', action: 'split', power: 18, desc: '分裂して降り注ぐ砕片のコーラ。' },
-    COLA_CHARGE: { id: 'cola_5', name: 'コーラ バルカン', cost: 11, hp: 99, type: 'cola', action: 'charge', power: 35, desc: '力を溜めて爆発させる火山のコーラ。' },
-    COLA_PIERCE: { id: 'cola_6', name: 'コーラ ランツェ', cost: 12, hp: 81, type: 'cola', action: 'pierce', power: 24, desc: '全てを貫く槍のコーラ。' },
-    COLA_SPREAD: { id: 'cola_7', name: 'コーラ ノヴァ', cost: 11, hp: 86, type: 'cola', action: 'spread', power: 20, desc: '着弾時に弾け飛ぶ新星のコーラ。' },
-    COLA_MEGATON: { id: 'cola_m', name: 'コーラ ギガント', cost: 15, hp: 126, type: 'cola', action: 'megaton', power: 50, desc: '【新種】超巨大な重量級コーラ。前線を圧殺する。' },
-    COLA_BLACK: { id: 'cola_b', name: 'コーラ ネビュラ', cost: 13, hp: 90, type: 'cola', action: 'blackhole', power: 28, desc: '【新種】周囲の敵弾を引き込み消滅させる重力コーラ。' },
-    COLA_MENTOS: { id: 'cola_g', name: 'コーラ ゲイザー', cost: 10, hp: 81, type: 'cola', action: 'geyser', power: 28, desc: '【新種】炭酸噴射で軌道を変えながら急加速する暴走コーラ。' },
-    COLA_ZERO: { id: 'cola_z', name: 'コーラ ゼロ', cost: 4, hp: 63, type: 'cola', action: 'zero', power: 16, desc: '【新種】超低コストで高速回転する零式コーラ。' },
+    COLA_STRAIGHT: { id: 'cola_1', name: 'コーラ ブリッツ', cost: 5, hp: 117, type: 'cola', action: 'straight', power: 25, desc: '直線的に突き進む電撃のコーラ。当たると近くの敵ユニット2体に電撃が連鎖し、半分のダメージを与える。' },
+    COLA_BOUNCE: { id: 'cola_2', name: 'コーラ ジャンパー', cost: 8, hp: 105, type: 'cola', action: 'bounce', power: 26, desc: '壁を跳ね回る跳躍のコーラ。' },
+    COLA_SPLIT: { id: 'cola_3', name: 'コーラ フラグメント', cost: 9, hp: 94, type: 'cola', action: 'split', power: 18, desc: '分裂して降り注ぐ砕片のコーラ。' },
+    COLA_CHARGE: { id: 'cola_5', name: 'コーラ バルカン', cost: 11, hp: 129, type: 'cola', action: 'charge', power: 35, desc: '力を溜めて爆発させる火山のコーラ。' },
+    COLA_PIERCE: { id: 'cola_6', name: 'コーラ ランツェ', cost: 12, hp: 105, type: 'cola', action: 'pierce', power: 24, desc: '全てを貫く槍のコーラ。' },
+    COLA_SPREAD: { id: 'cola_7', name: 'コーラ ノヴァ', cost: 11, hp: 112, type: 'cola', action: 'spread', power: 20, desc: '着弾時に弾け飛ぶ新星のコーラ。' },
+    COLA_MEGATON: { id: 'cola_m', name: 'コーラ ギガント', cost: 15, hp: 164, type: 'cola', action: 'megaton', power: 50, desc: '【新種】超巨大な重量級コーラ。前線を圧殺する。' },
+    COLA_BLACK: { id: 'cola_b', name: 'コーラ ネビュラ', cost: 13, hp: 117, type: 'cola', action: 'blackhole', power: 28, desc: '【新種】すぐ近くの敵弾を引き込み消滅させ、マナに変える重力コーラ。' },
+    COLA_MENTOS: { id: 'cola_g', name: 'コーラ ゲイザー', cost: 10, hp: 105, type: 'cola', action: 'geyser', power: 28, desc: '【新種】炭酸噴射で大きくうねりながら、相手本体へぐいっと曲がって急加速する暴走コーラ。敵の弾や氷結・毒・吸い込み・コーラの衝突で消されそうになっても70%でかわす。' },
+    COLA_ZERO: { id: 'cola_z', name: 'コーラ ゼロ', cost: 4, hp: 82, type: 'cola', action: 'zero', power: 16, desc: '【新種】超低コストで高速回転する零式コーラ。' },
 
     // 🫧 ソーダ（個性豊かな特殊能力を付与）
     SODA_SMALL: {
@@ -910,7 +913,7 @@ function generateSprites() {
                     x.fillStyle = 'rgba(255, 255, 255, 0.5)'; x.fillRect(6, 6, 20, 24);
                     x.fillStyle = liquidColor; x.fillRect(7, 8, 18, 20);
                     x.fillStyle = labelColor; x.fillRect(7, 13, 18, 10);
-                    x.fillStyle = '#ffd700'; x.font = 'bold 8px sans-serif'; x.fillText('G', 13, 21);
+                    x.fillStyle = '#ffd700'; x.font = `8px ${GAME_FONT}`; x.fillText('G', 13, 21);
                     x.fillStyle = capColor; x.fillRect(10, 4, 12, 3);
                     x.strokeStyle = '#fff'; x.lineWidth = 1; x.strokeRect(6, 6, 20, 24);
                 } else if (type.includes('BLACK')) {
@@ -1029,7 +1032,7 @@ function generateSprites() {
             grad.addColorStop(1, '#ff4500');
             x.fillStyle = grad;
             x.beginPath(); x.arc(16, 16, 14, 0, Math.PI * 2); x.fill();
-            x.fillStyle = '#fff'; x.font = 'bold 12px sans-serif'; x.fillText('☀', 10, 20);
+            x.fillStyle = '#fff'; x.font = `12px ${GAME_FONT}`; x.fillText('☀', 10, 20);
             x.strokeStyle = '#ffd700'; x.lineWidth = 2; x.stroke();
         } else if (chimera.id === 'chimera_zero_frost') {
             // 絶対零度 アブソリュート・ゼロ
@@ -2947,6 +2950,19 @@ function processFireCola(side) {
     });
 }
 
+// コーラの攻撃力（大幅強化: 元の数字 × COLA_POWER_RATE）
+const COLA_POWER_RATE = 1.5;
+const COLA_BASE_POWER = {
+    straight: 25, bounce: 26, split: 18, charge: 35, pierce: 22, spread: 20,
+    megaton: 38, blackhole: 24, geyser: 28, zero: 16, default: 15
+};
+function colaPower(action) {
+    return Math.round((COLA_BASE_POWER[action] || COLA_BASE_POWER.default) * COLA_POWER_RATE);
+}
+
+// 図鑑・詳細表示の攻撃力も、実際に撃つ強さに合わせる
+Object.values(UNIT_TYPES).forEach(d => { if (d.type === 'cola') d.power = colaPower(d.action); });
+
 function fireCola(u) {
     const spd = 6.0; // 打ったコーラは超高速
     const vx = u.side === 'left' ? spd : -spd;
@@ -2962,20 +2978,19 @@ function fireCola(u) {
     }
     extra.pierceCount = pCount;
 
+    extra.isCola = true;
     if (u.action === 'straight') {
-        spawnBullet(u.x, u.y, vx, 0, u.side, { power: 25, ...extra });
+        spawnBullet(u.x, u.y, vx, 0, u.side, { power: colaPower('straight'), chain: true, ...extra });
     } else if (u.action === 'bounce') {
-        spawnBullet(u.x, u.y, vx, 1 * spd, u.side, { bounce: 3, power: 20, ...extra });
+        spawnBullet(u.x, u.y, vx, 1 * spd, u.side, { bounce: 3, power: colaPower('bounce'), ...extra });
     } else if (u.action === 'split') {
-        spawnBullet(u.x, u.y, vx, 0, u.side, { split: true, power: 18, ...extra });
+        spawnBullet(u.x, u.y, vx, 0, u.side, { split: true, power: colaPower('split'), ...extra });
     } else if (u.action === 'glide') {
-        spawnBullet(u.x, u.y, vx * 0.3, 0, u.side, { power: 20, lifetime: 200, ...extra });
+        spawnBullet(u.x, u.y, vx * 0.3, 0, u.side, { power: colaPower('default'), lifetime: 200, ...extra });
     } else if (u.action === 'charge') {
-        spawnBullet(u.x, u.y, vx * 1.5, 0, u.side, { power: 35, ...extra });
-    } else if (u.action === 'pierce') {
-        spawnBullet(u.x, u.y, vx, 0, u.side, { power: u.power || 22, ...extra });
+        spawnBullet(u.x, u.y, vx * 1.5, 0, u.side, { power: colaPower('charge'), ...extra });
     } else {
-        spawnBullet(u.x, u.y, vx, 0, u.side, { power: u.power || 15, ...extra });
+        spawnBullet(u.x, u.y, vx, 0, u.side, { power: colaPower(u.action), ...extra });
     }
     // ユニットリストから削除 (fired=true にしたので update で消す)
 }
@@ -2998,6 +3013,8 @@ function startGame() {
     gameState.isPlaying = true;
     NetSync.reset();
     DamageNumbers.reset();
+    BattleFx.reset();
+    PoisonMist.reset();
     applyChatVisibility();
     gameState.units = [];
     gameState.bullets = [];
@@ -3234,7 +3251,7 @@ const NetSync = {
         // ダメージ数字（参加者の画面にも出す）
         const d = DamageNumbers.takePending();
 
-        return { p, ud, uf, b, e, d };
+        return { p, ud, uf, b, e, d, fx: BattleFx.pack() };
     },
 
     // ホスト: ゲームループから毎フレーム呼ぶ
@@ -3290,6 +3307,7 @@ const NetSync = {
             spriteKey: a[4] || undefined, action: a[5] || undefined
         }));
 
+        BattleFx.unpack(s.fx);
         (s.d || []).forEach(a => DamageNumbers.spawn(a[0], a[1], a[2], a[3] === 1 ? 'player' : 'unit', a[4]));
 
         gameState.summoningEffects = (s.e || []).map(ef => (
@@ -3420,14 +3438,17 @@ function update() {
 
     if (isAuthority) {
         gameState.units.forEach(u => {
-            if (u.type === 'rice' || u.extractionCount > 0) {
+            // シークレット・最終形態は抽出回数が0でも、合体した能力で撃つ
+            const usesMergedAbilities = u.extractionCount > 0 || u.isSecretChimera;
+            if (u.type === 'rice' || usesMergedAbilities) {
                 // 🫧 ソーダ ブリーゼ【追い風エール】: 同列(同じrow)にブリーゼがいる場合、攻撃速度+25%加速！
                 const hasBreeze = gameState.units.some(s => s.side === u.side && s.hp > 0 && s.row === u.row && (s.special === 'breeze_haste' || s.actions?.includes('breeze_haste')));
                 const fireInc = hasBreeze ? 1.25 : 1.0;
                 u.lastFire = (u.lastFire || 0) + fireInc;
                 if (u.lastFire >= (u.cooldown || 2) * CONFIG.FPS) {
                     u.lastFire = 0;
-                    if (u.extractionCount > 0) {
+                    if (usesMergedAbilities) {
+                        // （以前はシークレット誕生で回数を0に戻した結果、元のユニットの撃ち方に戻っていた）
                         fireExtractionUnit(u);
                     } else if (u.type === 'rice') {
                         fireUnit(u);
@@ -3453,22 +3474,53 @@ function update() {
 
     // 物理・弾の移動および当たり判定（ホスト／練習場／Bot戦が一元計算）
     if (isAuthority) {
+        PoisonMist.update();
         for (let i = gameState.bullets.length - 1; i >= 0; i--) {
             const b = gameState.bullets[i];
             let speedMult = CONFIG.BULLET_SPEED_RATE;
             if (b.action === 'bounce') speedMult *= 1.6;
             b.x += b.vx * speedMult; b.y += b.vy * speedMult;
 
-            // 重力黒コーラ（ブラックホール）による敵弾吸引とマナ変換
+            // 💥 コーラ同士の衝突: 攻撃力の大きい方が残り、相手の分だけ攻撃力が減る（同じなら両方消える）
+            if (b.isCola) {
+                let destroyedSelf = false;
+                for (let k = gameState.bullets.length - 1; k >= 0; k--) {
+                    const eb = gameState.bullets[k];
+                    if (eb === b || !eb.isCola || eb.side === b.side) continue;
+                    const reach = ((b.size || 16) + (eb.size || 16)) / 2 - 2;
+                    if (Math.abs(b.x - eb.x) > reach || Math.abs(b.y - eb.y) > reach) continue;
+                    // ゲイザーは70%で衝突をかわす（同じ相手には1回だけ判定）
+                    if (geyserEvades(b, eb) || geyserEvades(eb, b)) continue;
+                    const pb = b.power || 0, pe = eb.power || 0;
+                    addCollisionSpark((b.x + eb.x) / 2, (b.y + eb.y) / 2);
+                    if (pb > pe) {
+                        b.power = pb - pe;
+                        removeBullet(k);
+                        if (k < i) i--;
+                    } else if (pe > pb) {
+                        eb.power = pe - pb;
+                        destroyedSelf = true;
+                    } else {
+                        removeBullet(k);
+                        if (k < i) i--;
+                        destroyedSelf = true;
+                    }
+                    break;
+                }
+                if (destroyedSelf) { removeBullet(i); continue; }
+            }
+
+            // 重力黒コーラ（ネビュラ）: 近くの敵弾を引き寄せて消し、マナに変える（弱体化: 範囲45→30、引く力0.9→0.35）
             if (b.action === 'blackhole') {
                 for (let k = gameState.bullets.length - 1; k >= 0; k--) {
                     const eb = gameState.bullets[k];
                     if (eb.side !== b.side && eb !== b) {
                         const edx = b.x - eb.x; const edy = b.y - eb.y;
                         const edist = Math.hypot(edx, edy);
-                        if (edist < 45) {
-                            eb.vx += (edx / edist) * 0.9;
-                            eb.vy += (edy / edist) * 0.9;
+                        if (edist < BLACKHOLE_RANGE && edist > 0) {
+                            if (geyserEvades(eb, b)) continue; // ゲイザーは70%で吸い込みをかわす
+                            eb.vx += (edx / edist) * BLACKHOLE_PULL;
+                            eb.vy += (edy / edist) * BLACKHOLE_PULL;
                             if (edist < 14) {
                                 removeBullet(k);
                                 if (k < i) i--;
@@ -3480,22 +3532,12 @@ function update() {
                 }
             }
 
-            // ギフト ライス（毒胞子）: 触れた敵弾の威力を半減
-            if (b.action === 'poison') {
-                let hitPoison = false;
-                for (let k = gameState.bullets.length - 1; k >= 0; k--) {
-                    const eb = gameState.bullets[k];
-                    if (eb.side !== b.side && eb !== b) {
-                        if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
-                            eb.power = Math.max(1, Math.floor((eb.power || 5) * 0.5));
-                            hitPoison = true;
-                            break;
-                        }
-                    }
-                }
-                if (hitPoison) {
-                    removeBullet(i);
-                    continue;
+            // ☠ 毒の霧: 霧を通る敵の弾は威力が半分になる（1発につき1回）
+            if (!b.mistSlowed && PoisonMist.list.length > 0) {
+                const mist = PoisonMist.list.find(m => m.side !== b.side && Math.hypot(b.x - m.x, b.y - m.y) < m.r);
+                if (mist && !geyserEvades(b, mist)) {
+                    b.mistSlowed = true;
+                    b.power = Math.max(1, Math.floor((b.power || 5) * 0.5));
                 }
             }
 
@@ -3506,6 +3548,7 @@ function update() {
                     const eb = gameState.bullets[k];
                     if (eb.side !== b.side && eb !== b) {
                         if (Math.hypot(b.x - eb.x, b.y - eb.y) < 14) {
+                            if (geyserEvades(eb, b)) continue; // ゲイザーは70%で相殺をかわす
                             removeBullet(k);
                             if (k < i) i--;
                             hitFrost = true;
@@ -3522,17 +3565,23 @@ function update() {
                 }
             }
 
-            // コーラ ゲイザー: 炭酸噴射で波打ちながら急加速
+            // コーラ ゲイザー: 相手本体の方へぐいっと曲がりながら、大きく蛇行して急加速
             if (b.action === 'geyser') {
                 b.geyserTimer = (b.geyserTimer || 0) + 1;
-                b.vy += Math.sin(b.geyserTimer * 0.4) * 0.5;
-                b.vx *= 1.02;
-                b.vy *= 1.02;
-                const curSpd = Math.hypot(b.vx, b.vy);
-                if (curSpd > 10.5) {
-                    b.vx = (b.vx / curSpd) * 10.5;
-                    b.vy = (b.vy / curSpd) * 10.5;
-                }
+                // 進む向き（headAng）は相手本体へ向かって曲がる
+                if (b.headAng === undefined) b.headAng = Math.atan2(b.vy, b.vx);
+                const target = gameState.players[b.side === 'left' ? 'right' : 'left'];
+                const gx = (b.side === 'left' ? CONFIG.SCREEN_WIDTH - 16 : 16) - b.x;
+                const gy = (target.y + 16) - b.y;
+                let turn = Math.atan2(gy, gx) - b.headAng;
+                while (turn > Math.PI) turn -= Math.PI * 2;
+                while (turn < -Math.PI) turn += Math.PI * 2;
+                b.headAng += Math.max(-0.12, Math.min(0.12, turn)); // 1フレームに曲がれる角度
+                // 実際の向きは、進む向きを中心に大きくうねる（読まれにくい）
+                const ang = b.headAng + Math.sin(b.geyserTimer * 0.3) * 0.65;
+                const spdNow = Math.min(10.5, Math.hypot(b.vx, b.vy) * 1.02);
+                b.vx = Math.cos(ang) * spdNow;
+                b.vy = Math.sin(ang) * spdNow;
             }
             if (b.homing) {
                 const target = b.side === 'left' ? gameState.players.right : gameState.players.left;
@@ -3563,6 +3612,7 @@ function update() {
                 if (!b.hitPlayers?.includes('left')) {
                     leftP.hp -= (b.power || 5);
                     DamageNumbers.add(16, leftP.y, b.power || 5, 'player', 'P_left');
+                    if (b.action === 'poison') PoisonMist.spawn(b.x, b.y, b.side);
                     SoundManager.playHit();
                     if (!b.hitPlayers) b.hitPlayers = [];
                     b.hitPlayers.push('left');
@@ -3574,6 +3624,7 @@ function update() {
                     const dmg = (b.power || 5);
                     rightP.hp -= dmg;
                     DamageNumbers.add(CONFIG.SCREEN_WIDTH - 16, rightP.y, dmg, 'player', 'P_right');
+                    if (b.action === 'poison') PoisonMist.spawn(b.x, b.y, b.side);
                     DPSManager.recordDamage(dmg);
                     SoundManager.playHit();
                     if (!b.hitPlayers) b.hitPlayers = [];
@@ -3628,6 +3679,10 @@ function update() {
 
                         u.hp -= dmg;
                         DamageNumbers.add(u.x, u.y - 12, dmg, 'unit', u.uid);
+                        // ⚡ 電撃チェーン（コーラ ブリッツ）: 最初に当たったときだけ連鎖
+                        if (b.chain) { b.chain = false; chainLightning(u, dmg); }
+                        // ☠ 毒の霧（ギフト ライス）
+                        if (b.action === 'poison') PoisonMist.spawn(u.x, u.y, b.side);
 
                         // 🛡️ ホルツ シルト（木盾）破壊時: 周囲の味方HPを小回復
                         if (u.hp <= 0 && (u.special === 'wood_regen' || u.actions?.includes('wood_regen')) && !u.woodBursted) {
@@ -3835,6 +3890,7 @@ function spawnBullet(x, y, vx, vy, side, extra = {}) {
     b.size = undefined; b.power = undefined; b.lifetime = undefined; b.pierce = false;
     b.action = undefined; // アクションもリセット
     b.hitTargets = undefined; b.hitPlayers = undefined; b.hasBeenHitBy = undefined;
+    b.isCola = false; b.chain = false; b.evadedFrom = undefined; b.mistSlowed = false; b.geyserTimer = 0; b.headAng = undefined;
     Object.assign(b, { x, y, vx, vy, side, ...extra });
     // 弾が遅くなった分、寿命(フレーム数)を延ばして届く距離は今までと同じにする
     if (extra.lifetime !== undefined) b.lifetime = Math.round(extra.lifetime / CONFIG.BULLET_SPEED_RATE);
@@ -3874,20 +3930,16 @@ function fireColaTarget(u, tx, ty) {
         pCount = 2;
     }
     extra.pierceCount = pCount;
+    extra.isCola = true; // コーラ同士の衝突の判定に使う
 
-    if (u.action === 'straight') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 25, ...extra });
-    else if (u.action === 'bounce') spawnBullet(u.x, u.y, vx, vy, u.side, { bounce: 3, power: 26, ...extra });
-    else if (u.action === 'split') spawnBullet(u.x, u.y, vx, vy, u.side, { split: true, power: 18, lifetime: 40, ...extra });
+    if (u.action === 'straight') spawnBullet(u.x, u.y, vx, vy, u.side, { power: colaPower('straight'), chain: true, ...extra }); // 電撃チェーン
+    else if (u.action === 'bounce') spawnBullet(u.x, u.y, vx, vy, u.side, { bounce: 3, power: colaPower('bounce'), ...extra });
+    else if (u.action === 'split') spawnBullet(u.x, u.y, vx, vy, u.side, { split: true, power: colaPower('split'), lifetime: 40, ...extra });
     else if (u.action === 'charge') {
-        const bonus = (u.charge || 0) * 40;
-        spawnBullet(u.x, u.y, vx * (1.5 + (u.charge || 0)), vy * (1.5 + (u.charge || 0)), u.side, { power: 35 + bonus, ...extra });
-    } else if (u.action === 'pierce') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 22, ...extra });
-    else if (u.action === 'spread') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 20, ...extra });
-    else if (u.action === 'megaton') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 38, ...extra });
-    else if (u.action === 'blackhole') spawnBullet(u.x, u.y, vx * 0.7, vy * 0.7, u.side, { power: 24, ...extra });
-    else if (u.action === 'geyser') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 28, ...extra });
-    else if (u.action === 'zero') spawnBullet(u.x, u.y, vx, vy, u.side, { power: 16, ...extra });
-    else spawnBullet(u.x, u.y, vx, vy, u.side, { power: 15, ...extra });
+        const bonus = Math.round((u.charge || 0) * 40 * COLA_POWER_RATE);
+        spawnBullet(u.x, u.y, vx * (1.5 + (u.charge || 0)), vy * (1.5 + (u.charge || 0)), u.side, { power: colaPower('charge') + bonus, ...extra });
+    } else if (u.action === 'blackhole') spawnBullet(u.x, u.y, vx * 0.7, vy * 0.7, u.side, { power: colaPower('blackhole'), ...extra });
+    else spawnBullet(u.x, u.y, vx, vy, u.side, { power: colaPower(u.action), ...extra });
 }
 
 // ────────────────────────────────────────────────
@@ -3898,11 +3950,11 @@ const TYPE_LABEL = { rice: '稲', cola: 'コーラ', soda: 'ソーダ', extracti
 const TYPE_COLOR = { rice: '#4a8', cola: '#c54', soda: '#48f', extraction: '#0cf' };
 
 const ACTION_JP = {
-    'straight': '直進', 'bounce': '跳弾', 'split': '分裂', 'charge': '溜め撃ち',
+    'straight': '直進・電撃チェーン', 'bounce': '跳弾', 'split': '分裂', 'charge': '溜め撃ち',
     'pierce': '貫通', 'spread': '爆散', 'glide': '滑空', 'homing': '追尾弾を撃つ',
-    'laser': '高速レーザー照射', 'poison': '毒胞子弱体化', 'frost': '氷結弾相殺',
+    'laser': '高速レーザー照射', 'poison': '毒の霧', 'frost': '氷結弾相殺',
     'sniper': '本体直接狙撃', 'megaton': '超巨大重量圧殺', 'blackhole': '重力弾吸引変換',
-    'geyser': '炭酸暴走加速', 'zero': '零式高速投擲'
+    'geyser': '暴走カーブ・70%回避', 'zero': '零式高速投擲'
 };
 
 const FIRE_TYPE_JP = {
@@ -4192,6 +4244,161 @@ function showSecretEvolutionCutin(name, title = 'SECRET EVOLUTION') {
 }
 
 // ===============================================================
+// ⚡ 弾の特殊効果（コーラ同士の衝突・電撃チェーン・毒の霧・ゲイザーの回避・ネビュラ）
+// ===============================================================
+const BLACKHOLE_RANGE = 30;   // ネビュラが敵弾を引き寄せる範囲（弱体化: 45 → 30）
+const BLACKHOLE_PULL = 0.35;  // ネビュラが敵弾を引き寄せる力（弱体化: 0.9 → 0.35）
+const GEYSER_EVADE_RATE = 0.7; // ゲイザーの弾が消されそうになったとき、かわす確率
+
+// ゲイザーの弾が source（敵の弾・霧など）をかわすか。同じ相手には1回だけ判定して結果を覚える
+function geyserEvades(bullet, source) {
+    if (!bullet || bullet.action !== 'geyser') return false;
+    const key = source.uid || source.id;
+    if (!bullet.evadedFrom) bullet.evadedFrom = new Map();
+    if (!bullet.evadedFrom.has(key)) bullet.evadedFrom.set(key, Math.random() < GEYSER_EVADE_RATE);
+    return bullet.evadedFrom.get(key);
+}
+
+// 見た目だけの効果（オンラインでは参加者にも送る）
+const BattleFx = {
+    sparks: [],    // [x, y, life] コーラ同士の衝突
+    bolts: [],     // [x1, y1, x2, y2, life] 電撃チェーン
+    reset() { this.sparks = []; this.bolts = []; },
+    pack() {
+        const r = v => Math.round(v);
+        return {
+            k: this.sparks.map(s => [r(s[0]), r(s[1]), s[2]]),
+            z: this.bolts.map(z => [r(z[0]), r(z[1]), r(z[2]), r(z[3]), z[4]]),
+            m: PoisonMist.list.map(m => [r(m.x), r(m.y), m.r, m.life, m.side === 'left' ? 0 : 1])
+        };
+    },
+    unpack(fx) {
+        if (!fx) return;
+        this.sparks = (fx.k || []).map(a => a.slice());
+        this.bolts = (fx.z || []).map(a => a.slice());
+        PoisonMist.list = (fx.m || []).map(a => ({ x: a[0], y: a[1], r: a[2], life: a[3], side: a[4] ? 'right' : 'left', id: 'm' + a[0] + '_' + a[1] }));
+    },
+    draw(c) {
+        // 毒の霧
+        PoisonMist.list.forEach(m => {
+            const a = Math.min(1, m.life / 20) * 0.55;
+            const t = Date.now() / 400;
+            for (let i = 0; i < 4; i++) {
+                const ox = Math.cos(t + i * 1.6) * m.r * 0.35, oy = Math.sin(t * 1.3 + i * 2.1) * m.r * 0.3;
+                const g = c.createRadialGradient(m.x + ox, m.y + oy, 0, m.x + ox, m.y + oy, m.r * 0.75);
+                g.addColorStop(0, `rgba(170, 60, 220, ${a})`);
+                g.addColorStop(1, 'rgba(90, 20, 140, 0)');
+                c.fillStyle = g;
+                c.beginPath(); c.arc(m.x + ox, m.y + oy, m.r * 0.75, 0, Math.PI * 2); c.fill();
+            }
+        });
+        // 電撃チェーン（ギザギザの線）
+        this.bolts.forEach(z => {
+            const [x1, y1, x2, y2, life] = z;
+            c.save();
+            c.globalAlpha = Math.min(1, life / 6);
+            c.strokeStyle = '#bff6ff';
+            c.shadowColor = '#4fd8ff';
+            c.shadowBlur = 8;
+            c.lineWidth = 2;
+            c.beginPath();
+            c.moveTo(x1, y1);
+            const steps = 5;
+            for (let i = 1; i < steps; i++) {
+                const px = x1 + (x2 - x1) * i / steps + (Math.random() - 0.5) * 8;
+                const py = y1 + (y2 - y1) * i / steps + (Math.random() - 0.5) * 8;
+                c.lineTo(px, py);
+            }
+            c.lineTo(x2, y2);
+            c.stroke();
+            c.restore();
+        });
+        // 衝突の火花
+        this.sparks.forEach(s => {
+            const [x, y, life] = s;
+            const p = 1 - life / 12;
+            c.save();
+            c.globalAlpha = Math.max(0, 1 - p);
+            c.strokeStyle = '#ffdd55';
+            c.lineWidth = 2;
+            for (let i = 0; i < 8; i++) {
+                const ang = i * Math.PI / 4;
+                c.beginPath();
+                c.moveTo(x + Math.cos(ang) * 4 * p, y + Math.sin(ang) * 4 * p);
+                c.lineTo(x + Math.cos(ang) * (6 + 14 * p), y + Math.sin(ang) * (6 + 14 * p));
+                c.stroke();
+            }
+            c.restore();
+        });
+        this.tick();
+    },
+    // 寿命を減らす（描くたびに1つ進める。参加者も同じ）
+    tick() {
+        this.sparks.forEach(s => s[2]--);
+        this.bolts.forEach(z => z[4]--);
+        this.sparks = this.sparks.filter(s => s[2] > 0);
+        this.bolts = this.bolts.filter(z => z[4] > 0);
+    }
+};
+
+function addCollisionSpark(x, y) {
+    BattleFx.sparks.push([x, y, 12]);
+    SoundManager.playHit();
+}
+
+// ⚡ コーラ ブリッツの電撃チェーン: 当たった相手の近くの敵ユニット2体に、半分のダメージが連鎖する
+function chainLightning(hitUnit, dmg) {
+    const half = Math.max(1, Math.round(dmg / 2));
+    let from = hitUnit;
+    const done = new Set([hitUnit]);
+    for (let n = 0; n < 2; n++) {
+        let best = null, bestD = 80;
+        gameState.units.forEach(t => {
+            if (t.side !== hitUnit.side || t.hp <= 0 || t.fired || done.has(t)) return;
+            const d = Math.hypot(t.x - from.x, t.y - from.y);
+            if (d < bestD) { bestD = d; best = t; }
+        });
+        if (!best) break;
+        best.hp -= half;
+        DamageNumbers.add(best.x, best.y - 12, half, 'unit', best.uid);
+        BattleFx.bolts.push([from.x, from.y, best.x, best.y, 10]);
+        done.add(best);
+        from = best;
+    }
+}
+
+// ☠ ギフト ライスの毒の霧: 当たった場所に3秒残る。霧の中の敵ユニットは毎秒ダメージ、通る敵の弾は威力半分
+const PoisonMist = {
+    list: [],
+    LIFE: 90,       // 3秒
+    RADIUS: 26,
+    DPS: 6,         // 霧の中の敵ユニットが1秒に受けるダメージ
+    seq: 0,
+    spawn(x, y, side) {
+        // 近くに同じ陣営の霧があれば、新しく作らず時間を延ばす（霧だらけにならないように）
+        const near = this.list.find(m => m.side === side && Math.hypot(m.x - x, m.y - y) < this.RADIUS * 0.8);
+        if (near) { near.life = this.LIFE; return; }
+        this.list.push({ id: 'mist' + (++this.seq), x, y, r: this.RADIUS, life: this.LIFE, side });
+        if (this.list.length > 40) this.list.shift();
+    },
+    // 計算する側だけが呼ぶ
+    update() {
+        for (const m of this.list) {
+            m.life--;
+            if (m.life % CONFIG.FPS !== 0) continue; // 1秒ごとにダメージ
+            gameState.units.forEach(u => {
+                if (u.side === m.side || u.hp <= 0 || u.fired) return;
+                if (Math.hypot(u.x - m.x, u.y - m.y) > m.r) return;
+                u.hp -= this.DPS;
+                DamageNumbers.add(u.x, u.y - 12, this.DPS, 'unit', u.uid);
+            });
+        }
+        this.list = this.list.filter(m => m.life > 0);
+    },
+    reset() { this.list = []; }
+};
+
+// ===============================================================
 // 💥 ダメージ数字（当たった場所に数字がふわっと浮かぶ）。設定で ON/OFF できる（最初は ON）
 // ===============================================================
 const DamageNumbers = {
@@ -4221,14 +4428,19 @@ const DamageNumbers = {
 
     spawn(x, y, amount, kind, key) {
         // 同じ相手に続けて当たったときは、数字をまとめて足していく（画面が数字だらけにならないように）
-        const recent = this.list.find(n => n.key === key && n.life > this.LIFE - 10);
+        const recent = this.list.find(n => n.key === key && n.life > this.LIFE - 12);
         if (recent) {
             recent.amount += amount;
             recent.life = this.LIFE;
+            recent.age = 0; // もう一度「ポンッ」と出す
             recent.y = y;
             return;
         }
-        this.list.push({ x: x + (Math.random() - 0.5) * 6, y, amount, kind, key, life: this.LIFE });
+        this.list.push({
+            x: x + (Math.random() - 0.5) * 8, y, amount, kind, key,
+            life: this.LIFE, age: 0,
+            vx: (Math.random() - 0.5) * 0.6 // 少し横に流れる
+        });
         if (this.list.length > 120) this.list.shift();
     },
 
@@ -4237,25 +4449,61 @@ const DamageNumbers = {
         this.pending = [];
     },
 
+    // ダメージの大きさで色と大きさを変える
+    style(n) {
+        const a = n.amount;
+        if (n.kind === 'player') return { fill: '#ff4b2b', fill2: '#ffd36b', size: 15 + Math.min(9, a / 12), glow: '#ff2200' };
+        if (a >= 50) return { fill: '#ff3b3b', fill2: '#ffb3a1', size: 15, glow: '#ff0000' };
+        if (a >= 25) return { fill: '#ff9f1c', fill2: '#ffe3a3', size: 13, glow: '#ff7a00' };
+        if (a >= 10) return { fill: '#ffe066', fill2: '#fffbe0', size: 11, glow: null };
+        return { fill: '#ffffff', fill2: '#ffffff', size: 9, glow: null };
+    },
+
     draw(c) {
         const show = this.enabled();
         for (let i = this.list.length - 1; i >= 0; i--) {
             const n = this.list[i];
             n.life--;
-            n.y -= 0.5;
+            n.age++;
+            // ふわっと上がりながら、だんだん止まる
+            n.y -= 0.9 * (n.life / this.LIFE) + 0.15;
+            n.x += n.vx || 0;
             if (n.life <= 0) { this.list.splice(i, 1); continue; }
             if (!show) continue;
-            const big = n.kind === 'player';
+
+            const st = this.style(n);
+            // 出た瞬間は大きく、すぐ元の大きさに縮む（ポンッ）
+            const pop = n.age < 6 ? 1.8 - (n.age / 6) * 0.8 : 1;
+            // 大ダメージは少し揺れる
+            const shake = (st.glow && n.age < 10) ? (Math.random() - 0.5) * 2 : 0;
+            const text = (n.kind === 'player' ? '-' : '') + Math.round(n.amount);
+
             c.save();
-            c.globalAlpha = Math.min(1, n.life / 12);
-            c.font = `bold ${big ? 13 : 10}px sans-serif`;
+            c.translate(n.x + shake, n.y);
+            c.scale(pop, pop);
+            c.globalAlpha = Math.min(1, n.life / 10);
+            c.font = `${Math.round(st.size)}px ${GAME_FONT}`;
             c.textAlign = 'center';
-            c.lineWidth = 3;
-            c.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            const text = String(Math.round(n.amount));
-            c.strokeText(text, n.x, n.y);
-            c.fillStyle = big ? '#ff7043' : '#ffe066';
-            c.fillText(text, n.x, n.y);
+            c.textBaseline = 'middle';
+            // 光（大ダメージだけ）
+            if (st.glow) {
+                c.shadowColor = st.glow;
+                c.shadowBlur = 8;
+            }
+            // 太い黒の縁取り
+            c.lineJoin = 'round';
+            c.lineWidth = 3.5;
+            c.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+            c.strokeText(text, 0, 0);
+            c.shadowBlur = 0;
+            // 上が明るく下が濃いグラデーション
+            const h = st.size / 2;
+            const g = c.createLinearGradient(0, -h, 0, h);
+            g.addColorStop(0, st.fill2);
+            g.addColorStop(0.55, st.fill);
+            g.addColorStop(1, st.fill);
+            c.fillStyle = g;
+            c.fillText(text, 0, 0);
             c.restore();
         }
     }
@@ -4818,8 +5066,8 @@ function draw() {
             ctx.restore();
         }
 
-        // 抽出されている場合の追加エフェクト（オーラとバッジ）※最終形態は何も出さない
-        if (u.extractionCount > 0 && !u.isFinalForm) {
+        // 抽出されている場合・シークレットの追加エフェクト（オーラとバッジ）※最終形態は何も出さない
+        if ((u.extractionCount > 0 || u.isSecretChimera) && !u.isFinalForm) {
             const count = u.extractionCount;
             const t = Date.now() / 400;
             const pulse = 0.5 + Math.sin(t * 3) * 0.5;
@@ -4839,9 +5087,9 @@ function draw() {
 
             // 抽出回数バッジ
             ctx.fillStyle = `hsla(${hue}, 100%, 70%, 0.9)`;
-            ctx.font = 'bold 9px sans-serif';
+            ctx.font = `9px ${GAME_FONT}`;
             ctx.textAlign = 'center';
-            ctx.fillText(`×${count}`, 0, -18);
+            if (count > 0) ctx.fillText(`×${count}`, 0, -18);
             ctx.restore();
         }
 
@@ -4962,6 +5210,9 @@ function draw() {
         }
     });
 
+    // ⚡ 衝突の火花・電撃チェーン・毒の霧
+    BattleFx.draw(ctx);
+
     // 💥 ダメージ数字
     DamageNumbers.draw(ctx);
 
@@ -4994,7 +5245,7 @@ function updateStatusBars() {
     // 準備時間の表示
     if (gameState.prepTimer > 0) {
         ctx.fillStyle = '#fff';
-        ctx.font = '20px sans-serif';
+        ctx.font = `20px ${GAME_FONT}`;
         ctx.textAlign = 'center';
         ctx.fillText(`準備中... ${Math.ceil(gameState.prepTimer / CONFIG.FPS)}`, CONFIG.SCREEN_WIDTH / 2, 30);
     }

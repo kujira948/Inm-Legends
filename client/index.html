@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>いなむーレジェンズ</title>
+    <!-- ゲーム全体のフォント（ドット絵風の日本語フォント DotGothic16） -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -185,7 +189,7 @@
                 </div>
 
                 <!-- リアルタイム DPS ディスプレイ -->
-                <div id="dps-panel" class="hidden" style="display: flex; align-items: center; gap: 8px; background: rgba(0, 0, 0, 0.75); border: 1px solid #ff4444; border-radius: 6px; padding: 3px 8px; color: #fff; font-family: monospace; font-size: 0.8rem;">
+                <div id="dps-panel" class="hidden" style="display: flex; align-items: center; gap: 8px; background: rgba(0, 0, 0, 0.75); border: 1px solid #ff4444; border-radius: 6px; padding: 3px 8px; color: #fff; font-size: 0.8rem;">
                     <span style="color: #ff5555; font-weight: bold;">DPS: <b id="dps-value" style="color: #ffea00; font-size: 0.95rem;">0.0</b></span>
                     <span style="color: #aaa; font-size: 0.7rem;">最高:<b id="dps-peak" style="color: #ffaa00;">0.0</b></span>
                     <span style="color: #aaa; font-size: 0.7rem;">累計:<b id="dps-total-dmg" style="color: #fff;">0</b></span>
@@ -243,8 +247,10 @@
                 <p><strong>抽出モード(E)</strong>: Eキーまたは抽出ボタンでON → 盤面の自ユニットを2体クリックして合体。スキル・能力を継承し強化できる。最大5回まで。</p>
 
                 <h3 style="color:#ffd700;">🌾 ユニット種別</h3>
-                <p><strong>稲（タレット型）</strong>: グリッドに配置して自動的に弾を発射する守備ユニット。種類により8方向・追尾・狙撃・毒・氷結・拡散など様々な弾幕を持つ。</p>
+                <p><strong>稲（タレット型）</strong>: グリッドに配置して自動的に弾を発射する守備ユニット。種類により8方向・追尾・狙撃・毒・氷結・拡散など様々な弾幕を持つ。ギフト ライスは当たった場所に毒の霧を残す。</p>
                 <p><strong>コーラ（投擲型）</strong>: 配置後にプレイヤーが発射方向を指定して手動で投擲。直進・跳弾・分裂・貫通・爆散・吸引など強力な種類がある。</p>
+                <p><strong>コーラ同士の衝突</strong>: 撃ったコーラが相手のコーラとぶつかると、攻撃力の大きい方が残る（残った方は相手の分だけ攻撃力が減る）。同じなら両方消える。ゲイザーは70%でかわす。</p>
+                <p><strong>主なコーラの能力</strong>: ブリッツ＝当たると近くの敵2体に電撃が連鎖。ゲイザー＝相手本体へ曲がり、消されそうになっても70%でかわす。ネビュラ＝すぐ近くの敵弾を吸い込んでマナに変える。</p>
                 <p><strong>盾（防衛型）</strong>: 弾を発射しないが高HPで前線を守る。木盾は自然回復、鉄盾は反射、魔力盾は敵弾をマナに変換する。</p>
                 <p><strong>ソーダ（支援型）</strong>: マナを継続生成し味方を支援。微風ソーダは攻撃速度UP、源泉ソーダはバブルシールド付与、大海ソーダはプレイヤーHP回復。</p>
 
