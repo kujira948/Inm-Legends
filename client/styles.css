@@ -933,3 +933,75 @@ button:active {
     }
     #lobby-chat-messages { max-height: 240px; }
 }
+
+/* ===============================================================
+   📐 画面の高さ（アドレスバーで下が見切れないように実際の高さを使う）
+   =============================================================== */
+body { height: 100vh; height: 100dvh; }
+#game-ui { height: 100vh; height: 100dvh; }
+#menu.home-layout { max-height: 96vh; max-height: 96dvh; }
+
+/* 🔘 合成・コーラ発射・操作方法ボタンを大きく */
+.action-buttons-group {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    max-width: 380px;
+}
+.mobile-action-btn {
+    min-height: 48px;
+    min-width: 104px;
+    padding: 10px 16px;
+    font-size: 1rem;
+    border-radius: 8px;
+}
+@media (max-width: 768px) {
+    .bottom-bar { height: auto; min-height: 70px; }
+    .action-buttons-group { max-width: 200px; gap: 4px; }
+    .mobile-action-btn {
+        min-height: 40px;
+        min-width: 64px;
+        padding: 6px 8px;
+        font-size: 0.82rem;
+    }
+}
+
+/* 🧪 練習場の設定 */
+#btn-sandbox {
+    background: #2d6a4f;
+    padding: 3px 12px;
+    font-size: 0.75rem;
+    border: 1px solid #b7e4c7;
+    border-radius: 4px;
+}
+#sandbox-panel {
+    position: absolute;
+    top: 52px;
+    right: 10px;
+    width: min(320px, 92vw);
+    max-height: calc(100% - 140px);
+    overflow-y: auto;
+    background: rgba(10, 18, 28, 0.95);
+    border: 1px solid #2d6a4f;
+    border-radius: 8px;
+    padding: 10px 12px;
+    z-index: 40;
+    font-size: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.sandbox-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    color: #95d5b2;
+}
+#btn-sandbox-close { padding: 2px 8px; font-size: 0.8rem; background: #333; }
+.sandbox-row { display: flex; align-items: center; gap: 6px; color: #ddd; cursor: pointer; }
+.sandbox-row select { margin-left: auto; background: #1a1e2e; color: #fff; border: 1px solid #446; border-radius: 4px; padding: 2px 4px; }
+.sandbox-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+.sandbox-buttons button { padding: 6px 4px; font-size: 0.75rem; }
+#sb-restart { background: #7a2e2e; }

@@ -327,7 +327,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BOUNCE'
         ),
         hp: 198, power: 16, cooldown: 0.5, fireTypes: ['burst'], actions: ['bounce'],
-        desc: '【No.001 シークレット】連射稲2体に跳弾コーラを抽出。秒間8連射の超高速跳弾マシンガンを乱射する機神。'
+        desc: '【No.001 シークレット】連射稲2体に跳弾コーラを合成。秒間8連射の超高速跳弾マシンガンを乱射する機神。'
     },
     CLUSTER_METEOR: {
         id: 'chimera_meteor', name: 'METEOR', displayName: '彗星 クラスター・ミーティア',
@@ -339,7 +339,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_SPREAD'
         ),
         hp: 189, power: 25, cooldown: 1.4, fireTypes: ['circle6'], actions: ['spread'],
-        desc: '【No.002 シークレット】拡散稲2体に爆散コーラを抽出。着弾時に周囲へ超大爆発を起こす彗星弾を円形発射。'
+        desc: '【No.002 シークレット】拡散稲2体に爆散コーラを合成。着弾時に周囲へ超大爆発を起こす彗星弾を円形発射。'
     },
     PHANTOM_HUNTER: {
         id: 'chimera_phantom', name: 'PHANTOM', displayName: '亡霊 イェーガー・アサシン',
@@ -351,7 +351,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BOUNCE'
         ),
         hp: 171, power: 20, cooldown: 1.1, fireTypes: ['homing2'], actions: ['pierce', 'bounce', 'homing'], pierceCount: 4,
-        desc: '【No.003 シークレット】追尾稲に貫通と跳弾コーラを抽出。壁を跳ね敵前線をすり抜け本体を執拗に追尾。'
+        desc: '【No.003 シークレット】追尾稲に貫通と跳弾コーラを合成。壁を跳ね敵前線をすり抜け本体を執拗に追尾。'
     },
     VOLCANO_FORTRESS: {
         id: 'chimera_volcano', name: 'VOLCANO', displayName: '超要塞 インフェルノ・フォートレス',
@@ -363,7 +363,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_CHARGE'
         ),
         hp: 576, power: 30, cooldown: 1.6, fireTypes: ['circle6'], actions: ['charge', 'spread'],
-        desc: '【No.004 シークレット】木盾に鉄盾と火山コーラを抽出。HP320の砦。周囲に超高威力の火砕流弾を噴出。'
+        desc: '【No.004 シークレット】木盾に鉄盾と火山コーラを合成。HP320の砦。周囲に超高威力の火砕流弾を噴出。'
     },
     NEBULA_HARVESTER: {
         id: 'chimera_nebula', name: 'NEBULA', displayName: '特異点 ネビュラ・ハーベスター',
@@ -375,7 +375,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BLACK'
         ),
         hp: 198, power: 18, cooldown: 1.5, fireTypes: ['8dir'], actions: ['blackhole', 'poison'], manaGen: 0.12,
-        desc: '【No.005 シークレット】毒稲2体に黒コーラを抽出。敵弾を吸い込んで消滅させマナへ変換し、敵弾を腐食。'
+        desc: '【No.005 シークレット】毒稲2体に黒コーラを合成。敵弾を吸い込んで消滅させマナへ変換し、敵弾を腐食。'
     },
     ZERO_DRAGOON: {
         id: 'chimera_dragoon', name: 'DRAGOON', displayName: '超電磁砲 零式ドラグーン・カイザー',
@@ -387,7 +387,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_STRAIGHT'
         ),
         hp: 180, power: 35, cooldown: 1.2, fireTypes: ['single'], actions: ['pierce', 'sniper', 'straight'], pierceCount: 8,
-        desc: '【No.006 シークレット】狙撃稲に零式と電撃コーラを抽出。一直線に敵陣を貫通する超高速プラズマレールガン。'
+        desc: '【No.006 シークレット】狙撃稲に零式と電撃コーラを合成。一直線に敵陣を貫通する超高速プラズマレールガン。'
     },
     MEGALITH_TITAN: {
         id: 'chimera_titan', name: 'TITAN', displayName: '超巨神 ギガント・メガリス・タイタン',
@@ -399,7 +399,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_MEGATON'
         ),
         hp: 630, power: 32, cooldown: 2.0, fireTypes: ['burst'], actions: ['megaton'],
-        desc: '【No.007 シークレット】鉄盾2体に巨大コーラを抽出。HP350。敵前線を圧殺する超重量級メガトン砲撃。'
+        desc: '【No.007 シークレット】鉄盾2体に巨大コーラを合成。HP350。敵前線を圧殺する超重量級メガトン砲撃。'
     },
     FROST_NOVA: {
         id: 'chimera_frost', name: 'FROST', displayName: '極光 フロスト・ノヴァ',
@@ -411,7 +411,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_MENTOS'
         ),
         hp: 189, power: 18, cooldown: 1.3, fireTypes: ['8dir'], actions: ['frost', 'geyser'],
-        desc: '【シークレットキメラ】氷結稲2体にゲイザーコーラを抽出。急加速する8方向冷気弾で敵弾を相殺。'
+        desc: '【シークレットキメラ】氷結稲2体にゲイザーコーラを合成。急加速する8方向冷気弾で敵弾を相殺。'
     },
     ZERO_FROST: {
         id: 'chimera_zero_frost', name: 'ZERO-FROST', displayName: '絶対零度 アブソリュート・フロスト',
@@ -423,7 +423,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_MENTOS'
         ),
         hp: 207, power: 24, cooldown: 1.3, fireTypes: ['circle6'], actions: ['frost', 'spread', 'geyser'],
-        desc: '【No.008 シークレット】氷結稲に爆散とゲイザーを抽出。敵弾を相殺した瞬間に周囲へカウンター大爆散を起こす！'
+        desc: '【No.008 シークレット】氷結稲に爆散とゲイザーを合成。敵弾を相殺した瞬間に周囲へカウンター大爆散を起こす！'
     },
     AURA_GENESIS: {
         id: 'chimera_genesis', name: 'GENESIS', displayName: '世界樹 ユグドラシル・ジェネシス',
@@ -435,7 +435,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'SODA_LARGE'
         ),
         hp: 396, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.22,
-        desc: '【No.009 シークレット】魔力盾に中ソーダと大ソーダを抽出。味方HPを持続リジェネ(+4/s)し大量マナ生成。'
+        desc: '【No.009 シークレット】魔力盾に中ソーダと大ソーダを合成。味方HPを持続リジェネ(+4/s)し大量マナ生成。'
     },
     // ===============================================================
     // ❄️ 第2弾: 氷結・極冷・絶対零度系シークレット (No.011〜020)
@@ -450,7 +450,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BOUNCE'
         ),
         hp: 198, power: 22, cooldown: 0.9, fireTypes: ['single'], actions: ['frost', 'bounce'],
-        desc: '【No.011 シークレット】氷結稲2体に跳弾コーラを抽出。壁を反射しながら触れた敵弾を相殺消滅させる極冷の跳弾氷槍！'
+        desc: '【No.011 シークレット】氷結稲2体に跳弾コーラを合成。壁を反射しながら触れた敵弾を相殺消滅させる極冷の跳弾氷槍！'
     },
     GLACIA_FORTRESS: {
         id: 'chimera_glacia', name: 'GLACIA', displayName: '氷壁 グレイシア・フォートレス',
@@ -462,7 +462,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'SODA_MEDIUM'
         ),
         hp: 504, power: 16, cooldown: 1.8, fireTypes: ['circle6'], actions: ['frost', 'iron_reflect'], special: 'iron_reflect',
-        desc: '【No.012 シークレット】鉄盾に氷結稲と源泉ソーダを抽出。被弾ダメージ軽減＆敵弾を相殺反射する絶対防御の氷壁要塞！'
+        desc: '【No.012 シークレット】鉄盾に氷結稲と源泉ソーダを合成。被弾ダメージ軽減＆敵弾を相殺反射する絶対防御の氷壁要塞！'
     },
     ICICLE_SNIPER: {
         id: 'chimera_icicle', name: 'ICICLE', displayName: '零式 アイシクル・スナイパー',
@@ -474,7 +474,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_ZERO'
         ),
         hp: 171, power: 36, cooldown: 1.3, fireTypes: ['single'], actions: ['frost', 'sniper', 'zero'], pierceCount: 4,
-        desc: '【No.013 シークレット】狙撃稲に氷結稲と零式コーラを抽出。敵弾をすり抜け相殺しながら敵プレイヤーを射抜く氷柱弾！'
+        desc: '【No.013 シークレット】狙撃稲に氷結稲と零式コーラを合成。敵弾をすり抜け相殺しながら敵プレイヤーを射抜く氷柱弾！'
     },
     DIAMOND_METEOR: {
         id: 'chimera_diamond', name: 'DIAMOND', displayName: '星屑 ダイヤモンドダスト・ミーティア',
@@ -486,7 +486,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_SPREAD'
         ),
         hp: 189, power: 26, cooldown: 1.4, fireTypes: ['circle6'], actions: ['frost', 'spread'],
-        desc: '【No.014 シークレット】拡散稲に氷結稲と爆散コーラを抽出。相殺した瞬間に周囲全域へダイヤモンドダスト大爆散を起こす！'
+        desc: '【No.014 シークレット】拡散稲に氷結稲と爆散コーラを合成。相殺した瞬間に周囲全域へダイヤモンドダスト大爆散を起こす！'
     },
     AVALANCHE_TITAN: {
         id: 'chimera_avalanche', name: 'AVALANCHE', displayName: '雪嶺 アバランチ・タイタン',
@@ -498,7 +498,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_MEGATON'
         ),
         hp: 612, power: 34, cooldown: 2.0, fireTypes: ['burst'], actions: ['frost', 'megaton'],
-        desc: '【No.015 シークレット】鉄盾に氷結稲と超巨大コーラを抽出。敵弾を相殺しながら敵前線を押し潰す巨大雪崩キャノン！'
+        desc: '【No.015 シークレット】鉄盾に氷結稲と超巨大コーラを合成。敵弾を相殺しながら敵前線を押し潰す巨大雪崩キャノン！'
     },
     COCYTUS_DRAKE: {
         id: 'chimera_cocytus', name: 'COCYTUS', displayName: '氷竜 コキュートス・ドレイク',
@@ -510,7 +510,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_PIERCE'
         ),
         hp: 180, power: 20, cooldown: 0.7, fireTypes: ['burst'], actions: ['frost', 'pierce'], pierceCount: 5,
-        desc: '【No.016 シークレット】連射稲に氷結稲と貫通コーラを抽出。敵弾を消滅させながら敵列を貫く氷竜の3連凍結レーザー！'
+        desc: '【No.016 シークレット】連射稲に氷結稲と貫通コーラを合成。敵弾を消滅させながら敵列を貫く氷竜の3連凍結レーザー！'
     },
     FREEZE_NEBULA: {
         id: 'chimera_freeze_nebula', name: 'FREEZE', displayName: '凍穴 フリージング・ネビュラ',
@@ -522,7 +522,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BLACK'
         ),
         hp: 207, power: 18, cooldown: 1.5, fireTypes: ['8dir'], actions: ['frost', 'blackhole'], manaGen: 0.15,
-        desc: '【No.017 シークレット】毒稲に氷結稲と重力黒コーラを抽出。敵弾を凍らせて吸い込み消滅させ、自軍マナに大変換！'
+        desc: '【No.017 シークレット】毒稲に氷結稲と重力黒コーラを合成。敵弾を凍らせて吸い込み消滅させ、自軍マナに大変換！'
     },
     AURORA_PHANTOM: {
         id: 'chimera_aurora', name: 'AURORA', displayName: '極光 オーロラ・ファントム',
@@ -534,7 +534,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BOUNCE'
         ),
         hp: 171, power: 22, cooldown: 1.1, fireTypes: ['homing2'], actions: ['frost', 'bounce', 'homing'],
-        desc: '【No.018 シークレット】追尾稲に氷結稲と跳弾コーラを抽出。壁を反射しながら敵弾を相殺し、相手本体へ迫る幻影氷弾！'
+        desc: '【No.018 シークレット】追尾稲に氷結稲と跳弾コーラを合成。壁を反射しながら敵弾を相殺し、相手本体へ迫る幻影氷弾！'
     },
     FROST_GENESIS: {
         id: 'chimera_frost_genesis', name: 'FROST-GEN', displayName: '氷聖樹 フロスト・ジェネシス',
@@ -546,7 +546,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'SODA_LARGE'
         ),
         hp: 432, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.25, actions: ['frost'],
-        desc: '【No.019 シークレット】魔力盾に氷結稲と大海ソーダを抽出。触れた敵弾を完全凍結相殺しつつ味方リジェネ＆マナ超生成！'
+        desc: '【No.019 シークレット】魔力盾に氷結稲と大海ソーダを合成。触れた敵弾を完全凍結相殺しつつ味方リジェネ＆マナ超生成！'
     },
     NIFLHEIM_GOD: {
         id: 'chimera_niflheim', name: 'NIFLHEIM', displayName: '氷獄神 ニヴルヘイム',
@@ -558,7 +558,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_CHARGE'
         ),
         hp: 234, power: 35, cooldown: 1.3, fireTypes: ['circle6'], actions: ['frost', 'charge', 'spread'],
-        desc: '【No.020 シークレット】氷結稲2体に火山コーラを抽出。敵弾相殺時に周囲へ極大の絶対零度カウンター氷爆を炸裂！'
+        desc: '【No.020 シークレット】氷結稲2体に火山コーラを合成。敵弾相殺時に周囲へ極大の絶対零度カウンター氷爆を炸裂！'
     },
 
     // ===============================================================
@@ -574,7 +574,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_STRAIGHT'
         ),
         hp: 171, power: 28, cooldown: 1.0, fireTypes: ['single'], actions: ['laser', 'straight'], pierceCount: 5,
-        desc: '【シークレットキメラ】光の稲2体に電撃コーラを抽出。全てを貫く極太の高圧雷光レーザーを一閃照射。'
+        desc: '【シークレットキメラ】光の稲2体に電撃コーラを合成。全てを貫く極太の高圧雷光レーザーを一閃照射。'
     },
     HADES_POISON: {
         id: 'chimera_hades', name: 'HADES', displayName: '冥府 ハデス・ポイズン',
@@ -586,7 +586,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BLACK'
         ),
         hp: 180, power: 22, cooldown: 1.2, fireTypes: ['circle6'], actions: ['poison', 'pierce', 'blackhole'], pierceCount: 4,
-        desc: '【シークレットキメラ】毒稲に貫通と黒コーラを抽出。敵列を貫き敵弾を弱体化＆吸引する冥界の弾幕。'
+        desc: '【シークレットキメラ】毒稲に貫通と黒コーラを合成。敵列を貫き敵弾を弱体化＆吸引する冥界の弾幕。'
     },
     TYPHOON_GEYSER: {
         id: 'chimera_typhoon', name: 'TYPHOON', displayName: '暴風 タイフーン・ゲイザー',
@@ -598,7 +598,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BOUNCE'
         ),
         hp: 171, power: 19, cooldown: 0.7, fireTypes: ['burst'], actions: ['geyser', 'bounce'],
-        desc: '【シークレットキメラ】連射稲にゲイザーと跳弾コーラを抽出。激しく跳ね回る暴走炭酸弾を乱れ撃つ。'
+        desc: '【シークレットキメラ】連射稲にゲイザーと跳弾コーラを合成。激しく跳ね回る暴走炭酸弾を乱れ撃つ。'
     },
     EMPEROR_SHIELD: {
         id: 'chimera_emperor', name: 'EMPEROR', displayName: '天帝 エンペラー・シルト',
@@ -610,7 +610,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_MEGATON'
         ),
         hp: 612, power: 26, cooldown: 2.0, fireTypes: ['burst'], actions: ['megaton', 'spread'],
-        desc: '【シークレットキメラ】魔力盾に鉄盾と巨大コーラを抽出。前線で不動の要塞となり着弾時に巨大衝撃波を炸裂。'
+        desc: '【シークレットキメラ】魔力盾に鉄盾と巨大コーラを合成。前線で不動の要塞となり着弾時に巨大衝撃波を炸裂。'
     },
     MIRAGE_SNIPER: {
         id: 'chimera_mirage', name: 'MIRAGE', displayName: '幻影 ミラージュ・スナイパー',
@@ -622,7 +622,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BOUNCE'
         ),
         hp: 162, power: 30, cooldown: 1.4, fireTypes: ['single'], actions: ['sniper', 'bounce'],
-        desc: '【シークレットキメラ】狙撃稲2体に跳弾コーラを抽出。壁を反射しながら敵プレイヤーの死角を突く幻影狙撃。'
+        desc: '【シークレットキメラ】狙撃稲2体に跳弾コーラを合成。壁を反射しながら敵プレイヤーの死角を突く幻影狙撃。'
     },
     FLORA_FRAGMENT: {
         id: 'chimera_flora', name: 'FLORA', displayName: '百花 プリムス・フラグメント',
@@ -634,7 +634,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_SPLIT'
         ),
         hp: 171, power: 18, cooldown: 1.1, fireTypes: ['8dir'], actions: ['split'],
-        desc: '【シークレットキメラ】基本稲2体に分裂コーラを抽出。放たれた全方向米粒が空中で一斉に花咲くように分裂。'
+        desc: '【シークレットキメラ】基本稲2体に分裂コーラを合成。放たれた全方向米粒が空中で一斉に花咲くように分裂。'
     },
     VORTEX_QUELLE: {
         id: 'chimera_vortex', name: 'VORTEX', displayName: '深淵 ボルテックス・クヴェレ',
@@ -646,7 +646,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_BLACK'
         ),
         hp: 270, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.20,
-        desc: '【シークレットキメラ】源泉ソーダに小ソーダと黒コーラを抽出。敵弾を吸い込んで即座に大量マナへ変換。'
+        desc: '【シークレットキメラ】源泉ソーダに小ソーダと黒コーラを合成。敵弾を吸い込んで即座に大量マナへ変換。'
     },
     PROMINENCE_VULCAN: {
         id: 'chimera_prominence', name: 'PROMINENCE', displayName: '紅蓮 プロミネンス・バルカン',
@@ -658,7 +658,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'COLA_SPREAD'
         ),
         hp: 189, power: 34, cooldown: 1.6, fireTypes: ['single'], actions: ['laser', 'charge', 'spread'],
-        desc: '【シークレットキメラ】光の稲に火山と爆散コーラを抽出。チャージエネルギーを解き放つ極大の熱線ブラスター。'
+        desc: '【シークレットキメラ】光の稲に火山と爆散コーラを合成。チャージエネルギーを解き放つ極大の熱線ブラスター。'
     },
     GAIA_HARVEST: {
         id: 'chimera_gaia', name: 'GAIA', displayName: '豊穣 ガイア・ハーベスト',
@@ -670,11 +670,11 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'SODA_SMALL'
         ),
         hp: 360, power: 0, cooldown: 2.0, fireTypes: ['none'], isManaProducer: true, manaGen: 0.12,
-        desc: '【シークレットキメラ】木盾2体に微風ソーダを抽出。前線を強固に守りながらマナを継続供給。'
+        desc: '【シークレットキメラ】木盾2体に微風ソーダを合成。前線を強固に守りながらマナを継続供給。'
     },
     INAMU_THE_END: {
         id: 'chimera_the_end', name: 'SOL', displayName: '太陽神 アルティメット・いなむー・ソル',
-        pairHint: '基本稲 → ①電撃コーラ → ②微風ソーダ → ③光の稲 の順で抽出 (計4体)',
+        pairHint: '基本稲 → ①電撃コーラ → ②微風ソーダ → ③光の稲 の順で合成 (計4体)',
         recipe: (t, s) => (
             t.typeKey === 'RICE_BASIC' &&
             Array.isArray(t.extractionHistory) &&
@@ -684,7 +684,7 @@ const SECRET_CHIMERAS = {
             s.typeKey === 'RICE_LASER'
         ),
         hp: 360, power: 32, cooldown: 0.7, fireTypes: ['8dir', 'burst'], actions: ['bounce', 'spread', 'laser'],
-        desc: '【No.010 太陽神】基本稲に電撃コーラ・ソーダ・光の稲を完全な順番で抽出した時降臨する黄金の最高神。'
+        desc: '【No.010 太陽神】基本稲に電撃コーラ・ソーダ・光の稲を完全な順番で合成した時降臨する黄金の最高神。'
     }
 };
 
@@ -1606,11 +1606,12 @@ const BotAI = {
     },
 
     level() {
-        return BOT_LEVELS[gameState.cpuDifficulty] || BOT_LEVELS[2];
+        const lv = Sandbox.cpuActive() ? Sandbox.settings.cpuLevel : gameState.cpuDifficulty;
+        return BOT_LEVELS[lv] || BOT_LEVELS[2];
     },
 
     update() {
-        if (!gameState.isBotMatch) return;
+        if (!gameState.isBotMatch && !Sandbox.cpuActive()) return;
         const L = this.level();
         const [thinkBase, fireBase, extractBase] = L.timers;
         const bot = gameState.players[this.side];
@@ -1638,7 +1639,7 @@ const BotAI = {
             this.tryFireCola(L, human);
         }
 
-        // 4. 合成（抽出）
+        // 4. 合成
         this.extractTimer++;
         if (this.extractTimer >= extractBase) {
             this.extractTimer = 0;
@@ -1883,10 +1884,12 @@ const BotAI = {
         });
     },
 
-    // ---------------- 合成（抽出） ----------------
+    // ---------------- 合成 ----------------
     extract(target, src) {
         if (!target || !src || target === src || getExtractionBlockReason(target, src)) return false;
-        processExtraction(target.col, target.row, src.col, src.row, this.side);
+        this.extracting = true; // この合成ではシークレットにしない
+        try { processExtraction(target.col, target.row, src.col, src.row, this.side); }
+        finally { this.extracting = false; }
         return true;
     },
 
@@ -2017,6 +2020,19 @@ function init() {
         mobileControls.style.display = isMobileDevice ? 'flex' : 'none';
     }
 
+    // 練習場の設定パネル
+    Sandbox.bindUI();
+
+    // パーティクルのON/OFF設定（最初はON）
+    const checkParticles = document.getElementById('check-particles');
+    if (checkParticles) {
+        checkParticles.checked = Particles.enabled();
+        checkParticles.addEventListener('change', () => {
+            try { localStorage.setItem('inamu_particles', checkParticles.checked ? '1' : '0'); } catch (e) {}
+        });
+    }
+    layoutGameScreen();
+
     // ダメージ表示のON/OFF設定の復元（最初はON）
     const checkDamage = document.getElementById('check-damage-numbers');
     if (checkDamage) {
@@ -2130,7 +2146,7 @@ function setupEventListeners() {
     bindDirBtn(btnMobileUp, 'ArrowUp');
     bindDirBtn(btnMobileDown, 'ArrowDown');
 
-    // 抽出モードボタン
+    // 合成モードボタン
     const btnToggleExtraction = document.getElementById('btn-toggle-fusion-mode');
     if (btnToggleExtraction) {
         btnToggleExtraction.addEventListener('click', toggleExtractionMode);
@@ -2256,11 +2272,12 @@ function setupEventListeners() {
             gameState.players.right.name = 'カカシ';
             gameState.players.left.hp = 2000;
             gameState.players.left.maxHp = 2000;
-            gameState.players.right.hp = 1000000; // かかしHP: 100万
-            gameState.players.right.maxHp = 1000000;
             gameState.players.left.mana = 100;
+            gameState.players.right.mana = 100;
             gameState.units = [];
             gameState.bullets = [];
+            if (Sandbox.settings.cpuLevel > 0) gameState.cpuDifficulty = Sandbox.settings.cpuLevel;
+            BotAI.reset();
 
             DPSManager.reset();
             const dpsPanel = document.getElementById('dps-panel');
@@ -2271,6 +2288,9 @@ function setupEventListeners() {
 
             Camera.reset(); // 練習場開始時にカメラ位置リセット
             startGame();
+            Sandbox.applyEnemyHp(); // 相手のHP（無限なら100万）
+            Sandbox.showUI(true);
+            updateUnitUI();
         };
     }
 
@@ -2444,9 +2464,24 @@ function updateUnitUI() {
     if (!selector) return;
     selector.innerHTML = '';
 
-    const deck = (gameState.deck && gameState.deck.length > 0) ? gameState.deck : DEFAULT_DECK;
+    const deck = Sandbox.selectableKeys();
 
     deck.forEach((key, idx) => {
+        // 練習場のシークレット
+        if (String(key).startsWith('SECRET:')) {
+            const ck = key.slice(7), c = SECRET_CHIMERAS[ck], def = sandboxSecretDef(ck);
+            if (!c || !def) return;
+            const div = document.createElement('div');
+            div.className = `unit-slot ${gameState.selectedUnit === key ? 'selected' : ''}`;
+            div.style.borderColor = '#ffd700';
+            const spr = ASSETS[c.id] || ASSETS[def.baseKey];
+            div.innerHTML = `${spr ? `<img src="${spr.toDataURL()}" style="width: 26px; height: 26px; image-rendering: pixelated; margin-bottom: 2px; flex-shrink: 0;">` : ''}
+                <div style="font-size: 0.45rem; line-height: 1; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; color: #ffd700;">${c.name}</div>
+                <div style="font-size: 0.55rem; color: #fb0;">${def.base.cost}</div>`;
+            div.onclick = () => { gameState.selectedUnit = key; updateUnitUI(); };
+            selector.appendChild(div);
+            return;
+        }
         const u = UNIT_TYPES[key];
         if (!u) return;
 
@@ -2493,10 +2528,16 @@ function handleCanvasClick(e) {
 
     if (col < 0 || col >= CONFIG.GRID_COLS || row < 0 || row >= CONFIG.GRID_ROWS) return;
 
-    // 抽出モードの処理
+    // 合成モードの処理
     if (gameState.extractionMode) {
-        handleExtractionClick(row, col);
-        return;
+        const occupied = gameState.units.some(u => u.col === col && u.row === row && u.hp > 0) ||
+            gameState.summoningEffects.some(ef => ef.unitDef && ef.col === col && ef.row === row);
+        if (occupied) {
+            handleExtractionClick(row, col);
+            return;
+        }
+        // 何もないマスを押したら、合成モードを終えてそのまま設置する
+        toggleExtractionMode();
     }
 
     // グリッド範囲内かチェック。範囲外でも発射先にはなり得る
@@ -2546,11 +2587,23 @@ function handleCanvasClick(e) {
 }
 
 function attemptSummon(row, col) {
+    // 練習場で「両方の陣地に置ける」がONなら、相手の陣地にも置ける（相手側のユニットになる）
+    const sandboxBoth = gameState.isPractice && Sandbox.settings.bothSides;
     // 自分の陣地チェック (左なら 0~8, 右なら 9~17)
-    // 18列なので半分は9
     const isMySide = gameState.playerSide === 'left' ? col < 9 : col >= 9;
-    if (!isMySide) {
+    if (!isMySide && !sandboxBoth) {
         statusMsg.innerText = "自分の陣地にのみ召喚できます！";
+        return;
+    }
+    const placeSide = sandboxBoth ? (col < 9 ? 'left' : 'right') : gameState.playerSide;
+
+    // 練習場: 発見済みシークレットを直接置く
+    if (gameState.isPractice && String(gameState.selectedUnit).startsWith('SECRET:')) {
+        const key = gameState.selectedUnit.slice(7);
+        const def = sandboxSecretDef(key);
+        if (!def || isCellOccupied(col, row)) { if (def) statusMsg.innerText = "そこには既にユニットがいます！"; return; }
+        if (gameState.players[placeSide].mana < def.base.cost) return;
+        processSummon({ unitId: def.base.id, row, col, side: placeSide, secretKey: key });
         return;
     }
 
@@ -2564,7 +2617,8 @@ function attemptSummon(row, col) {
     }
 
     const unitType = UNIT_TYPES[gameState.selectedUnit];
-    const side = gameState.playerSide;
+    if (!unitType) return;
+    const side = placeSide;
 
     if (gameState.players[side].mana >= unitType.cost) {
         if (gameState.isPractice) {
@@ -2890,9 +2944,18 @@ function handleServerMessage(data) {
     }
 }
 
+// そのマスに、もうユニットか召喚中のものがあるか（陣営に関係なく）
+function isCellOccupied(col, row) {
+    return gameState.units.some(u => u.col === col && u.row === row && u.hp > 0 && !u.fired) ||
+        gameState.summoningEffects.some(ef => ef.unitDef && ef.col === col && ef.row === row);
+}
+
 function processSummon(data) {
     const typeKey = Object.keys(UNIT_TYPES).find(k => UNIT_TYPES[k].id === data.unitId);
     const unitDef = UNIT_TYPES[typeKey];
+    if (!unitDef) return;
+    // どこから来た召喚でも、同じマスには置かない（CPU・通信・練習場すべて。マナも減らない）
+    if (isCellOccupied(data.col, data.row)) return;
 
     SoundManager.playSummon();
 
@@ -2912,6 +2975,7 @@ function processSummon(data) {
         row: data.row,
         col: data.col,
         typeKey: typeKey, // キーを保存しておく
+        secretKey: data.secretKey, // 練習場でシークレットを直接置いたとき
         x: 0, // Will be calculated in update
         y: 0, // Will be calculated in update
         targetX,
@@ -2936,7 +3000,20 @@ function finalizeSummon(effect) {
         maxHp: effect.unitDef.hp,
         lastFire: 0
     };
+    // 練習場: シークレットを直接置いたとき
+    if (effect.secretKey && SECRET_CHIMERAS[effect.secretKey]) {
+        const c = SECRET_CHIMERAS[effect.secretKey];
+        Object.assign(unit, {
+            isSecretChimera: true, chimeraId: c.id, name: c.name, spriteKey: c.id,
+            hp: c.hp, maxHp: c.hp, power: c.power, cooldown: c.cooldown,
+            fireTypes: [...c.fireTypes], actions: [...(c.actions || [])], extractionCount: 0
+        });
+        if (c.isManaProducer) unit.isManaProducer = true;
+        if (c.manaGen) unit.manaGen = c.manaGen;
+        if (c.pierceCount) unit.pierceCount = c.pierceCount;
+    }
     gameState.units.push(unit);
+    Particles.summon(unit.x, unit.y, unit.side);
 }
 
 function processFireCola(side) {
@@ -3013,6 +3090,9 @@ function startGame() {
     gameState.isPlaying = true;
     NetSync.reset();
     DamageNumbers.reset();
+    Particles.reset();
+    Sandbox.showUI(gameState.isPractice);
+    requestAnimationFrame(layoutGameScreen);
     BattleFx.reset();
     PoisonMist.reset();
     applyChatVisibility();
@@ -3110,13 +3190,13 @@ function handleInput(e) {
     if (gameUI.classList.contains('hidden')) return;
     // スペース: 自分の陣地にいるコーラユニットを一斉発射（稲は発射しない）
     if (e.key === ' ') attemptFireCola();
-    // E: 抽出モードのトグル
+    // E: 合成モードのトグル
     if (e.key === 'e' || e.key === 'E') toggleExtractionMode();
 
     // 1〜9キー、0キー: デッキユニットのショートカット選択（10枠対応）
     if (['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].includes(e.key)) {
         const slotIdx = e.key === '0' ? 9 : (parseInt(e.key, 10) - 1);
-        const deck = (gameState.deck && gameState.deck.length > 0) ? gameState.deck : DEFAULT_DECK;
+        const deck = Sandbox.selectableKeys();
         if (deck[slotIdx]) {
             const k = deck[slotIdx];
             gameState.selectedUnit = k;
@@ -3284,6 +3364,7 @@ const NetSync = {
                 Object.assign(ex, full);
             } else {
                 this.unitCache.set(full.uid, full);
+                Particles.summon(full.x, full.y, full.side);
             }
         }
         const units = [];
@@ -3297,8 +3378,11 @@ const NetSync = {
             this.noticeEvolution(u);
             alive.add(d[0]);
         }
-        for (const uid of this.unitCache.keys()) {
-            if (!alive.has(uid)) this.unitCache.delete(uid);
+        for (const [uid, u] of this.unitCache) {
+            if (alive.has(uid)) continue;
+            // 発射したコーラ・合成の素材以外で、弱っていたユニットが消えた → やられた
+            if (!u.fired && u.hp < (u.maxHp || u.hp) * 0.6) Particles.debris(u.x, u.y, u.type);
+            this.unitCache.delete(uid);
         }
         gameState.units = units;
 
@@ -3350,10 +3434,12 @@ function gameLoop(timestamp = 0) {
 function update() {
     updatePlayerMovement();
 
-    // 🤖 強化Botの思考ルーチン実行
-    if (gameState.isBotMatch) {
+    // 🤖 CPUの思考ルーチン実行（CPU対戦・練習場でかかしをCPUにしたとき）
+    if (gameState.isBotMatch || Sandbox.cpuActive()) {
         BotAI.update();
     }
+    // 🧪 練習場の無限設定
+    Sandbox.tick();
 
     // 🌋 フィールドギミックの更新 (炭酸ファウンテン加速・黄金稲穂リスポーン・ポータル)
     FieldGimmickManager.update();
@@ -3417,8 +3503,8 @@ function update() {
         }
     });
 
-    // 練習場の敵無限リスポーン (練習場のみ)
-    if (gameState.isPractice) {
+    // 練習場: 的（まと）のユニットを自動で出す（設定でON/OFF。かかしがCPUのときはCPUが置くので出さない）
+    if (gameState.isPractice && Sandbox.settings.autoTargets && !Sandbox.cpuActive()) {
         const enemies = gameState.units.filter(u => u.side === 'right' && u.hp > 0);
         const incoming = gameState.summoningEffects.filter(ef => ef.side === 'right');
         if (enemies.length + incoming.length < 3) {
@@ -3438,7 +3524,7 @@ function update() {
 
     if (isAuthority) {
         gameState.units.forEach(u => {
-            // シークレット・最終形態は抽出回数が0でも、合体した能力で撃つ
+            // シークレット・最終形態は合成回数が0でも、合体した能力で撃つ
             const usesMergedAbilities = u.extractionCount > 0 || u.isSecretChimera;
             if (u.type === 'rice' || usesMergedAbilities) {
                 // 🫧 ソーダ ブリーゼ【追い風エール】: 同列(同じrow)にブリーゼがいる場合、攻撃速度+25%加速！
@@ -3460,7 +3546,7 @@ function update() {
             }
 
             // 練習場専用の敵AI: コーラを発射する
-            if (gameState.isPractice && u.side === 'right' && u.type === 'cola' && !u.fired && u.hp > 0) {
+            if (gameState.isPractice && !Sandbox.cpuActive() && u.side === 'right' && u.type === 'cola' && !u.fired && u.hp > 0) {
                 u.aiFireTimer = (u.aiFireTimer || 0) + 1 / CONFIG.FPS;
                 if (u.aiFireTimer >= 3.0) {
                     u.aiFireTimer = 0;
@@ -3769,6 +3855,7 @@ function update() {
         if (u.hp <= 0 && !u.markedForDestruction) {
             u.markedForDestruction = true;
             SoundManager.playExplosion();
+            if (!u.fired) Particles.debris(u.x, u.y, u.type);
         }
     });
     gameState.units = gameState.units.filter(u => u.hp > 0);
@@ -3785,8 +3872,8 @@ function update() {
             } else {
                 statusMsg.innerText = "練習場：リセット！";
                 // 練習場ではHPを戻して続行
-                gameState.players.left.hp = 2000;
-                gameState.players.right.hp = gameState.isPractice ? 1000000 : 2000;
+                gameState.players.left.hp = gameState.players.left.maxHp || 2000;
+                gameState.players.right.hp = gameState.players.right.maxHp || 2000;
             }
         }
     }
@@ -3946,7 +4033,7 @@ function fireColaTarget(u, tx, ty) {
 // ユニットプレビューパネル
 // ────────────────────────────────────────────────
 
-const TYPE_LABEL = { rice: '稲', cola: 'コーラ', soda: 'ソーダ', extraction: '抽出' };
+const TYPE_LABEL = { rice: '稲', cola: 'コーラ', soda: 'ソーダ', extraction: '合成' };
 const TYPE_COLOR = { rice: '#4a8', cola: '#c54', soda: '#48f', extraction: '#0cf' };
 
 const ACTION_JP = {
@@ -4011,7 +4098,7 @@ function showUnitPreview(unit) {
     }
 
     if (unit.type === 'extraction') {
-        // 抽出ユニットはキャンバスにそのままミニ描画
+        // 合成ユニットはキャンバスにそのままミニ描画
         sCtx.save();
         sCtx.translate(32, 32);
         const hue = unit.side === 'left' ? 180 : 30;
@@ -4067,10 +4154,10 @@ function showUnitPreview(unit) {
     if (unit.cost) rows.push({ label: 'コスト', value: unit.cost });
     if (unit.manaGen > 0) rows.push({ label: 'マナ生成', value: `+${unit.manaGen}/f` });
     
-    // 倍率（抽出回数による強化の合算表示）
+    // 倍率（合成回数による強化の合算表示）
     if (unit.extractionCount > 0) {
         const mult = (1.0 + unit.extractionCount * 0.2).toFixed(1);
-        rows.push({ label: '倍率(抽出)', value: `×${mult} (強化済)` });
+        rows.push({ label: '倍率(合成)', value: `×${mult} (強化済)` });
     }
 
     rows.forEach(r => {
@@ -4123,7 +4210,7 @@ function showUnitPreview(unit) {
         });
     }
 
-    // 抽出ユニットの素材名
+    // 合成ユニットの素材名
     if (unit.extractionCount > 0 && unit.sourceNames && unit.sourceNames.length > 0) {
         const label = document.createElement('div');
         label.style.cssText = 'font-size:0.5rem;color:#668;margin-bottom:1px;margin-top:3px;';
@@ -4151,7 +4238,7 @@ function hideUnitPreview() {
 }
 
 // ────────────────────────────────────────────────
-// 抽出システム
+// 合成システム
 // ────────────────────────────────────────────────
 
 function toggleExtractionMode() {
@@ -4159,25 +4246,18 @@ function toggleExtractionMode() {
     gameState.extractionSelections = [];
     const btn = document.getElementById('btn-toggle-fusion-mode');
     if (gameState.extractionMode) {
-        statusMsg.innerText = "【融合モードON】合体させたい2つのユニットを順番にクリックしてください！（稲＋コーラで跳弾・貫通・追尾弾幕！）";
+        statusMsg.innerText = "【合成モードON】合体させたい2つのユニットを順番にクリックしてください！（空いているマスを押すと合成モードを終えてユニットを置きます）";
         if (btn) { btn.style.background = '#0aa'; btn.innerText = 'キャンセル(E)'; }
     } else {
         statusMsg.innerText = "";
-        if (btn) { btn.style.background = '#066'; btn.innerText = '抽出(E)'; }
+        if (btn) { btn.style.background = '#066'; btn.innerText = '合成(E)'; }
     }
 }
 
 function handleExtractionClick(row, col) {
     // 範囲内の自分のユニットを検索
-    const u = gameState.units.find(u => {
-        if (u.side !== gameState.playerSide || u.hp <= 0) return false;
-        if (u.row === row && u.col === col) return true;
-        // ピクセル座標の近接でもチェック (コーラなど)
-        const cell = CONFIG.TILE_SIZE;
-        const cx = col * cell + cell / 2;
-        const cy = row * cell + cell / 2;
-        return Math.abs(u.x - cx) < cell && Math.abs(u.y - cy) < cell;
-    });
+    // 押したマスにいる自分のユニット（隣のマスのユニットは選ばない）
+    const u = gameState.units.find(u => u.side === gameState.playerSide && u.hp > 0 && u.row === row && u.col === col);
 
     if (!u) {
         statusMsg.innerText = "合体させる自分のユニットをクリックしてください。";
@@ -4198,7 +4278,7 @@ function handleExtractionClick(row, col) {
         const src = sel[0];    // 素材ユニット（消滅）
         const target = u;       // 基盤ユニット（強化＆スキル継承）
 
-        // 抽出できるか（回数の上限・最終形態など）
+        // 合成できるか（回数の上限・最終形態など）
         const blockReason = getExtractionBlockReason(target, src);
         if (blockReason) {
             statusMsg.innerText = blockReason;
@@ -4399,6 +4479,209 @@ const PoisonMist = {
 };
 
 // ===============================================================
+// 🧪 練習場サンドボックス
+// ===============================================================
+const Sandbox = {
+    settings: { cpuLevel: 0, autoTargets: true, infMana: false, infHpMe: false, infHpEnemy: true, bothSides: false, allUnits: false },
+
+    load() {
+        try { Object.assign(this.settings, JSON.parse(localStorage.getItem('inamu_sandbox') || '{}')); } catch (e) {}
+    },
+    save() {
+        try { localStorage.setItem('inamu_sandbox', JSON.stringify(this.settings)); } catch (e) {}
+    },
+    active() { return gameState.isPractice; },
+    // かかしをCPUとして動かしているか
+    cpuActive() { return gameState.isPractice && this.settings.cpuLevel > 0; },
+
+    // 相手（かかし）の体力の最大値
+    applyEnemyHp() {
+        const R = gameState.players.right;
+        R.maxHp = this.settings.infHpEnemy ? 1000000 : 2000;
+        R.hp = R.maxHp;
+    },
+
+    // 毎フレーム: 無限設定を反映
+    tick() {
+        if (!this.active()) return;
+        const st = this.settings, L = gameState.players.left, R = gameState.players.right;
+        if (st.infMana) { L.mana = 100; R.mana = 100; }
+        if (st.infHpMe) L.hp = L.maxHp;
+        if (st.infHpEnemy) R.hp = R.maxHp;
+    },
+
+    clearBoard() {
+        gameState.units = [];
+        gameState.bullets = [];
+        gameState.summoningEffects = [];
+        gameState.selectedCola = null;
+        gameState.extractionSelections = [];
+        PoisonMist.reset();
+        BattleFx.reset();
+        Particles.reset();
+        DPSManager.reset();
+    },
+
+    restart() {
+        this.clearBoard();
+        const L = gameState.players.left, R = gameState.players.right;
+        L.maxHp = 2000; L.hp = 2000; L.mana = 100; L.y = 80;
+        R.mana = 100; R.y = 80;
+        this.applyEnemyHp();
+        gameState.prepTimer = 450;
+        BotAI.reset();
+        Camera.reset();
+        statusMsg.innerText = '練習場：最初からやり直しました';
+    },
+
+    // 置けるユニット（全ユニット＋発見済みシークレット、またはデッキ）
+    selectableKeys() {
+        if (this.active() && this.settings.allUnits) {
+            let disc = [];
+            try { disc = JSON.parse(localStorage.getItem('inamu_discovered_chimeras') || '[]'); } catch (e) {}
+            const secrets = Object.keys(SECRET_CHIMERAS).filter(k => disc.includes(SECRET_CHIMERAS[k].id)).map(k => 'SECRET:' + k);
+            return Object.keys(UNIT_TYPES).concat(secrets);
+        }
+        return (gameState.deck && gameState.deck.length > 0) ? gameState.deck : DEFAULT_DECK;
+    },
+
+    // 画面の設定パネルとつなぐ
+    bindUI() {
+        // 設定は this.settings をその都度見る（設定データが入れ替わっても正しく動くように）
+        const byId = id => document.getElementById(id);
+        const cpu = byId('sb-cpu');
+        if (cpu) {
+            cpu.value = String(this.settings.cpuLevel);
+            cpu.addEventListener('change', () => {
+                this.settings.cpuLevel = parseInt(cpu.value, 10) || 0;
+                if (this.settings.cpuLevel > 0) gameState.cpuDifficulty = this.settings.cpuLevel;
+                BotAI.reset();
+                this.save();
+            });
+        }
+        const toggles = { 'sb-auto-targets': 'autoTargets', 'sb-inf-mana': 'infMana', 'sb-inf-hp-me': 'infHpMe', 'sb-inf-hp-enemy': 'infHpEnemy', 'sb-both-sides': 'bothSides', 'sb-all-units': 'allUnits' };
+        Object.entries(toggles).forEach(([id, key]) => {
+            const el = byId(id);
+            if (!el) return;
+            el.checked = !!this.settings[key];
+            el.addEventListener('change', () => {
+                this.settings[key] = el.checked;
+                if (key === 'infHpEnemy' && this.active()) this.applyEnemyHp();
+                if (key === 'allUnits') updateUnitUI();
+                this.save();
+            });
+        });
+        const on = (id, fn) => { const el = byId(id); if (el) el.addEventListener('click', fn); };
+        on('btn-sandbox', () => byId('sandbox-panel').classList.toggle('hidden'));
+        on('btn-sandbox-close', () => byId('sandbox-panel').classList.add('hidden'));
+        on('sb-skip-prep', () => { gameState.prepTimer = 0; });
+        on('sb-clear-bullets', () => { gameState.bullets = []; });
+        on('sb-reset-board', () => { this.clearBoard(); statusMsg.innerText = '練習場：盤をリセットしました'; });
+        on('sb-restart', () => this.restart());
+    },
+
+    // 練習場に入る・出るときの表示
+    showUI(show) {
+        const btn = document.getElementById('btn-sandbox');
+        const panel = document.getElementById('sandbox-panel');
+        if (btn) btn.classList.toggle('hidden', !show);
+        if (panel && !show) panel.classList.add('hidden');
+    }
+};
+Sandbox.load();
+
+// 練習場でシークレットを直接置く（発見済みのものだけ）
+function sandboxSecretDef(chimeraKey) {
+    const parts = getRecipeParts(chimeraKey);
+    const base = parts && UNIT_TYPES[parts.base];
+    return base ? { baseKey: parts.base, base } : null;
+}
+
+// ===============================================================
+// ✨ パーティクル（当たったときの火花・置いたときの光・やられたときの破片）。設定で ON/OFF
+// ===============================================================
+const Particles = {
+    list: [],
+    MAX: 400,
+    enabled() {
+        try { return localStorage.getItem('inamu_particles') !== '0'; } catch (e) { return true; }
+    },
+    add(p) {
+        if (!this.enabled()) return;
+        this.list.push(p);
+        if (this.list.length > this.MAX) this.list.splice(0, this.list.length - this.MAX);
+    },
+    // 弾が当たった: 火花
+    hit(x, y, amount, kind) {
+        const n = Math.min(10, 3 + Math.floor(amount / 8));
+        const color = kind === 'player' ? '#ff6a3d' : (amount >= 25 ? '#ffb347' : '#fff2a8');
+        for (let i = 0; i < n; i++) {
+            const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.5;
+            this.add({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 0.6, life: 14 + Math.random() * 8, max: 22, size: 1.5 + Math.random() * 1.5, color, gravity: 0.12 });
+        }
+    },
+    // ユニットを置いた: 光の輪と粒
+    summon(x, y, side) {
+        const color = side === 'left' ? '#6fd3ff' : '#ff8a8a';
+        this.add({ ring: true, x, y, r: 4, life: 14, max: 14, color });
+        for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI * 2;
+            this.add({ x, y, vx: Math.cos(a) * 1.4, vy: Math.sin(a) * 1.4, life: 16, max: 16, size: 2, color, gravity: 0 });
+        }
+    },
+    // ユニットがやられた: 破片
+    debris(x, y, type) {
+        const color = type === 'cola' ? '#c0392b' : type === 'soda' ? '#5dade2' : '#d4ac0d';
+        for (let i = 0; i < 14; i++) {
+            const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 3;
+            this.add({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.5, life: 24 + Math.random() * 12, max: 36, size: 2 + Math.random() * 2, color, gravity: 0.18, square: true });
+        }
+    },
+    reset() { this.list = []; },
+    draw(c) {
+        if (!this.enabled()) { this.list = []; return; }
+        for (let i = this.list.length - 1; i >= 0; i--) {
+            const p = this.list[i];
+            p.life--;
+            if (p.life <= 0) { this.list.splice(i, 1); continue; }
+            const a = Math.max(0, p.life / p.max);
+            c.save();
+            c.globalAlpha = a;
+            if (p.ring) {
+                p.r += 1.6;
+                c.strokeStyle = p.color;
+                c.lineWidth = 2;
+                c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.stroke();
+            } else {
+                p.x += p.vx; p.y += p.vy; p.vy += p.gravity || 0;
+                c.fillStyle = p.color;
+                if (p.square) c.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+                else { c.beginPath(); c.arc(p.x, p.y, p.size, 0, Math.PI * 2); c.fill(); }
+            }
+            c.restore();
+        }
+    }
+};
+
+// ===============================================================
+// 📐 画面の高さに合わせてゲーム画面を収める（ブラウザのアドレスバーなどで下が見切れないように）
+// ===============================================================
+function layoutGameScreen() {
+    if (!gameUI) return;
+    gameUI.style.height = window.innerHeight + 'px';
+    if (gameUI.classList.contains('hidden')) return;
+    const top = gameUI.querySelector('.top-bar');
+    const bottom = gameUI.querySelector('.bottom-bar');
+    const availH = window.innerHeight - (top ? top.offsetHeight : 0) - (bottom ? bottom.offsetHeight : 0) - 6;
+    const availW = window.innerWidth * 0.98;
+    const w = Math.max(160, Math.floor(Math.min(availW, availH * 2)));
+    canvas.style.width = w + 'px';
+    canvas.style.height = Math.floor(w / 2) + 'px';
+}
+window.addEventListener('resize', layoutGameScreen);
+window.addEventListener('orientationchange', () => setTimeout(layoutGameScreen, 200));
+
+// ===============================================================
 // 💥 ダメージ数字（当たった場所に数字がふわっと浮かぶ）。設定で ON/OFF できる（最初は ON）
 // ===============================================================
 const DamageNumbers = {
@@ -4427,6 +4710,7 @@ const DamageNumbers = {
     },
 
     spawn(x, y, amount, kind, key) {
+        Particles.hit(x, y + 10, amount, kind);
         // 同じ相手に続けて当たったときは、数字をまとめて足していく（画面が数字だらけにならないように）
         const recent = this.list.find(n => n.key === key && n.life > this.LIFE - 12);
         if (recent) {
@@ -4509,7 +4793,7 @@ const DamageNumbers = {
     }
 };
 
-// 抽出（合成）できる回数。シークレットは誕生した時点で0に戻り、また5回まで抽出できる
+// 合成できる回数。シークレットは誕生した時点で0に戻り、また5回まで合成できる
 const EXTRACTION_LIMIT = 5;
 // 最終形態（シークレット同士の合成）の強さ: 2体の合計 × この倍率
 const FINAL_FORM_RATE = 0.8;
@@ -4520,12 +4804,12 @@ function getExtractionBlockReason(target, src) {
     if (target.isFinalForm || src.isFinalForm) return '「？？？」はこれ以上合成できません！';
     if (target.isSecretChimera && src.isSecretChimera) return null; // シークレット同士は回数に関係なく最終進化できる
     if ((target.extractionCount || 0) >= EXTRACTION_LIMIT) {
-        return `「${target.name}」は既に最大抽出数（${EXTRACTION_LIMIT}回）に達しています！`;
+        return `「${target.name}」は既に最大合成数（${EXTRACTION_LIMIT}回）に達しています！`;
     }
     return null;
 }
 
-// シークレット同士の合成 → 最終形態「？？？」（黒い靄）。それぞれの抽出は消え、これ以上合成できない
+// シークレット同士の合成 → 最終形態「？？？」（黒い靄）。それぞれの合成は消え、これ以上合成できない
 function processFinalFusion(target, src, side, isMine) {
     const list = (arr, single) => (Array.isArray(arr) ? arr : (single ? [single] : []));
     const union = (...lists) => [...new Set([].concat(...lists))].filter(v => v && v !== 'none');
@@ -4549,7 +4833,8 @@ function processFinalFusion(target, src, side, isMine) {
     target.chimeraId = 'final_form';
     target.spriteKey = 'final_form';
     target.desc = '？？？';
-    target.extractionCount = 0;      // それぞれの抽出は消滅
+    target.extractionCount = 0;      // それぞれの合成は消滅
+    target.extractionLog = [];
     target.sourceNames = [];
     target.extractionHistory = [];
 
@@ -4591,12 +4876,106 @@ function drawBlackMist(u) {
     ctx.restore();
 }
 
+// ---------------------------------------------------------------
+// 合成の記録とシークレット誕生時の受け継ぎ
+// ---------------------------------------------------------------
+function snapshotForExtraction(u) {
+    return {
+        maxHp: u.maxHp || u.hp || 0,
+        power: u.power || 0,
+        cooldown: u.cooldown || 2,
+        manaGen: u.manaGen || 0,
+        fireTypes: [...(u.fireTypes || [])],
+        actions: [...(u.actions || [])]
+    };
+}
+
+// 1回の合成で増えたもの（能力・ステータス）を target.extractionLog に残す
+function recordExtraction(target, src, before) {
+    if (!target.extractionLog) target.extractionLog = [];
+    target.extractionLog.push({
+        key: src.typeKey || src.id,
+        name: src.name,
+        srcHp: src.maxHp || src.hp || 0,
+        srcPower: src.power || 0,
+        hpGain: (target.maxHp || 0) - before.maxHp,
+        powerGain: (target.power || 0) - before.power,
+        cdMul: (target.cooldown || 2) / (before.cooldown || 2),
+        manaGain: (target.manaGen || 0) - before.manaGen,
+        addFire: (target.fireTypes || []).filter(f => !before.fireTypes.includes(f)),
+        addActions: (target.actions || []).filter(a => !before.actions.includes(a))
+    });
+}
+
+// シークレットのレシピ（土台と素材の順番）を判定式から調べる（1回だけ）
+const _recipePartsCache = {};
+function getRecipeParts(chimeraKey) {
+    if (_recipePartsCache[chimeraKey] !== undefined) return _recipePartsCache[chimeraKey];
+    const c = SECRET_CHIMERAS[chimeraKey];
+    const keys = Object.keys(UNIT_TYPES);
+    const test = (base, hist, last) => {
+        try { return !!c.recipe({ typeKey: base, extractionHistory: hist }, { typeKey: last }); } catch (e) { return false; }
+    };
+    let found = null;
+    outer2: for (const base of keys) for (const h of keys) for (const last of keys) {
+        if (test(base, [h], last)) { found = { base, mats: [h, last] }; break outer2; }
+    }
+    if (!found) {
+        outer3: for (const base of keys) for (const h1 of keys) for (const h2 of keys) for (const last of keys) {
+            if (test(base, [h1, h2], last)) { found = { base, mats: [h1, h2, last] }; break outer3; }
+        }
+    }
+    _recipePartsCache[chimeraKey] = found;
+    return found;
+}
+
+function applySecretInheritance(target, src, chimera, chimeraKey) {
+    const parts = getRecipeParts(chimeraKey);
+    const log = target.extractionLog || [];
+    // レシピで使った素材（最後の素材＝今回の src 以外）を、合成の記録から1つずつ探す
+    const used = new Set();
+    (parts ? parts.mats.slice(0, -1) : []).forEach(m => {
+        const idx = log.findIndex((e, i) => !used.has(i) && e.key === m);
+        if (idx >= 0) used.add(idx);
+    });
+    const consumed = log.filter((e, i) => used.has(i));
+    const kept = log.filter((e, i) => !used.has(i));
+    const sum = (arr, f) => arr.reduce((a, e) => a + (f(e) || 0), 0);
+
+    // レシピで使ったもの（土台の元の強さ＋素材＋今回の素材）の合計の半分
+    const baseDef = UNIT_TYPES[target.typeKey] || {};
+    const halfHp = 0.5 * ((baseDef.hp || 0) + sum(consumed, e => e.srcHp) + (src.maxHp || src.hp || 0));
+    const halfPower = 0.5 * ((baseDef.power || 0) + sum(consumed, e => e.srcPower) + (src.power || 0));
+
+    target.maxHp = Math.round(chimera.hp + halfHp + sum(kept, e => e.hpGain));
+    target.hp = target.maxHp;
+    target.power = Math.round((chimera.power || 0) + halfPower + sum(kept, e => e.powerGain));
+    target.cooldown = Math.max(0.3, chimera.cooldown * kept.reduce((a, e) => a * (e.cdMul || 1), 1));
+
+    // 能力: シークレットの能力 ＋ レシピに使わなかった合成で付いた能力
+    const union = (...lists) => [...new Set([].concat(...lists))];
+    let fireTypes = union(chimera.fireTypes, ...kept.map(e => e.addFire || []));
+    if (fireTypes.some(f => f !== 'none')) fireTypes = fireTypes.filter(f => f !== 'none');
+    target.fireTypes = fireTypes;
+    target.actions = union(chimera.actions || [], ...kept.map(e => e.addActions || []));
+    if (chimera.isManaProducer) target.isManaProducer = true;
+    const mana = (chimera.manaGen || 0) + sum(kept, e => e.manaGain);
+    target.manaGen = mana > 0 ? mana : undefined;
+    if (chimera.pierceCount) target.pierceCount = Math.max(chimera.pierceCount, target.pierceCount || 0);
+
+    // 合成回数: レシピに使わなかった分だけ残る（残りの回数だけまた合成できる）
+    target.extractionLog = kept;
+    target.extractionCount = kept.length;
+    target.extractionHistory = kept.map(e => e.key);
+    target.sourceNames = kept.map(e => e.name);
+}
+
 function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
     const target = gameState.units.find(u => u.col === targetCol && u.row === targetRow && u.side === side && u.hp > 0);
     const src = gameState.units.find(u => u.col === srcCol && u.row === srcRow && u.side === side && u.hp > 0);
     if (!target || !src || target === src) return;
 
-    // 抽出できるか（回数の上限・最終形態など）。CPUや通信で届いた合成もここで必ずチェックする
+    // 合成できるか（回数の上限・最終形態など）。CPUや通信で届いた合成もここで必ずチェックする
     if (getExtractionBlockReason(target, src)) return;
 
     // 自分の合成かどうか（相手の合成で自分の図鑑が埋まらないようにする）
@@ -4629,7 +5008,10 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         if (target.homing) target.actions.push('homing');
     }
 
-    // 素材側のスキル・特性を抽出
+    // 合成前の状態（この合成で何が増えたかを記録するため）
+    const before = snapshotForExtraction(target);
+
+    // 素材側のスキル・特性を合成
     const srcFireTypes = src.fireTypes || (src.fireType && src.fireType !== 'none' ? [src.fireType] : []);
     const srcActions = src.actions || [];
     if (src.action && !srcActions.includes(src.action)) srcActions.push(src.action);
@@ -4673,19 +5055,20 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
     // シークレット特殊進化（キメラ合体）の判定
     //  - すでにシークレットのユニットは再進化しない（以前は同じレシピでHPが満タンに戻っていた）
     //  - CPU対戦のCPUはシークレットを作らない
-    const isCpuSide = gameState.isBotMatch && side === BotAI.side;
-    let matchedChimera = null;
+    const isCpuSide = BotAI.extracting === true || (gameState.isBotMatch && side === BotAI.side);
+    let matchedChimera = null, matchedKey = null;
     if (!target.isSecretChimera && !isCpuSide) for (const key of Object.keys(SECRET_CHIMERAS)) {
         const chimera = SECRET_CHIMERAS[key];
         try {
             if (chimera.recipe(target, src)) {
                 matchedChimera = chimera;
+                matchedKey = key;
                 break;
             }
         } catch (e) {}
     }
 
-    // 抽出履歴に素材のtypeKeyを記録
+    // 合成履歴に素材のtypeKeyを記録
     target.extractionHistory.push(src.typeKey || src.id);
 
     // 正しい順番・組み合わせに合致した時のみ100%シークレット進化
@@ -4694,18 +5077,8 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         target.chimeraId = matchedChimera.id;
         target.name = matchedChimera.name;
         target.spriteKey = matchedChimera.id;
-        target.maxHp = matchedChimera.hp;
-        target.hp = matchedChimera.hp;
-        target.power = matchedChimera.power;
-        target.cooldown = matchedChimera.cooldown;
-        target.fireTypes = [...matchedChimera.fireTypes];
-        target.actions = [...(matchedChimera.actions || [])];
-        if (matchedChimera.isManaProducer) target.isManaProducer = true;
-        if (matchedChimera.manaGen) target.manaGen = matchedChimera.manaGen;
-        if (matchedChimera.pierceCount) target.pierceCount = matchedChimera.pierceCount;
-        // 誕生したら抽出回数を0に戻し、ここからまた5回まで抽出できる
-        target.extractionCount = 0;
-        target.extractionHistory = [];
+        // 受け継ぎ: レシピで使ったユニット（土台＋素材）の合計の半分 ＋ レシピに使わなかった合成はそのまま
+        applySecretInheritance(target, src, matchedChimera, matchedKey);
 
         // 図鑑アンロック記録（ローカル + クラウド同期）※自分が作ったときだけ
         if (isMine) {
@@ -4724,7 +5097,7 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
             ? `シークレット進化！「${matchedChimera.name}」が誕生した！`
             : `⚠ 相手がシークレット「${matchedChimera.name}」を誕生させた！`;
     } else if (target.isSecretChimera) {
-        // すでにシークレットであるユニットへの追加抽出（能力をさらに上乗せ強化！）
+        // すでにシークレットであるユニットへの追加合成（能力をさらに上乗せ強化！）
         const hpRatio = target.hp / (target.maxHp || target.hp || 1);
         target.maxHp = Math.floor((target.maxHp || target.hp) + (src.maxHp || src.hp) * 0.4);
         target.hp = Math.floor(target.maxHp * Math.max(0.2, hpRatio));
@@ -4732,7 +5105,8 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         target.cooldown = Math.max(0.4, (target.cooldown || 1.5) * 0.9);
         if (src.manaGen > 0) target.manaGen = (target.manaGen || 0) + src.manaGen * 0.6;
 
-        if (isMine) statusMsg.innerText = `シークレット「${target.name}」が「${src.name}」を吸収して超強化！ (抽出: ${target.extractionCount}/${EXTRACTION_LIMIT})`;
+        recordExtraction(target, src, before);
+        if (isMine) statusMsg.innerText = `シークレット「${target.name}」が「${src.name}」を吸収して超強化！ (合成: ${target.extractionCount}/${EXTRACTION_LIMIT})`;
     } else {
         // 通常の融合ステータス強化
         const hpRatio = target.hp / (target.maxHp || target.hp || 1);
@@ -4741,7 +5115,8 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         target.power = (target.power || 5) + Math.max(1, Math.floor((src.power || 5) * 0.25));
         target.cooldown = Math.max(0.6, (target.cooldown || 2.0) * 0.85);
 
-        if (isMine) statusMsg.innerText = `「${src.name}」と「${target.name}」が抽出融合！ (融合度: ${target.extractionCount}/${EXTRACTION_LIMIT})`;
+        recordExtraction(target, src, before);
+        if (isMine) statusMsg.innerText = `「${src.name}」と「${target.name}」が合成！ (合成: ${target.extractionCount}/${EXTRACTION_LIMIT})`;
     }
 
     // 吸収エフェクト用に光の球パーティクルを生成
@@ -4925,7 +5300,7 @@ function populateEncyclopedia() {
                     </div>
                 </div>
                 <div style="font-size: 0.7rem; color: #555; margin-bottom: 3px;">配合レシピ: ？？？？？？？？？？</div>
-                <p style="font-size: 0.75rem; margin-top: 3px; border-top: 1px solid #333; padding-top: 3px; line-height: 1.3; color: #666;">まだ発見されていない未知のシークレットキメラです。戦場で特殊な抽出を成功させると配合レシピが解放されます。</p>
+                <p style="font-size: 0.75rem; margin-top: 3px; border-top: 1px solid #333; padding-top: 3px; line-height: 1.3; color: #666;">まだ発見されていない未知のシークレットキメラです。戦場で特殊な合成を成功させると配合レシピが解放されます。</p>
             `;
         }
         list.appendChild(div);
@@ -5011,6 +5386,17 @@ function draw() {
     ctx.scale(Camera.zoom, Camera.zoom);
     ctx.translate(-W / 2 + Camera.x, -H / 2 + Camera.y);
 
+    // 陣地の色分け（自分の陣地=薄い青、相手の陣地=薄い赤）
+    {
+        const half = (CONFIG.GRID_COLS / 2) * CONFIG.TILE_SIZE;
+        const h = CONFIG.GRID_ROWS * CONFIG.TILE_SIZE;
+        const mineLeft = gameState.playerSide === 'left';
+        ctx.fillStyle = mineLeft ? 'rgba(70, 150, 255, 0.10)' : 'rgba(255, 80, 80, 0.10)';
+        ctx.fillRect(0, 0, half, h);
+        ctx.fillStyle = mineLeft ? 'rgba(255, 80, 80, 0.10)' : 'rgba(70, 150, 255, 0.10)';
+        ctx.fillRect(half, 0, half, h);
+    }
+
     // グリッド描画 (網目をわかりやすく)
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.lineWidth = 1;
@@ -5066,7 +5452,7 @@ function draw() {
             ctx.restore();
         }
 
-        // 抽出されている場合・シークレットの追加エフェクト（オーラとバッジ）※最終形態は何も出さない
+        // 合成されている場合・シークレットの追加エフェクト（オーラとバッジ）※最終形態は何も出さない
         if ((u.extractionCount > 0 || u.isSecretChimera) && !u.isFinalForm) {
             const count = u.extractionCount;
             const t = Date.now() / 400;
@@ -5085,7 +5471,7 @@ function draw() {
             ctx.ellipse(0, 12, 16 + count, 6, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            // 抽出回数バッジ
+            // 合成回数バッジ
             ctx.fillStyle = `hsla(${hue}, 100%, 70%, 0.9)`;
             ctx.font = `9px ${GAME_FONT}`;
             ctx.textAlign = 'center';
@@ -5093,7 +5479,7 @@ function draw() {
             ctx.restore();
         }
 
-        // 抽出モード中のハイライト
+        // 合成モード中のハイライト
         if (gameState.extractionMode && u.side === gameState.playerSide && u.hp > 0) {
             const isSelected = gameState.extractionSelections.some(s => s === u);
             // 選択されている場合は青枠、まだ選択されていない場合は緑枠
@@ -5213,6 +5599,9 @@ function draw() {
     // ⚡ 衝突の火花・電撃チェーン・毒の霧
     BattleFx.draw(ctx);
 
+    // ✨ パーティクル
+    Particles.draw(ctx);
+
     // 💥 ダメージ数字
     DamageNumbers.draw(ctx);
 
@@ -5301,6 +5690,8 @@ function drawPlayer(side, spriteKey) {
 function exitPracticeMode() {
     gameState.isPlaying = false;
     gameState.isPractice = false;
+    Sandbox.showUI(false);
+    updateUnitUI();
     menuOverlay.classList.remove('hidden');
     gameUI.classList.add('hidden');
     const btnExitP = document.getElementById('btn-exit-practice');
