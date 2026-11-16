@@ -2329,6 +2329,12 @@ function setupEventListeners() {
         });
     }
 
+    // ♟ ☗ 将棋・チェス
+    const btnChess = document.getElementById('btn-chess');
+    if (btnChess) btnChess.onclick = () => { if (window.BoardGames) BoardGames.open('chess'); };
+    const btnShogi = document.getElementById('btn-shogi');
+    if (btnShogi) btnShogi.onclick = () => { if (window.BoardGames) BoardGames.open('shogi'); };
+
     const btnPracticeLocal = document.getElementById('btn-practice');
     if (btnPracticeLocal) {
         btnPracticeLocal.onclick = () => {
@@ -2522,6 +2528,7 @@ function setupEventListeners() {
 function lobbyChatVisible() {
     const lobby = document.getElementById('lobby-chat');
     if (!lobby || lobby.style.display === 'none') return false;
+    if (window.BoardGames && BoardGames.isOpen()) return false; // 将棋・チェスの画面がかぶっている
     return lobby.offsetParent !== null && !document.hidden; // 親ごと隠れていれば見えていない
 }
 function notifyLobbyChat(m) {
@@ -2981,6 +2988,11 @@ function connectToServer() {
 }
 
 function handleServerMessage(data) {
+    // ♟ ☗ 将棋・チェス（boardgames.js）
+    if (typeof data.type === 'string' && data.type.startsWith('bg_')) {
+        if (window.BoardGames) BoardGames.onServer(data);
+        return;
+    }
     switch (data.type) {
         case 'online_players_update':
             updateOnlinePlayersUI(data.hostName, data.players, data.waiting);

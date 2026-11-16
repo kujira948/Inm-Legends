@@ -1032,3 +1032,79 @@ body { height: 100vh; height: 100dvh; }
 }
 .chat-toast.hide { opacity: 0; transform: translateY(-8px); }
 .chat-toast-name { color: #4fc3f7; font-weight: bold; }
+
+/* ♟ ☗ 将棋・チェス */
+.bg-home-btns { display: flex; gap: 8px; width: 220px; }
+.bg-home-btns button { flex: 1; background: #5b3a1a; font-weight: bold; }
+#bg-root {
+    position: fixed; inset: 0; z-index: 1300; /* ≡メニュー(1200)より上 */
+    background: #14161c; color: #eee;
+    overflow-y: auto;
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 8px calc(env(safe-area-inset-bottom, 0px) + 8px);
+    box-sizing: border-box;
+    font-family: inherit;
+}
+#bg-root[hidden], #bg-root [hidden] { display: none !important; }
+.bg-panel { max-width: 560px; margin: 0 auto; background: #1f232c; border: 1px solid #444; border-radius: 10px; padding: 14px 16px; box-sizing: border-box; }
+.bg-panel h2 { margin: 0 0 10px; color: #ffd700; text-align: center; }
+.bg-panel h3 { margin: 0 0 10px; color: #ffd700; text-align: center; }
+.bg-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.bg-label { color: #aaa; font-size: 0.85rem; min-width: 5em; }
+.bg-choice { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.bg-choice button { background: #333; border: 1px solid #666; color: #eee; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+.bg-choice button.on { background: #b58900; border-color: #ffd700; color: #fff; }
+.bg-rule { font-size: 0.8rem; color: #ccc; background: #15181f; border-radius: 6px; padding: 8px; margin: 6px 0 10px; line-height: 1.5; }
+.bg-modes { display: flex; flex-direction: column; gap: 10px; }
+.bg-mode { border: 1px solid #3a3f4b; border-radius: 8px; padding: 10px; }
+.bg-big { width: 100%; padding: 10px; font-size: 1rem; font-weight: bold; background: #2d6a4f; border: none; color: #fff; border-radius: 6px; cursor: pointer; font-family: inherit; }
+.bg-note { font-size: 0.75rem; color: #999; margin-top: 4px; }
+.bg-status { font-size: 0.85rem; color: #ffd700; margin-top: 6px; min-height: 1rem; }
+.bg-seat-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-top: 4px; }
+.bg-seat-row select { background: #222; color: #fff; border: 1px solid #666; border-radius: 4px; padding: 2px 6px; }
+.bg-back { margin-top: 12px; width: 100%; background: #444; border: none; color: #eee; padding: 8px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+#bg-game { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#bg-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; width: 100%; max-width: 900px; }
+#bg-title { font-weight: bold; color: #ffd700; }
+#bg-turn { flex: 1; text-align: center; font-size: 0.95rem; min-width: 12em; }
+.bg-top-btns { display: flex; gap: 6px; }
+.bg-top-btns button { background: #444; border: none; color: #eee; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+.bg-top-btns button:disabled { opacity: 0.4; cursor: default; }
+#bg-players { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.bg-player { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; background: #222; border: 1px solid #444; border-radius: 12px; padding: 2px 10px; }
+.bg-player-turn { border-color: #ffd700; box-shadow: 0 0 6px rgba(255, 215, 0, 0.5); }
+.bg-player-out { opacity: 0.45; text-decoration: line-through; }
+.bg-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #888; display: inline-block; }
+#bg-board-wrap { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+#bg-board { display: grid; user-select: none; -webkit-user-select: none; }
+.bg-cell { width: var(--cell); height: var(--cell); box-sizing: border-box; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+.bg-board-chess .bg-light { background: #eed9b5; }
+.bg-board-chess .bg-dark { background: #b58863; }
+.bg-board-shogi .bg-cell:not(.bg-void) { background: #e3c27a; border: 1px solid #7a5a2a; }
+.bg-void { background: transparent !important; border: none !important; cursor: default; }
+.bg-sel { outline: 3px solid #2ecc71; outline-offset: -3px; }
+.bg-last::before { content: ''; position: absolute; inset: 0; background: rgba(255, 230, 0, 0.32); pointer-events: none; }
+.bg-check::before { content: ''; position: absolute; inset: 0; background: rgba(255, 0, 0, 0.45); pointer-events: none; }
+.bg-target::after { content: ''; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: rgba(20, 120, 40, 0.65); pointer-events: none; }
+.bg-target-cap::after { content: ''; position: absolute; inset: 6%; border-radius: 50%; border: 3px solid rgba(220, 30, 30, 0.8); pointer-events: none; }
+.bg-piece { position: relative; z-index: 1; pointer-events: none; line-height: 1; }
+.bg-piece-chess { font-size: calc(var(--cell) * 0.8); }
+.bg-piece-shogi {
+    width: 82%; height: 88%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(#f7e2b0, #e9c98a);
+    clip-path: polygon(50% 0, 88% 18%, 100% 100%, 0 100%, 12% 18%);
+    color: #111; font-weight: bold;
+    font-size: calc(var(--cell) * 0.48);
+    padding-top: 8%; box-sizing: border-box;
+}
+.bg-piece-shogi.bg-promoted { color: #c0001a; }
+#bg-hands { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 900px; }
+.bg-hand-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 0.8rem; }
+.bg-hand-label { border-left: 4px solid #888; padding-left: 6px; color: #ccc; }
+.bg-hand-piece { background: #e9c98a; color: #111; border: 1px solid #7a5a2a; border-radius: 4px; padding: 3px 8px; font-weight: bold; cursor: pointer; font-family: inherit; }
+.bg-hand-piece.bg-sel { outline: 3px solid #2ecc71; }
+.bg-hand-none { color: #777; }
+#bg-msg { min-height: 1.2rem; font-size: 0.85rem; color: #ffd700; text-align: center; }
+#bg-dialog { position: fixed; inset: 0; z-index: 1350; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+#bg-dialog .bg-panel { width: min(92vw, 380px); text-align: center; }
+#bg-dialog p { margin: 0 0 12px; }

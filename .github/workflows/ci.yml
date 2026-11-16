@@ -22,3 +22,6 @@ jobs:
       run: |
         node --check server/server.js
         node --check client/main.js
+        node --check client/boardgames-engine.js
+        node --check client/boardgames.js
+        node --check server/boardgames-server.js

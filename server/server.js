@@ -3,6 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
 const fs = require('fs');
+const BoardGamesServer = require('./boardgames-server'); // ♟ ☗ 将棋・チェス
 
 const app = express();
 const server = http.createServer(app);
@@ -114,6 +115,8 @@ let connectedPlayers = new Map(); // ws -> { id, name }
 // 各プレイヤーのいまの状態（対戦中 / 対戦待ち / 待機中）
 function playerStatus(ws) {
     if (ws.roomId && rooms.has(ws.roomId)) return 'playing';
+    if (BoardGamesServer.isInBgRoom(ws)) return 'playing';
+    if (BoardGamesServer.isInBgQueue(ws)) return 'waiting';
     if (matchmakingQueues.rated.includes(ws) || matchmakingQueues.unrated.includes(ws)) return 'waiting';
     return 'idle';
 }
@@ -223,6 +226,13 @@ wss.on('connection', (ws) => {
             const text = message.toString();
             const data = JSON.parse(text);
 
+            // ♟ ☗ 将棋・チェス
+            if (typeof data.type === 'string' && data.type.startsWith('bg_')) {
+                BoardGamesServer.handle(ws, data);
+                broadcastOnlinePlayers();
+                return;
+            }
+
             switch (data.type) {
                 case 'register_player':
                     if (data.name && data.name.trim() !== '') {
@@ -244,6 +254,7 @@ wss.on('connection', (ws) => {
                     // 前の試合の部屋が残っていれば片付け、二重登録も防ぐ
                     leaveCurrentRoom(ws);
                     removeFromQueues(ws);
+                    BoardGamesServer.removeFromBgQueues(ws);
 
                     ws.isRated = true; // オンライン対戦はすべてレート戦（ノーマル戦は廃止）
                     const queueKey = ws.isRated ? 'rated' : 'unrated';
@@ -324,6 +335,7 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         connectedPlayers.delete(ws);
         removeFromQueues(ws);
+        BoardGamesServer.onClose(ws);
         leaveCurrentRoom(ws);
         broadcastOnlinePlayers();
     });

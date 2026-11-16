@@ -37,10 +37,13 @@ R8-main/
 ├── client/                     # クライアント側（ブラウザで動くフロントエンド）
 │   ├── index.html              # ゲーム画面・UI・モーダル（デッキ編成、図鑑、プレビュー）
 │   ├── main.js                 # メインゲームロジック（描画、更新、当たり判定、通信、Bot、合成）
+│   ├── boardgames-engine.js    # 将棋・チェスのルール（2〜4人）・CPU。ブラウザとサーバーの両方で使う
+│   ├── boardgames.js           # 将棋・チェスの画面（設定・盤・持ち駒・オンライン）
 │   └── styles.css              # レトロモダンなゲームUIデザイン・アニメーション
 │
 ├── server/                     # サーバー側（Node.js / Express / WebSocket）
-│   └── server.js               # マッチング、ルーム管理、通信の中継、ユーザーデータ保存（userdata.json）、全体チャット（chat_history.json）
+│   ├── server.js               # マッチング、ルーム管理、通信の中継、ユーザーデータ保存（userdata.json）、全体チャット（chat_history.json）
+│   └── boardgames-server.js    # 将棋・チェスのマッチング・部屋・手の確認（ルールは client/boardgames-engine.js を require）
 │
 ├── .github/workflows/ci.yml    # GitHub に push したときの自動構文チェック
 ├── .devcontainer/              # GitHub Codespaces 用の設定
@@ -199,6 +202,18 @@ R8-main/
 - **弾どうしの衝突**: `resolveBulletCollisions()`（毎フレーム、弾の移動の前）。敵どうしのすべての弾（コーラも）がぶつかると、攻撃力の大きい方が残り、消えた弾の攻撃力の分だけ減ります。同じなら両方消えます。24pxのマス目に分けて近くの弾だけ調べ、1フレームの動きの間でいちばん近づいた距離で判定します（すれちがいも当たる）。氷結・重力・竜巻返しの弾はそれぞれの能力で消すので対象外。ゲイザーは70%でかわします。
 - **盾の装甲**: `SHIELD_ARMOR`（木盾5・鉄盾8・魔力盾6、重ね合成でLvごとに+2）。弾が当たるたびにダメージから引きます（最低1）。盾の能力を合成で受け継いだユニットにも付きます。毒の霧・電撃チェーンなど弾以外のダメージには効きません。
 - **コスト**: すべてのユニットのコストを `UNIT_COST_RATE`（1.2倍）、合成1回に `EXTRACTION_MANA_COST`（4マナ）。マナが足りないと `getExtractionBlockReason()` が「合成には4マナ必要です！」を返します。
+
+### ③-9 将棋・チェス（2〜4人）（2026-11-17 追加）
+- **ルール** `client/boardgames-engine.js`（`BoardEngine`。サーバーは `require` で同じものを使う）。局面 `state` は `{ game, n, N, arm, valid, board, hands, rot, alive, turn, ply, half, quiet, ep, winner, reason, last, reps }`。`board[y*N+x]` の駒は `{ t: 種類, o: 席, pr: 成り, mv: 動いたか }`。
+  - 席は時計回りに 0=下・1=左・2=上・3=右。`rot[席]` が盤を何回まわした向きか（2人は [0,2]、3人は [0,1,2]）。初期配置は下の席の形を `rotP()` でまわして作り、駒の動きは `rotV()` で席の向きに直します。
+  - 3・4人は十字形の盤（チェス14×14・将棋15×15、四すみ3×3を切り取る。`arm`=3）。
+  - 主な関数: `create(game, n)`、`legalMoves(state)`（2人は王手を放っておく手・打ち歩詰めをのぞく。3・4人は王手の決まりなし）、`play(state, move)`（新しい局面を返し、勝ち負け・引き分けも決める）、`resign(state, seat, why)`、`findLegal(state, move)`、`aiMove(state, level)`。
+  - 手は `{ f: [x,y], t: [x,y], pr }`（`pr`: 将棋は成る true／成らない false、チェスは 'Q'|'R'|'B'|'N'）か、打つ手 `{ d: '歩の種類', t: [x,y] }`。キャスリングは `castle`、アンパッサンは `ep` が付きます。
+  - 3・4人: 王を取られた人は `eliminate()` で脱落し、駒と持ち駒が消えます。チェスのポーンは8段目（`rankFromBack` が7）でプロモーション。将棋の成れる場所は自分以外の腕（`inZone()`）。行き所のない駒は `deadEnd()` で判定。1人あたり50手だれも駒を取らない・同じ局面5回で引き分け。
+  - CPU: 2人はアルファベータ探索（チェス: よわい1手・ふつう2手・つよい3手先、将棋: 1・2・2手先。調べる局面数に上限）、3・4人は1手先＋「次に取られそうな駒」＋「ほかの人の王に近づく」を見ます。
+  - **確かめ方**: 2人チェスはパーフト（初期局面4手先 197,281、Kiwipete など有名な局面）、2人将棋はパーフト（4手先 719,731）がすべて正解です。
+- **画面** `client/boardgames.js`（`BoardGames`）: ホームの「♟ チェス」「☗ 将棋」→ 設定画面（人数・オンライン／CPUと対戦／同じ画面で交代）→ 盤（DOMのマス目。オンラインは自分の席が下に来るようにまわす）。将棋の駒は持ち主の向きに回転、3・4人は持ち主の色の線を付けます。
+- **オンライン** `server/boardgames-server.js`: `bg_find {game, players}` で待ち行列に入り（`bg_queue` で人数を知らせる）、そろうと `bg_start {seat, names}`。`bg_move` はサーバーが番と合法手を確かめてから全員に配り、各画面は届いた手で盤を進めます（自分の手もサーバーから届いてから反映）。`bg_resign`・`bg_leave`・切断はその人の投了（3・4人は脱落だけ）。`bg_` で始まるメッセージは `server.js` と `main.js` の `handleServerMessage()` から渡します。
 
 ### ④ シールド系＆マナ回復系の独自特殊能力
 単なる耐久や回復量の大小ではなく、独自の固有スキルを持ちます：
