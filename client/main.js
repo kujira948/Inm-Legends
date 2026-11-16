@@ -183,13 +183,24 @@ const SoundManager = {
             try { this.ctx.resume(); } catch (e) {}
         }
     },
+    // 鳴らしてよいか: 音が止まっている（まだ画面を押していない・裏のタブ）ときは作らない（作った音がたまってメモリが増え続けていた）
+    //   同じ音は0.05秒に1回まで（弾がたくさん出たときに音を作りすぎて重くなるのを防ぐ）
+    _last: {},
+    can(name) {
+        if (!this.ctx || this.muted || this.ctx.state !== 'running') return false;
+        if (name === 'victory') return true;
+        const now = performance.now();
+        if (now - (this._last[name] || 0) < 50) return false;
+        this._last[name] = now;
+        return true;
+    },
     getDest() {
         this.init();
         return this.masterGain || (this.ctx ? this.ctx.destination : null);
     },
     playSummon() {
         this.init(); this.resume();
-        if (!this.ctx || this.muted) return;
+        if (!this.can('summon')) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
@@ -202,7 +213,7 @@ const SoundManager = {
     },
     playFire() {
         this.init(); this.resume();
-        if (!this.ctx || this.muted) return;
+        if (!this.can('fire')) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
@@ -215,7 +226,7 @@ const SoundManager = {
     },
     playHit() {
         this.init(); this.resume();
-        if (!this.ctx || this.muted) return;
+        if (!this.can('hit')) return;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'square';
@@ -227,7 +238,7 @@ const SoundManager = {
     },
     playExplosion() {
         this.init(); this.resume();
-        if (!this.ctx || this.muted) return;
+        if (!this.can('explosion')) return;
         const bufferSize = this.ctx.sampleRate * 0.3;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -244,7 +255,7 @@ const SoundManager = {
     },
     playVictory() {
         this.init(); this.resume();
-        if (!this.ctx || this.muted) return;
+        if (!this.can('victory')) return;
         [440, 554, 659, 880].forEach((f, i) => {
             const osc = this.ctx.createOscillator();
             const gain = this.ctx.createGain();

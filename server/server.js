@@ -8,7 +8,8 @@ const compression = require('compression'); // 送るファイルを圧縮（軽
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+// 受け取るメッセージは1MBまで（ふつうは大きくても約30KB。大きすぎるデータでメモリを使い切られないように）
+const wss = new WebSocket.Server({ server, maxPayload: 1024 * 1024 });
 
 const port = process.env.PORT || 3000;
 
