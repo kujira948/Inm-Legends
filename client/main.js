@@ -1586,6 +1586,11 @@ BOT_EXTRA_LEVELS.forEach(x => { BOT_LEVELS[x.level] = { ...BOT_LEVELS[5], buff: 
 const CPU_LEVEL_NAMES = ['', '易しい', '普通', '難しい', '超難', '鬼', ...BOT_EXTRA_LEVELS.map(x => x.name)];
 const CPU_BOT_NAMES = ['', '🤖 よわよわBot', '🤖 普通Bot', '🤖 強化Bot', '🤖 超強Bot', '🤖 鬼Bot', ...BOT_EXTRA_LEVELS.map(x => x.bot)];
 
+// その陣営がCPU（CPU戦・練習場のCPU）か
+function cpuBuffActiveFor(side) {
+    const active = gameState.isBotMatch || (typeof Sandbox !== 'undefined' && Sandbox.cpuActive());
+    return !!active && side === BotAI.side;
+}
 // 今のCPUのバフ（なければ null）。side を渡すと、その陣営がCPUのときだけ返す
 function cpuBuff(side) {
     const active = gameState.isBotMatch || (typeof Sandbox !== 'undefined' && Sandbox.cpuActive());
@@ -1695,7 +1700,7 @@ const BotAI = {
         return typeof u.typeKey === 'string' && u.typeKey.startsWith('RICE_SHIELD');
     },
     canExtract(u) {
-        return !u.isFinalForm && (u.extractionCount || 0) < EXTRACTION_LIMIT;
+        return !u.isFinalForm && (u.extractionCount || 0) < extractionLimitOf(u);
     },
     isFreshMaterial(u) {
         return !u.isSecretChimera && !(u.extractionCount > 0);
@@ -1955,7 +1960,7 @@ const BotAI = {
 
         // 易しい: ふつうの強化合成（融合度3未満どうし）
         if (L.extract === 'general') {
-            const cand = units.filter(u => (u.extractionCount || 0) < 3 && !u.isSecretChimera);
+            const cand = units.filter(u => (u.extractionCount || 0) < extractionLimitOf(u) && !u.isSecretChimera);
             if (cand.length >= 2) this.extract(cand[0], cand[1]);
             return;
         }
@@ -1989,9 +1994,10 @@ function startBotMatch() {
         try { socket.send(JSON.stringify({ type: 'cancel_match' })); } catch (e) {}
     }
     if (gameState.matchTimeoutTimer) {
-        clearTimeout(gameState.matchTimeoutTimer);
+        clearInterval(gameState.matchTimeoutTimer);
         gameState.matchTimeoutTimer = null;
     }
+    setTimeout(showMatchElapsed, 0); // 経過時間の表示を消す
 
     const difficultyEl = document.getElementById('cpu-difficulty');
     const difficulty = difficultyEl ? parseInt(difficultyEl.value) : 2;
@@ -2326,9 +2332,10 @@ function setupEventListeners() {
     const btnPracticeLocal = document.getElementById('btn-practice');
     if (btnPracticeLocal) {
         btnPracticeLocal.onclick = () => {
-            if (socket) {
-                try { socket.close(); } catch (e) {}
-                socket = null;
+            // 接続は切らない（練習中も全体チャットの通知を受け取るため）。マッチング・部屋だけ抜ける
+            if (gameState.isMatching) cancelMatch();
+            if (socket && socket.readyState === WebSocket.OPEN && gameState.roomId) {
+                try { socket.send(JSON.stringify({ type: 'leave_room' })); } catch (e) {}
             }
             gameState.roomId = null;
             gameState.isHost = false;
@@ -2509,6 +2516,36 @@ function setupEventListeners() {
     });
 
     updateUnitUI();
+}
+
+// 💬 全体チャットの通知: チャット画面が見えないとき（試合中・練習場・CPU戦・将棋やチェスなど）に、画面の上に4秒出す
+function lobbyChatVisible() {
+    const lobby = document.getElementById('lobby-chat');
+    if (!lobby || lobby.style.display === 'none') return false;
+    return lobby.offsetParent !== null && !document.hidden; // 親ごと隠れていれば見えていない
+}
+function notifyLobbyChat(m) {
+    if (!m || !isChatEnabled()) return;
+    const myName = ((document.getElementById('player-name') || {}).value || '').trim();
+    if (m.name && m.name === myName) return; // 自分の発言
+    if (lobbyChatVisible()) return;
+    let box = document.getElementById('chat-toasts');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'chat-toasts';
+        document.body.appendChild(box);
+    }
+    const t = document.createElement('div');
+    t.className = 'chat-toast';
+    const nm = document.createElement('span');
+    nm.className = 'chat-toast-name';
+    nm.textContent = (m.name || '???') + '：';
+    const tx = document.createElement('span');
+    tx.textContent = m.text || '';
+    t.append('💬 ', nm, tx);
+    box.appendChild(t);
+    while (box.children.length > 3) box.removeChild(box.firstChild);
+    setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 400); }, 4000);
 }
 
 // チャット設定（初期値はON。OFFのときだけ '0' を保存）
@@ -2718,25 +2755,36 @@ function startMatchmaking() {
     if (btnFindMatch) btnFindMatch.innerText = 'キャンセル';
     statusMsg.innerText = 'レート戦の相手を探しています...';
 
-    // 🕒 スマートマッチング: 6秒以内に人間が見つからなければ、強化Botとの対戦を提案・自動開始
-    if (gameState.matchTimeoutTimer) clearTimeout(gameState.matchTimeoutTimer);
-    gameState.matchTimeoutTimer = setTimeout(() => {
-        if (gameState.isMatching) {
-            statusMsg.innerText = "対戦相手が見つからないため、強化AI（Bot）との対戦を開始します！";
-            setTimeout(() => {
-                if (gameState.isMatching) {
-                    cancelMatch();
-                    startBotMatch();
-                }
-            }, 1000);
-        }
-    }, 6000);
+    // 🕒 マッチングの経過時間を表示（相手が見つかるかキャンセルするまで待つ。CPUとは自動で対戦しない）
+    if (gameState.matchTimeoutTimer) clearInterval(gameState.matchTimeoutTimer);
+    gameState.matchStartedAt = Date.now();
+    showMatchElapsed();
+    gameState.matchTimeoutTimer = setInterval(showMatchElapsed, 1000);
 
     if (!socket || socket.readyState !== WebSocket.OPEN) {
         connectToServer();
     } else {
         sendFindMatch();
     }
+}
+
+// マッチング中の経過時間（例: 1:05）
+function formatElapsed(ms) {
+    const sec = Math.max(0, Math.floor(ms / 1000));
+    return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+}
+function showMatchElapsed() {
+    const el = document.getElementById('match-elapsed');
+    if (!gameState.isMatching) {
+        if (el) el.textContent = '';
+        const b = document.getElementById('btn-find-match');
+        if (b && b.innerText.startsWith('キャンセル')) b.innerText = '対戦相手を探す';
+        return;
+    }
+    const t = formatElapsed(Date.now() - (gameState.matchStartedAt || Date.now()));
+    if (el) el.textContent = `⏳ マッチング中… ${t}`;
+    const btn = document.getElementById('btn-find-match');
+    if (btn) btn.innerText = `キャンセル（${t}）`;
 }
 
 function sendFindMatch() {
@@ -2749,9 +2797,10 @@ function sendFindMatch() {
 function cancelMatch() {
     gameState.isMatching = false;
     if (gameState.matchTimeoutTimer) {
-        clearTimeout(gameState.matchTimeoutTimer);
+        clearInterval(gameState.matchTimeoutTimer);
         gameState.matchTimeoutTimer = null;
     }
+    showMatchElapsed();
     const btnFindMatch = document.getElementById('btn-find-match');
     if (btnFindMatch) btnFindMatch.innerText = '対戦相手を探す';
     statusMsg.innerText = '';
@@ -2948,6 +2997,7 @@ function handleServerMessage(data) {
         }
         case 'lobby_chat':
             appendLobbyChatMessage(data.message);
+            notifyLobbyChat(data.message);
             break;
         case 'lobby_chat_error':
             showLobbyChatNote(data.reason || '送信できませんでした。');
@@ -2959,8 +3009,9 @@ function handleServerMessage(data) {
             statusMsg.innerText = 'マッチングをキャンセルしました';
             break;
         case 'created':
-            if (gameState.matchTimeoutTimer) { clearTimeout(gameState.matchTimeoutTimer); gameState.matchTimeoutTimer = null; }
+            if (gameState.matchTimeoutTimer) { clearInterval(gameState.matchTimeoutTimer); gameState.matchTimeoutTimer = null; }
             gameState.isMatching = false;
+            showMatchElapsed();
             gameState.isHost = true;
             gameState.isBotMatch = false;
             gameState.roomId = data.roomId;
@@ -2971,8 +3022,9 @@ function handleServerMessage(data) {
             startGame();
             break;
         case 'joined':
-            if (gameState.matchTimeoutTimer) { clearTimeout(gameState.matchTimeoutTimer); gameState.matchTimeoutTimer = null; }
+            if (gameState.matchTimeoutTimer) { clearInterval(gameState.matchTimeoutTimer); gameState.matchTimeoutTimer = null; }
             gameState.isMatching = false;
+            showMatchElapsed();
             gameState.isHost = false;
             gameState.isBotMatch = false;
             gameState.roomId = data.roomId;
@@ -5617,6 +5669,16 @@ const DamageNumbers = {
 
 // 合成できる回数。シークレットは誕生した時点で0に戻り、また5回まで合成できる
 const EXTRACTION_LIMIT = 5;
+// CPUが合成できる回数（難易度ごと。プレイヤーは EXTRACTION_LIMIT）
+const CPU_EXTRACTION_LIMITS = [0, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20];
+// このユニットが合成できる回数
+function extractionLimitOf(u) {
+    if (u && cpuBuffActiveFor(u.side)) {
+        const lv = gameState.isBotMatch ? gameState.cpuDifficulty : Sandbox.settings.cpuLevel;
+        return CPU_EXTRACTION_LIMITS[lv] || EXTRACTION_LIMIT;
+    }
+    return EXTRACTION_LIMIT;
+}
 // 合成1回にかかるマナ
 const EXTRACTION_MANA_COST = 4;
 // 最終形態（シークレット同士の合成）の強さ: 2体の合計 × この倍率
@@ -5637,8 +5699,8 @@ function getExtractionBlockReason(target, src) {
     if (target.isFinalForm || src.isFinalForm) return '「？？？」はこれ以上合成できません！';
     if (target.isSecretChimera && src.isSecretChimera) return extractionManaReason(target); // シークレット同士は回数に関係なく最終進化できる
     if (src.isSecretChimera) return 'シークレットは、ふつうのユニットの素材にはできません！（シークレットをあとに選ぶと、シークレットが土台になります）';
-    if ((target.extractionCount || 0) >= EXTRACTION_LIMIT) {
-        return `「${target.name}」は既に最大合成数（${EXTRACTION_LIMIT}回）に達しています！`;
+    if ((target.extractionCount || 0) >= extractionLimitOf(target)) {
+        return `「${target.name}」は既に最大合成数（${extractionLimitOf(target)}回）に達しています！`;
     }
     return extractionManaReason(target);
 }
@@ -5990,7 +6052,7 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
         if (src.manaGen > 0) target.manaGen = (target.manaGen || 0) + src.manaGen * 0.6;
 
         recordExtraction(target, src, before, gainedLv);
-        if (isMine) statusMsg.innerText = `シークレット「${target.name}」が「${src.name}」を吸収して超強化！ (合成: ${target.extractionCount}/${EXTRACTION_LIMIT})`;
+        if (isMine) statusMsg.innerText = `シークレット「${target.name}」が「${src.name}」を吸収して超強化！ (合成: ${target.extractionCount}/${extractionLimitOf(target)})`;
     } else {
         // 通常の融合ステータス強化
         const hpRatio = target.hp / (target.maxHp || target.hp || 1);
@@ -6002,8 +6064,8 @@ function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
 
         recordExtraction(target, src, before, gainedLv);
         if (isMine) statusMsg.innerText = sameKind
-            ? `「${target.name}」を重ねて合成！ 能力レベルアップ！ (合成: ${target.extractionCount}/${EXTRACTION_LIMIT})`
-            : `「${src.name}」と「${target.name}」が合成！ (合成: ${target.extractionCount}/${EXTRACTION_LIMIT})`;
+            ? `「${target.name}」を重ねて合成！ 能力レベルアップ！ (合成: ${target.extractionCount}/${extractionLimitOf(target)})`
+            : `「${src.name}」と「${target.name}」が合成！ (合成: ${target.extractionCount}/${extractionLimitOf(target)})`;
     }
 
     // 吸収エフェクト用に光の球パーティクルを生成
@@ -6670,12 +6732,13 @@ function leaveRoom() {
         cancelMatch();
     }
     if (gameState.matchTimeoutTimer) {
-        clearTimeout(gameState.matchTimeoutTimer);
+        clearInterval(gameState.matchTimeoutTimer);
         gameState.matchTimeoutTimer = null;
     }
-    if (socket && !gameState.isBotMatch) {
-        socket.close();
-        socket = null;
+    setTimeout(showMatchElapsed, 0); // 経過時間の表示を消す
+    // 接続は切らずに部屋だけ抜ける（ホーム画面のオンライン一覧・全体チャットをそのまま使う）
+    if (socket && socket.readyState === WebSocket.OPEN && !gameState.isBotMatch && gameState.roomId) {
+        try { socket.send(JSON.stringify({ type: 'leave_room' })); } catch (e) {}
     }
     gameState.isPlaying = false;
     gameState.roomId = null;

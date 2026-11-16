@@ -1005,3 +1005,30 @@ body { height: 100vh; height: 100dvh; }
 .sandbox-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
 .sandbox-buttons button { padding: 6px 4px; font-size: 0.75rem; }
 #sb-restart { background: #7a2e2e; }
+
+/* 💬 全体チャットの通知（チャット画面が見えないとき） */
+#chat-toasts {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+    width: min(92vw, 420px);
+}
+.chat-toast {
+    background: rgba(10, 20, 40, 0.92);
+    border: 1px solid #4fc3f7;
+    color: #fff;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    overflow-wrap: anywhere;
+    transition: opacity 0.4s, transform 0.4s;
+}
+.chat-toast.hide { opacity: 0; transform: translateY(-8px); }
+.chat-toast-name { color: #4fc3f7; font-weight: bold; }
