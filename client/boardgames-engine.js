@@ -535,7 +535,55 @@
         return SHOGI_NAME[p.t];
     }
 
+    // ---- ⏱ 時間制限（持ち時間・秒読み・加算） ----
+    //   tc = { main: 持ち時間（秒。0 = なし）, mode: 'none' | 'byoyomi' | 'increment', extra: 秒読み／加算の秒 }
+    //   clock = { left: [席ごとの残りの持ち時間ms], turnStart: 今の番が始まった時刻ms, seat: 今の番の席 }
+    //   時刻は呼ぶ側が渡す（サーバーとブラウザで同じ計算をするため）
+    function normalizeTc(tc) {
+        tc = tc || {};
+        const MAINS = [0, 60, 180, 300, 600, 1800];
+        const EXTRAS = { byoyomi: [10, 30, 60], increment: [2, 5, 10] };
+        const main = MAINS.includes(+tc.main) ? +tc.main : 0;
+        let mode = ['byoyomi', 'increment'].includes(tc.mode) ? tc.mode : 'none';
+        let extra = mode !== 'none' && EXTRAS[mode].includes(+tc.extra) ? +tc.extra : 0;
+        if (mode !== 'none' && !extra) mode = 'none';
+        if (mode === 'increment' && main === 0) { mode = 'none'; extra = 0; } // 持ち時間0の加算は意味がない
+        return { main, mode, extra };
+    }
+    function clockOn(tc) { return !!tc && (tc.main > 0 || (tc.mode === 'byoyomi' && tc.extra > 0)); }
+    function clockCreate(tc, n, now) { return { left: new Array(n).fill(tc.main * 1000), turnStart: now, seat: 0 }; }
+    // 今の番の人が時間切れになる時刻
+    function clockDeadline(tc, c) { return c.turnStart + c.left[c.seat] + (tc.mode === 'byoyomi' ? tc.extra * 1000 : 0); }
+    // 表示用: 席ごとの { ms: 持ち時間の残り, byo: 秒読みの残りms（秒読み中だけ） }
+    function clockView(tc, c, seat, now) {
+        let left = c.left[seat], byo = null;
+        if (seat === c.seat) {
+            const used = now - c.turnStart;
+            if (used <= left) left -= used;
+            else { const over = used - left; left = 0; if (tc.mode === 'byoyomi') byo = Math.max(0, tc.extra * 1000 - over); }
+        }
+        if (byo === null && left <= 0 && tc.mode === 'byoyomi') byo = tc.extra * 1000;
+        return { ms: Math.max(0, left), byo };
+    }
+    // 指したとき: 指した人の時計を進め、次の人の番を始める
+    function clockAfterMove(tc, c, nextSeat, now) {
+        const left = c.left.slice();
+        const used = now - c.turnStart;
+        const s = c.seat;
+        if (tc.mode === 'byoyomi') left[s] = Math.max(0, left[s] - used); // 秒読みは毎回もとにもどる
+        else left[s] = Math.max(0, left[s] - used) + (tc.mode === 'increment' ? tc.extra * 1000 : 0);
+        return { left, turnStart: now, seat: nextSeat };
+    }
+    // 番だけ変わったとき（投了・脱落など）
+    function clockSwitch(c, nextSeat, now) {
+        if (c.seat === nextSeat) return c;
+        const left = c.left.slice();
+        left[c.seat] = Math.max(0, left[c.seat] - (now - c.turnStart));
+        return { left, turnStart: now, seat: nextSeat };
+    }
+
     const api = {
+        normalizeTc, clockOn, clockCreate, clockDeadline, clockView, clockAfterMove, clockSwitch,
         create, legalMoves, play, resign, findLegal, sameMove, inCheck, kingPos, aiMove, posKey, label,
         inZone, rankFromBack, rotV, SHOGI_NAME, SHOGI_PROMOTED_NAME, CHESS_GLYPH, pseudoMoves, evalFor
     };

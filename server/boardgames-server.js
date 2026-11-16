@@ -32,7 +32,9 @@ function find(ws, data) {
     if (!game || !n) return send(ws, { type: 'bg_error', reason: 'ゲームか人数がおかしいです。' });
     leave(ws, '退出');
     removeFromBgQueues(ws);
-    const key = game + ':' + n;
+    // 同じゲーム・人数・時間の決まりを選んだ人どうしでマッチング
+    const tc = E.normalizeTc(data.tc);
+    const key = [game, n, tc.main, tc.mode, tc.extra].join(':');
     if (!queues.has(key)) queues.set(key, []);
     const q = queues.get(key).filter(p => p.readyState === WebSocket.OPEN && p !== ws);
     q.push(ws);
@@ -40,12 +42,14 @@ function find(ws, data) {
     if (q.length >= n) {
         const players = q.splice(0, n);
         const roomId = 'bg' + Math.random().toString(36).slice(2, 9);
-        const room = { game, n, players, names: players.map(p => p.playerName || 'プレイヤー'), state: E.create(game, n) };
+        const room = { game, n, players, names: players.map(p => p.playerName || 'プレイヤー'), state: E.create(game, n), tc, clock: null, timer: null };
+        if (E.clockOn(tc)) room.clock = E.clockCreate(tc, n, Date.now());
         rooms.set(roomId, room);
         players.forEach((p, seat) => {
             p.bgRoom = roomId; p.bgSeat = seat;
-            send(p, { type: 'bg_start', roomId, game, n, seat, names: room.names });
+            send(p, { type: 'bg_start', roomId, game, n, seat, names: room.names, tc, clock: clockMsg(room) });
         });
+        schedule(roomId);
     }
     notifyQueue(key);
 }
@@ -56,11 +60,16 @@ function move(ws, data) {
     const s = room.state;
     if (s.winner !== null) return send(ws, { type: 'bg_error', reason: '対局は終わっています。' });
     if (s.turn !== ws.bgSeat) return send(ws, { type: 'bg_error', reason: 'あなたの番ではありません。' });
+    const now = Date.now();
+    // 時間切れの手は受け付けない（時計はサーバーが計る）
+    if (room.clock && now > E.clockDeadline(room.tc, room.clock)) { flag(ws.bgRoom); return; }
     const m = data && data.move;
     const legal = m && typeof m === 'object' ? E.findLegal(s, m) : null;
     if (!legal) return send(ws, { type: 'bg_error', reason: 'その手は指せません。' });
     room.state = E.play(s, legal);
-    room.players.forEach(p => send(p, { type: 'bg_move', seat: ws.bgSeat, move: legal }));
+    if (room.clock) room.clock = E.clockAfterMove(room.tc, room.clock, room.state.turn, now);
+    room.players.forEach(p => send(p, { type: 'bg_move', seat: ws.bgSeat, move: legal, clock: clockMsg(room) }));
+    schedule(ws.bgRoom);
     cleanupIfOver(ws.bgRoom);
 }
 
@@ -71,7 +80,9 @@ function resign(ws, reason) {
     const seat = ws.bgSeat;
     if (room.state.winner === null && room.state.alive[seat]) {
         room.state = E.resign(room.state, seat, reason);
-        room.players.forEach(p => send(p, { type: 'bg_resign', seat, reason }));
+        if (room.clock) room.clock = E.clockSwitch(room.clock, room.state.turn, Date.now());
+        room.players.forEach(p => send(p, { type: 'bg_resign', seat, reason, clock: clockMsg(room) }));
+        schedule(ws.bgRoom);
     }
     cleanupIfOver(ws.bgRoom);
 }
@@ -81,15 +92,43 @@ function leave(ws, reason) {
     const room = rooms.get(ws.bgRoom);
     if (room) {
         room.players = room.players.map(p => p === ws ? null : p);
-        if (room.players.every(p => !p || p.bgRoom !== ws.bgRoom)) rooms.delete(ws.bgRoom);
+        if (room.players.every(p => !p || p.bgRoom !== ws.bgRoom)) { if (room.timer) clearTimeout(room.timer); rooms.delete(ws.bgRoom); }
     }
     ws.bgRoom = null; ws.bgSeat = null;
 }
 // 決着した部屋は、全員が抜けたら消す（決着後も盤を見られるように、すぐには消さない）
 function cleanupIfOver(roomId) {
     const room = rooms.get(roomId);
-    if (!room || room.state.winner === null) return;
+    if (!room) return;
+    if (room.state.winner !== null && room.timer) { clearTimeout(room.timer); room.timer = null; }
+    if (room.state.winner === null) return;
     if (!room.players.some(p => p && p.readyState === WebSocket.OPEN && p.bgRoom === roomId)) rooms.delete(roomId);
+}
+
+// ⏱ 時計: 送る形（残りの持ち時間と、今の番の席。番の始まりは受け取った時刻とする）
+function clockMsg(room) { return room.clock ? { left: room.clock.left, seat: room.clock.seat } : null; }
+// 今の番の人の時間切れに合わせてタイマーをかける
+function schedule(roomId) {
+    const room = rooms.get(roomId);
+    if (!room) return;
+    if (room.timer) { clearTimeout(room.timer); room.timer = null; }
+    if (!room.clock || room.state.winner !== null) return;
+    const delay = Math.max(0, E.clockDeadline(room.tc, room.clock) - Date.now()) + 30;
+    room.timer = setTimeout(() => flag(roomId), delay);
+}
+// 時間切れ: 2人なら負け、3・4人ならその人だけ脱落
+function flag(roomId) {
+    const room = rooms.get(roomId);
+    if (!room || !room.clock || room.state.winner !== null) return;
+    const now = Date.now();
+    if (now < E.clockDeadline(room.tc, room.clock)) { schedule(roomId); return; }
+    const seat = room.clock.seat;
+    room.state = E.resign(room.state, seat, '時間切れ');
+    room.clock = E.clockSwitch(room.clock, room.state.turn, now);
+    room.clock.left[seat] = 0;
+    room.players.forEach(p => send(p, { type: 'bg_resign', seat, reason: '時間切れ', clock: clockMsg(room) }));
+    schedule(roomId);
+    cleanupIfOver(roomId);
 }
 
 // server.js の message から呼ぶ。ボードゲームのメッセージなら true

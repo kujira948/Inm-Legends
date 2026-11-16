@@ -40,11 +40,22 @@
                         <div class="bg-choice" id="bg-n">
                             <button data-n="2">2人</button><button data-n="3">3人</button><button data-n="4">4人</button>
                         </div></div>
+                    <div class="bg-row"><span class="bg-label">持ち時間</span>
+                        <div class="bg-choice" id="bg-tc-main">
+                            <button data-v="0">なし</button><button data-v="60">1分</button><button data-v="180">3分</button><button data-v="300">5分</button><button data-v="600">10分</button><button data-v="1800">30分</button>
+                        </div></div>
+                    <div class="bg-row"><span class="bg-label">秒読み・加算</span>
+                        <div class="bg-choice" id="bg-tc-extra">
+                            <button data-m="none" data-v="0">なし</button>
+                            <button data-m="byoyomi" data-v="10">秒読み10秒</button><button data-m="byoyomi" data-v="30">秒読み30秒</button><button data-m="byoyomi" data-v="60">秒読み60秒</button>
+                            <button data-m="increment" data-v="2">加算+2秒</button><button data-m="increment" data-v="5">加算+5秒</button><button data-m="increment" data-v="10">加算+10秒</button>
+                        </div></div>
+                    <div class="bg-note" id="bg-tc-note"></div>
                     <div class="bg-rule" id="bg-rule"></div>
                     <div class="bg-modes">
                         <div class="bg-mode">
                             <button id="bg-btn-online" class="bg-big">🌐 オンラインで対戦</button>
-                            <div class="bg-note">同じ人数を選んだ人がそろうと始まります。</div>
+                            <div class="bg-note">同じ人数・同じ時間の決まりを選んだ人がそろうと始まります。</div>
                             <div id="bg-online-status" class="bg-status"></div>
                         </div>
                         <div class="bg-mode">
@@ -83,6 +94,10 @@
                 players: $('bg-players'), hands: $('bg-hands'), msg: $('bg-msg'), dialog: $('bg-dialog'), dialogBody: $('bg-dialog-body'),
                 onlineStatus: $('bg-online-status'), localSeats: $('bg-local-seats'), rule: $('bg-rule') };
             this.cpuLevel = 2;
+            this.tc = { main: 0, mode: 'none', extra: 0 };
+            $('bg-tc-main').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; this.tc = E.normalizeTc({ ...this.tc, main: +b.dataset.v }); this.renderSetup(); });
+            $('bg-tc-extra').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; this.tc = E.normalizeTc({ ...this.tc, mode: b.dataset.m, extra: +b.dataset.v }); this.renderSetup(); });
+            this.clockTimer = setInterval(() => this.tickClock(), 250);
             $('bg-n').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; this.n = +b.dataset.n; this.renderSetup(); });
             $('bg-cpu-level').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; this.cpuLevel = +b.dataset.lv; this.renderSetup(); });
             $('bg-btn-online').onclick = () => this.online.matching ? this.cancelOnline() : this.findOnline();
@@ -119,6 +134,14 @@
             r.querySelector('#bg-setup-title').textContent = (this.game === 'chess' ? '♟ ' : '☗ ') + GAME_JP[this.game];
             r.querySelectorAll('#bg-n button').forEach(b => b.classList.toggle('on', +b.dataset.n === this.n));
             r.querySelectorAll('#bg-cpu-level button').forEach(b => b.classList.toggle('on', +b.dataset.lv === this.cpuLevel));
+            r.querySelectorAll('#bg-tc-main button').forEach(b => b.classList.toggle('on', +b.dataset.v === this.tc.main));
+            r.querySelectorAll('#bg-tc-extra button').forEach(b => {
+                b.classList.toggle('on', b.dataset.m === this.tc.mode && (+b.dataset.v === this.tc.extra || b.dataset.m === 'none'));
+                b.disabled = b.dataset.m === 'increment' && this.tc.main === 0; // 持ち時間なしでは加算は使えない
+            });
+            r.querySelector('#bg-tc-note').textContent = tcText(this.tc) + '。' + (E.clockOn(this.tc)
+                ? (this.tc.mode === 'byoyomi' ? '持ち時間を使い切ったら、1手を秒読みの時間内に指す。' : this.tc.mode === 'increment' ? '1手指すたびに持ち時間が増える。' : '') + '時間切れは負け（3・4人はその人だけ脱落）。CPUの考える時間は数えない。'
+                : '時間制限なし。');
             this.el.rule.textContent = this.n === 2
                 ? (this.game === 'chess' ? '8×8の盤・正式ルール（チェックメイトで勝ち。キャスリング・アンパッサン・プロモーションあり）' : '9×9の盤・正式ルール（詰みで勝ち。二歩・打ち歩詰め・千日手あり）')
                 : `十字形の盤（${this.game === 'chess' ? '14×14' : '15×15'}）・${this.n}人で順番に指す。王を取られた人は脱落し、最後に残った人の勝ち。${this.game === 'shogi' ? '取った駒は持ち駒。自分以外の陣地に入ると成れる。' : 'ポーンは真ん中の線（8段目）でプロモーション。'}`;
@@ -146,6 +169,8 @@
             if (n === 2) return i === 0 ? '先手（下）' : '後手（上）';
             return `${MULTI_COLOR_JP[i]}（${pos}）`;
         },
+        // 「席の名前 + プレイヤー名」（名前がないときは席の名前だけ）
+        who(i, n) { const nm = (this.seats[i] || {}).name; return this.seatLabel(i, n) + (nm ? ' ' + nm : ''); },
         seatColor(i) { return this.state && this.state.n === 2 ? (this.game === 'chess' ? CHESS2_COLORS[i] : '#c8a96b') : MULTI_COLORS[i]; },
 
         // ---------------- 対局の開始 ----------------
@@ -161,12 +186,14 @@
             this.mySeat = 0;
             this.begin(E.create(this.game, this.n));
         },
-        begin(state) {
+        begin(state, clock) {
             this.state = state;
+            if (this.mode !== 'online') this.clock = E.clockOn(this.tc) ? E.clockCreate(this.tc, state.n, Date.now()) : null;
+            else this.clock = clock || null;
             this.sel = null; this.targets = [];
             this.el.setup.hidden = true;
             this.el.game.hidden = false;
-            this.el.title.textContent = `${this.game === 'chess' ? '♟' : '☗'} ${GAME_JP[this.game]} ${this.n}人` + (this.mode === 'online' ? '（オンライン）' : this.mode === 'cpu' ? '（CPU）' : '（交代）');
+            this.el.title.textContent = `${this.game === 'chess' ? '♟' : '☗'} ${GAME_JP[this.game]} ${this.n}人` + (this.mode === 'online' ? '（オンライン）' : this.mode === 'cpu' ? '（CPU）' : '（交代）') + (E.clockOn(this.tc) ? ` ⏱${tcText(this.tc)}` : '');
             this.render();
             this.afterMove();
         },
@@ -232,6 +259,7 @@
             this.renderPlayers();
             this.renderHands();
             this.renderTurn();
+            this.renderClocks();
         },
         renderPlayers() {
             const s = this.state, P = this.el.players;
@@ -246,6 +274,12 @@
                 const seat = this.seats[i] || {};
                 nm.textContent = `${this.seatLabel(i, s.n)} ${seat.name || ''}${(this.mode !== 'local' && i === this.mySeat) ? '（あなた）' : ''}${!s.alive[i] && s.n > 2 ? ' ✖脱落' : ''}`;
                 d.append(dot, nm);
+                if (this.clock && seat.kind !== 'cpu') {
+                    const ck = document.createElement('span');
+                    ck.className = 'bg-clock';
+                    ck.dataset.seat = i;
+                    d.appendChild(ck);
+                }
                 P.appendChild(d);
             }
         },
@@ -281,10 +315,10 @@
         renderTurn() {
             const s = this.state;
             let t;
-            if (s.winner !== null) t = s.winner === -1 ? `引き分け（${s.reason}）` : `🏆 ${this.seatLabel(s.winner, s.n)} ${(this.seats[s.winner] || {}).name || ''} の勝ち！（${s.reason}）`;
+            if (s.winner !== null) t = s.winner === -1 ? `引き分け（${s.reason}）` : `🏆 ${this.who(s.winner, s.n)} の勝ち！（${s.reason}）`;
             else {
                 const who = this.seats[s.turn] || {};
-                t = `${this.seatLabel(s.turn, s.n)} ${who.name || ''} の番`;
+                t = `${this.who(s.turn, s.n)} の番`;
                 if (this.isMyTurn()) t = '▶ あなたの番です' + (this.mode === 'local' ? `（${this.seatLabel(s.turn, s.n)}）` : '');
                 if (who.kind === 'cpu') t += ' 🤖 考え中…';
                 if (s.n === 2 && E.inCheck(s, s.turn)) t += s.game === 'chess' ? '　⚠ チェック！' : '　⚠ 王手！';
@@ -356,18 +390,64 @@
             }
             this.applyMove(m);
         },
-        applyMove(m) {
+        applyMove(m, clockMsg) {
             const legal = E.findLegal(this.state, m);
             if (!legal) { this.say('その手は指せません。'); this.render(); return; }
             const before = this.state;
             this.state = E.play(this.state, legal);
+            if (this.mode === 'online') { if (clockMsg) this.setClockFromServer(clockMsg); }
+            else if (this.clock) {
+                // CPUが考えた時間は数えない
+                const now = Date.now();
+                const c = (this.seats[before.turn] || {}).kind === 'cpu' ? { ...this.clock, turnStart: now } : this.clock;
+                this.clock = E.clockAfterMove(this.tc, c, this.state.turn, now);
+            }
             this.announce(before, this.state);
             this.render();
             this.afterMove();
         },
+        setClockFromServer(c) { this.clock = c ? { left: c.left.slice(), seat: c.seat, turnStart: Date.now() } : null; },
+        // 残り時間の表示（0.25秒ごと）。CPU戦・交代は、時間切れもここで決める
+        tickClock() {
+            if (!this.isOpen() || !this.state || !this.clock) return;
+            const s = this.state;
+            if (s.winner === null && this.mode !== 'online') {
+                const seat = this.seats[this.clock.seat] || {};
+                if (seat.kind === 'cpu') this.clock = { ...this.clock, turnStart: Date.now() }; // CPUの番は時計を止める
+                else if (Date.now() > E.clockDeadline(this.tc, this.clock)) { this.timeUp(this.clock.seat); return; }
+            }
+            this.renderClocks();
+        },
+        timeUp(seat) {
+            const before = this.state;
+            this.state = E.resign(this.state, seat, '時間切れ');
+            const now = Date.now();
+            this.clock = E.clockSwitch(this.clock, this.state.turn, now);
+            this.clock.left = this.clock.left.slice(); this.clock.left[seat] = 0;
+            this.sel = null; this.targets = [];
+            this.announce(before, this.state);
+            this.say(`⏱ ${this.who(seat, this.state.n)} が時間切れ！`);
+            this.render();
+            this.afterMove();
+        },
+        renderClocks() {
+            if (!this.clock || !this.state) return;
+            const now = Date.now(), s = this.state;
+            const frozen = s.winner !== null;
+            this.el.players.querySelectorAll('.bg-clock').forEach(el => {
+                const i = +el.dataset.seat;
+                const c = frozen ? { ...this.clock, turnStart: now } : this.clock;
+                const v = E.clockView(this.tc, c, i, now);
+                const txt = v.byo !== null && v.ms <= 0 ? `秒読み ${Math.ceil(v.byo / 1000)}` : fmtClock(v.ms);
+                const low = (v.byo !== null && v.ms <= 0 ? v.byo : v.ms) <= 10000 && s.alive[i] && !frozen;
+                if (el.textContent !== '⏱' + txt) el.textContent = '⏱' + txt;
+                el.classList.toggle('bg-clock-low', low);
+                el.classList.toggle('bg-clock-run', !frozen && this.clock.seat === i && s.alive[i]);
+            });
+        },
         announce(before, after) {
             const out = [];
-            for (let i = 0; i < after.n; i++) if (before.alive[i] && !after.alive[i] && after.n > 2) out.push(`${this.seatLabel(i, after.n)} ${(this.seats[i] || {}).name || ''} が脱落！`);
+            for (let i = 0; i < after.n; i++) if (before.alive[i] && !after.alive[i] && after.n > 2) out.push(`${this.who(i, after.n)} が脱落！`);
             this.say(out.join(' '));
         },
         afterMove() {
@@ -407,6 +487,7 @@
                 const seat = this.mode === 'local' ? this.state.turn : this.mySeat;
                 const before = this.state;
                 this.state = E.resign(this.state, seat, '投了');
+                if (this.clock) this.clock = E.clockSwitch(this.clock, this.state.turn, Date.now());
                 this.announce(before, this.state);
                 this.render();
                 this.afterMove();
@@ -432,7 +513,7 @@
             body.innerHTML = '';
             const h = document.createElement('h3');
             const meWin = this.mode !== 'local' && s.winner === this.mySeat;
-            h.textContent = s.winner === -1 ? '引き分け' : (this.mode === 'local' ? `${this.seatLabel(s.winner, s.n)} の勝ち！` : (meWin ? '🏆 あなたの勝ち！' : `${this.seatLabel(s.winner, s.n)} ${(this.seats[s.winner] || {}).name || ''} の勝ち`));
+            h.textContent = s.winner === -1 ? '引き分け' : (this.mode === 'local' ? `${this.seatLabel(s.winner, s.n)} の勝ち！` : (meWin ? '🏆 あなたの勝ち！' : `${this.who(s.winner, s.n)} の勝ち`));
             const p = document.createElement('p'); p.textContent = s.reason || '';
             const row = document.createElement('div'); row.className = 'bg-choice';
             const again = document.createElement('button'); again.textContent = 'もう一度';
@@ -457,7 +538,7 @@
             this.online.matching = true;
             this.online.startedAt = Date.now();
             this.online.count = 1; this.online.need = this.n;
-            socket.send(JSON.stringify({ type: 'bg_find', game: this.game, players: this.n }));
+            socket.send(JSON.stringify({ type: 'bg_find', game: this.game, players: this.n, tc: this.tc }));
             clearInterval(this.online.timer);
             this.online.timer = setInterval(() => this.renderOnlineStatus(), 1000);
             this.renderOnlineStatus();
@@ -498,17 +579,20 @@
                     this.mode = 'online';
                     this.mySeat = d.seat;
                     this.seats = d.names.map((nm, i) => ({ kind: 'online', name: nm }));
-                    this.begin(E.create(d.game, d.n));
+                    this.tc = E.normalizeTc(d.tc);
+                    this.begin(E.create(d.game, d.n), d.clock ? { left: d.clock.left.slice(), seat: d.clock.seat, turnStart: Date.now() } : null);
                     this.say(`対局開始！ あなたは ${this.seatLabel(d.seat, d.n)} です。`);
                     break;
                 }
                 case 'bg_move':
                     if (this.mode !== 'online' || !this.state) return;
-                    this.applyMove(d.move);
+                    this.applyMove(d.move, d.clock);
                     break;
                 case 'bg_resign':
                     if (this.mode !== 'online' || !this.state) return;
-                    { const before = this.state; this.state = E.resign(this.state, d.seat, d.reason || '投了'); this.announce(before, this.state); this.render(); this.afterMove(); }
+                    { const before = this.state; this.state = E.resign(this.state, d.seat, d.reason || '投了'); if (d.clock) this.setClockFromServer(d.clock);
+                      this.announce(before, this.state); if (d.reason === '時間切れ') this.say(`⏱ ${this.who(d.seat, this.state.n)} が時間切れ！`);
+                      this.render(); this.afterMove(); }
                     break;
                 case 'bg_error':
                     this.say(d.reason || 'その手は指せません。');
@@ -518,6 +602,16 @@
         }
     };
 
+    // 時間の決まりの文（例: 3分＋秒読み30秒）
+    function tcText(tc) {
+        if (!E.clockOn(tc)) return '時間制限なし';
+        const m = tc.main ? (tc.main >= 60 ? tc.main / 60 + '分' : tc.main + '秒') : '持ち時間なし';
+        return m + (tc.mode === 'byoyomi' ? `＋秒読み${tc.extra}秒` : tc.mode === 'increment' ? `＋1手ごとに${tc.extra}秒加算` : '');
+    }
+    function fmtClock(ms) {
+        const t = Math.ceil(ms / 1000);
+        return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+    }
     function rotP(x, y, k, N) { for (let i = 0; i < k; i++) [x, y] = [N - 1 - y, x]; return [x, y]; }
 
     window.BoardGames = BG;
