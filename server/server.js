@@ -4,6 +4,7 @@ const WebSocket = require('ws');
 const path = require('path');
 const fs = require('fs');
 const BoardGamesServer = require('./boardgames-server'); // ♟ ☗ 将棋・チェス
+const compression = require('compression'); // 送るファイルを圧縮（軽量化）
 
 const app = express();
 const server = http.createServer(app);
@@ -101,6 +102,7 @@ app.get('/api/ranking', (req, res) => {
 // ===============================================================
 // 静的ファイルの配信 (clientフォルダ)
 // ===============================================================
+app.use(compression());
 app.use(express.static(path.join(__dirname, '../client')));
 
 // ===============================================================

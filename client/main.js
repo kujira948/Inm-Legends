@@ -1157,7 +1157,8 @@ let RENDER_SCALE = 1;
 function fitCanvasResolution() {
     const rect = canvas.getBoundingClientRect();
     if (rect.width < 1) return; // 非表示中
-    const dpr = window.devicePixelRatio || 1;
+    // 軽量化: スマホの細かい画面（3倍など）でも2倍までにする（描くマスの数が約半分になる）
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
     const scale = Math.max(1, Math.min(6, (rect.width * dpr) / CONFIG.SCREEN_WIDTH));
     const w = Math.round(CONFIG.SCREEN_WIDTH * scale);
     const h = Math.round(CONFIG.SCREEN_HEIGHT * scale);
@@ -3485,7 +3486,13 @@ const NetSync = {
         }
 
         // 弾: 描画に必要な [x, y, vx, vy, 見た目, 種類] だけ
-        const b = gameState.bullets.map(bl => [this.r1(bl.x), this.r1(bl.y), this.r2(bl.vx), this.r2(bl.vy), bl.spriteKey || 0, bl.action || 0]);
+        // 弾: [x, y, vx, vy, 見た目の番号]（位置は整数、速さは小数1けた。見た目がふつうなら番号は省く）
+        const b = gameState.bullets.map(bl => {
+            const a = [Math.round(bl.x), Math.round(bl.y), this.r1(bl.vx), this.r1(bl.vy)];
+            const code = netBulletCode(bl);
+            if (code !== 0) a.push(code);
+            return a;
+        });
 
         // 召喚・吸収エフェクト: unitDef は参加者側で typeKey から復元する
         const e = gameState.summoningEffects.map(ef => {
@@ -3552,10 +3559,10 @@ const NetSync = {
         }
         gameState.units = units;
 
-        gameState.bullets = (s.b || []).map(a => ({
-            x: a[0], y: a[1], vx: a[2], vy: a[3],
-            spriteKey: a[4] || undefined, action: a[5] || undefined
-        }));
+        gameState.bullets = (s.b || []).map(a => {
+            const v = netBulletDecode(a[4]);
+            return { x: a[0], y: a[1], vx: a[2], vy: a[3], spriteKey: v.spriteKey, action: v.action };
+        });
 
         BattleFx.unpack(s.fx);
         (s.d || []).forEach(a => DamageNumbers.spawn(a[0], a[1], a[2], a[3] === 1 ? 'player' : 'unit', a[4]));
@@ -3565,6 +3572,21 @@ const NetSync = {
         ));
     }
 };
+
+// 弾の見た目（spriteKey と action）を1つの番号にする（通信量を減らす）
+const NET_SPRITES = [null, 'bullet', ...Object.keys(UNIT_TYPES)];
+const NET_ACTIONS = [null, 'laser', 'poison', 'frost', 'sniper', 'spread', 'blackhole', 'geyser', 'bounce', 'split', 'straight', 'charge', 'pierce', 'megaton', 'zero', 'glide'];
+function netBulletCode(b) {
+    const si = b.spriteKey ? NET_SPRITES.indexOf(b.spriteKey) : 0;
+    const ai = b.action ? NET_ACTIONS.indexOf(b.action) : 0;
+    if (si < 0 || ai < 0) return [b.spriteKey || 0, b.action || 0]; // 表にないものはそのまま送る
+    return si * 32 + ai;
+}
+function netBulletDecode(c) {
+    if (!c) return {};
+    if (Array.isArray(c)) return { spriteKey: c[0] || undefined, action: c[1] || undefined };
+    return { spriteKey: NET_SPRITES[Math.floor(c / 32)] || undefined, action: NET_ACTIONS[c % 32] || undefined };
+}
 
 // ゲームループ (30FPS 制限)
 let lastTime = 0;
@@ -3577,7 +3599,9 @@ function gameLoop(timestamp = 0) {
         lastTime = timestamp - (deltaTime % interval);
         // 試合中だけゲームを進める（試合後に勝敗判定や送信が繰り返されるのを防ぐ）
         if (gameState.isPlaying) update();
-        draw();
+        // 軽量化: いなむーの画面が見えていないとき（ホーム画面・将棋やチェスの画面）は盤を描かない
+        const boardHidden = !gameState.isPlaying && (gameUI.classList.contains('hidden') || (window.BoardGames && BoardGames.isOpen()));
+        if (!boardHidden) draw();
         DPSManager.tick();
 
         // オンライン対戦のホストだけ、盤面を相手へ送る
@@ -3587,12 +3611,14 @@ function gameLoop(timestamp = 0) {
         }
     }
 
-    // 背景アニメーション (滑らかに)
-    bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
-    bgParticles.forEach(p => {
-        p.update();
-        p.draw();
-    });
+    // 背景アニメーション（将棋・チェスの画面が上にかぶっているときは止める）
+    if (!(window.BoardGames && BoardGames.isOpen())) {
+        bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+        bgParticles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+    }
 
     requestAnimationFrame(gameLoop);
 }
@@ -6432,18 +6458,17 @@ function draw() {
     ctx.lineWidth = 1;
     const tile = CONFIG.TILE_SIZE;
 
+    // 軽量化: 線をまとめて1回で描く
+    ctx.beginPath();
     for (let i = 0; i <= CONFIG.GRID_COLS; i++) {
-        ctx.beginPath();
         ctx.moveTo(i * tile, 0);
         ctx.lineTo(tile * i, CONFIG.GRID_ROWS * tile);
-        ctx.stroke();
     }
     for (let j = 0; j <= CONFIG.GRID_ROWS; j++) {
-        ctx.beginPath();
         ctx.moveTo(0, j * tile);
         ctx.lineTo(CONFIG.SCREEN_WIDTH, j * tile);
-        ctx.stroke();
     }
+    ctx.stroke();
 
     // 🌋 フィールドギミックの描画 (炭酸ファウンテン・黄金稲穂・ポータル)
     FieldGimmickManager.draw(ctx);
@@ -6650,6 +6675,17 @@ function draw() {
     updateStatusBars();
 }
 
+// 前に書いた値を覚えておき、変わったときだけ書く
+const _uiCache = new Map();
+function setIfChanged(id, kind, value) {
+    const key = id + ':' + kind;
+    if (_uiCache.get(key) === value) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    _uiCache.set(key, value);
+    if (kind === 'text') el.innerText = value; else el.style[kind] = value;
+}
+
 function updateStatusBars() {
     const p1 = gameState.players.left;
     const p2 = gameState.players.right;
@@ -6662,13 +6698,13 @@ function updateStatusBars() {
     const hitPointRatio2 = Math.max(0, p2.hp) / maxHp2 * 100;
     const manaRatio = Math.max(0, myMana) / 100 * 100;
 
-    document.getElementById('p1-hp-fill').style.width = `${hitPointRatio1}%`;
-    document.getElementById('p2-hp-fill').style.width = `${hitPointRatio2}%`;
-    document.getElementById('mana-fill').style.width = `${manaRatio}%`;
-
-    document.getElementById('p1-hp-text').innerText = `${p1.name} HP: ${Math.floor(p1.hp).toLocaleString()} / ${maxHp1.toLocaleString()}`;
-    document.getElementById('p2-hp-text').innerText = `${p2.name} HP: ${Math.floor(p2.hp).toLocaleString()} / ${maxHp2.toLocaleString()}`;
-    document.getElementById('mana-text').innerText = `Mana: ${Math.floor(myMana)}`;
+    // 軽量化: 値が変わったときだけ画面（DOM）を書き直す（毎フレーム書くとスマホで重い）
+    setIfChanged('p1-hp-fill', 'width', `${hitPointRatio1.toFixed(1)}%`);
+    setIfChanged('p2-hp-fill', 'width', `${hitPointRatio2.toFixed(1)}%`);
+    setIfChanged('mana-fill', 'width', `${manaRatio.toFixed(1)}%`);
+    setIfChanged('p1-hp-text', 'text', `${p1.name} HP: ${Math.floor(p1.hp).toLocaleString()} / ${maxHp1.toLocaleString()}`);
+    setIfChanged('p2-hp-text', 'text', `${p2.name} HP: ${Math.floor(p2.hp).toLocaleString()} / ${maxHp2.toLocaleString()}`);
+    setIfChanged('mana-text', 'text', `Mana: ${Math.floor(myMana)}`);
 
     // 準備時間の表示
     if (gameState.prepTimer > 0) {
