@@ -70,6 +70,7 @@
 
         <!-- 各種ナビゲーションボタン -->
         <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+            <button id="btn-sidebar-tutorial" class="sidebar-action-btn">📖 はじめてガイド</button>
             <button id="btn-sidebar-help" class="sidebar-action-btn">操作方法</button>
             <button id="btn-sidebar-encyclopedia" class="sidebar-action-btn">いなむー図鑑</button>
         </div>
@@ -127,7 +128,7 @@
             <h1>いなむーレジェンズ</h1>
             <div class="input-group">
                 <label>プレイヤー名:</label>
-                <input type="text" id="player-name" maxlength="10">
+                <input type="text" id="player-name" maxlength="10" placeholder="名前を入力">
             </div>
             <div style="margin: 15px 0; display: flex; flex-direction: column; gap: 10px; align-items: center;">
                 <button id="btn-find-match" style="background: #a22; width: 220px; font-weight: bold;">対戦相手を探す</button>
@@ -212,6 +213,7 @@
                 </div>
 
                 <div id="room-display" style="display:inline-block; font-size: 0.85rem;">Room: 000000</div>
+                <div id="match-clock"></div>
 
                 <!-- 練習場の設定（練習場のときだけ表示） -->
                 <button id="btn-sandbox" class="hidden">⚙ 練習場設定</button>
@@ -321,6 +323,7 @@
 
                 <h3 style="color:#e74c3c;">⚔️ ゲームルール</h3>
                 <p><strong>勝利条件</strong>: 相手プレイヤー本体（左右の端にいるキャラクター）のHPを0にする。</p>
+                <p><strong>⚡ サドンデス</strong>: 準備時間のあと3分を過ぎると、本体が受けるダメージが2倍になる。そのあと1分ごとに3倍・4倍…（最大6倍）と上がる。画面の上に試合時間と倍率が出る（練習場ではなし）。</p>
                 <p><strong>HP</strong>: 各プレイヤーの初期HPは2000。敵の弾が自プレイヤーに命中するとHP減少。</p>
                 <p><strong>ユニットのHP</strong>: 各ユニットにも個別のHPがあり、HPが0になると消滅する。</p>
                 <p><strong>ダメージ表示</strong>: 弾が当たると、その場所にダメージの数字が出る。左上のメニューの「表示設定」でOFFにできる。</p>
@@ -367,6 +370,33 @@
             <button id="btn-close-encyclopedia" style="margin-top: 20px;">閉じる</button>
         </div>
     </div>
+    <!-- 🏁 結果画面 -->
+    <div id="result-screen" class="hidden">
+        <div class="result-box">
+            <div id="result-title">勝利！</div>
+            <div id="result-stats"></div>
+            <div class="result-btns">
+                <button id="btn-result-again">🔁 もう一度</button>
+                <button id="btn-result-home">🏠 ホームへ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📖 はじめてガイド -->
+    <div id="tutorial-modal" class="hidden">
+        <div class="tutorial-box">
+            <div id="tutorial-icons"></div>
+            <div id="tutorial-title"></div>
+            <div id="tutorial-text"></div>
+            <div id="tutorial-dots"></div>
+            <div class="tutorial-btns">
+                <button id="btn-tutorial-prev">◀ 戻る</button>
+                <button id="btn-tutorial-next">次へ ▶</button>
+            </div>
+            <button id="btn-tutorial-skip">スキップ</button>
+        </div>
+    </div>
+
     <script src="main.js"></script>
     <script src="boardgames-engine.js"></script>
     <script src="boardgames.js"></script>

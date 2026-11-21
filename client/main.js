@@ -2341,6 +2341,10 @@ function setupEventListeners() {
         });
     }
 
+    // 📖 はじめてガイド（はじめて開いたときに1回だけ出す。メニューからいつでも見られる）
+    Tutorial.bind();
+    try { if (localStorage.getItem('inamu_tutorial_done') !== '1') setTimeout(() => Tutorial.open(), 700); } catch (e) {}
+
     // ♟ ☗ 将棋・チェス
     const btnChess = document.getElementById('btn-chess');
     if (btnChess) btnChess.onclick = () => { if (window.BoardGames) BoardGames.open('chess'); };
@@ -2535,6 +2539,53 @@ function setupEventListeners() {
 
     updateUnitUI();
 }
+
+// 📖 はじめてガイド（4ページ）
+const Tutorial = {
+    page: 0,
+    pages: [
+        { icon: ['RICE_BASIC', 'RICE_SHIELD_WOOD', 'SODA_SMALL'], title: '① ユニットを置く',
+          text: '下の欄でユニットを選んで、自分の陣地（青いほう）のマスを押すと置ける。置くとマナを使う。稲は自動で弾を撃ち、盾は弾を受け止め、ソーダはマナを作る。' },
+        { icon: ['COLA_STRAIGHT', 'COLA_BOUNCE', 'COLA_MEGATON'], title: '② コーラを投げる',
+          text: '置いたコーラを押してから、投げたい場所を押す。「コーラ発射」ボタン（スペースキー）で全部を相手の本体へ投げられる。コーラは本体を直接ねらえる大事な攻撃。' },
+        { icon: ['RICE_POISON', 'RICE_FROST', 'COLA_SPREAD'], title: '③ 合成する',
+          text: '「合成」ボタンを押して、自分のユニットを2体えらぶと合体する（4マナ）。能力が組み合わさり、同じ能力を重ねるとレベルアップ。決まった組み合わせでシークレットに進化！' },
+        { icon: ['COLA_CHARGE', 'RICE_SNIPER', 'RICE_SHIELD_IRON'], title: '④ 勝ち方',
+          text: '相手の本体（はしにいるキャラ）のHPを0にしたら勝ち。上下の矢印（W・Sキー）で自分の本体を動かして弾をよけよう。3分を過ぎるとサドンデスで本体へのダメージが2倍になる。' }
+    ],
+    bind() {
+        const g = id => document.getElementById(id);
+        if (!g('tutorial-modal')) return;
+        g('btn-tutorial-next').onclick = () => { if (this.page < this.pages.length - 1) { this.page++; this.render(); } else this.close(); };
+        g('btn-tutorial-prev').onclick = () => { if (this.page > 0) { this.page--; this.render(); } };
+        g('btn-tutorial-skip').onclick = () => this.close();
+        const side = g('btn-sidebar-tutorial');
+        if (side) side.onclick = () => { const c = document.getElementById('btn-close-sidebar'); if (c) c.click(); this.open(); };
+    },
+    open() { this.page = 0; this.render(); document.getElementById('tutorial-modal').classList.remove('hidden'); },
+    close() {
+        document.getElementById('tutorial-modal').classList.add('hidden');
+        try { localStorage.setItem('inamu_tutorial_done', '1'); } catch (e) {}
+    },
+    render() {
+        const p = this.pages[this.page];
+        const icons = document.getElementById('tutorial-icons');
+        icons.innerHTML = '';
+        p.icon.forEach(k => {
+            const spr = ASSETS[k];
+            if (!spr) return;
+            const img = document.createElement('img');
+            img.src = spr.toDataURL();
+            img.alt = '';
+            icons.appendChild(img);
+        });
+        document.getElementById('tutorial-title').textContent = p.title;
+        document.getElementById('tutorial-text').textContent = p.text;
+        document.getElementById('tutorial-dots').textContent = this.pages.map((_, i) => i === this.page ? '●' : '○').join(' ');
+        document.getElementById('btn-tutorial-prev').disabled = this.page === 0;
+        document.getElementById('btn-tutorial-next').textContent = this.page === this.pages.length - 1 ? 'はじめる！' : '次へ ▶';
+    }
+};
 
 // 💬 全体チャットの通知: チャット画面が見えないとき（試合中・練習場・CPU戦・将棋やチェスなど）に、画面の上に4秒出す
 function lobbyChatVisible() {
@@ -2746,6 +2797,7 @@ function attemptSummon(row, col) {
     const side = placeSide;
 
     if (gameState.players[side].mana >= unitType.cost) {
+        if (gameState.stats) gameState.stats.placed++;
         if (gameState.isPractice) {
             processSummon({ unitId: unitType.id, row, col, side });
             return;
@@ -3265,6 +3317,12 @@ function startGame() {
 
     // ゲーム状態のリセット
     gameState.isPlaying = true;
+    gameState.matchFrames = 0;        // 準備時間のあとの試合時間（フレーム）。サドンデスと結果画面に使う
+    gameState.suddenLevel = 1;
+    gameState.stats = { placed: 0, merges: 0 };
+    hideUnitPreview();
+    // 結果画面・はじめてガイドが開いたままなら閉じる（オンラインで相手が見つかったときなど。盤を押せなくなるのを防ぐ）
+    ['result-screen', 'tutorial-modal'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
     NetSync.reset();
     DamageNumbers.reset();
     Particles.reset();
@@ -3623,7 +3681,7 @@ function gameLoop(timestamp = 0) {
     }
 
     // 背景アニメーション（将棋・チェスの画面が上にかぶっているときは止める）
-    if (!(window.BoardGames && BoardGames.isOpen())) {
+    if (!(window.BoardGames && BoardGames.isOpen()) && gameUI.classList.contains('hidden')) { // 試合中も止める（盤が見やすく、軽くなる）
         bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
         bgParticles.forEach(p => {
             p.update();
@@ -3649,6 +3707,15 @@ function update() {
 
     // 準備時間のカウントダウン
     if (gameState.prepTimer > 0) gameState.prepTimer--;
+    else {
+        gameState.matchFrames = (gameState.matchFrames || 0) + 1;
+        // ⚡ サドンデス: 3分を過ぎると本体へのダメージが2倍、そのあと1分ごとに+1倍（練習場はなし）
+        const lv = suddenDeathMul();
+        if (lv !== (gameState.suddenLevel || 1)) {
+            gameState.suddenLevel = lv;
+            showBattleBanner(lv === 2 ? '⚡ サドンデス！ 本体へのダメージ×2' : `⚡ サドンデス ×${lv}`);
+        }
+    }
 
     gameState.manaTimer += 1 / CONFIG.FPS;
     if (gameState.manaTimer >= 0.4) { // 0.4秒に1回復（従来の2.5倍）
@@ -5377,12 +5444,31 @@ function applyUnitDamage(u, dmg, b, depth = 0) {
 // 相手本体にダメージを与える
 function applyPlayerDamage(side, dmg, b) {
     const P = gameState.players[side];
-    const d = Math.round(dmg * SecretSkills.playerDamageMul(b, side) * 10) / 10;
+    const d = Math.round(dmg * SecretSkills.playerDamageMul(b, side) * suddenDeathMul() * 10) / 10;
     P.hp -= d;
     DamageNumbers.add(side === 'left' ? 16 : CONFIG.SCREEN_WIDTH - 16, P.y, d, 'player', 'P_' + side);
     if (side === 'right') DPSManager.recordDamage(d);
     return d;
 }
+// ⚡ サドンデスの倍率（3分まで1倍、3分で2倍、そのあと1分ごとに+1倍、最大6倍。練習場は1倍）
+const SUDDEN_DEATH_FRAMES = 180 * 30;
+function suddenDeathMul() {
+    if (gameState.isPractice || !gameState.isPlaying) return 1;
+    const f = gameState.matchFrames || 0;
+    if (f < SUDDEN_DEATH_FRAMES) return 1;
+    return Math.min(6, 2 + Math.floor((f - SUDDEN_DEATH_FRAMES) / (60 * 30)));
+}
+// 試合中に大きく出るお知らせ（サドンデスなど）
+function showBattleBanner(text) {
+    const ui = document.getElementById('game-ui');
+    if (!ui) return;
+    const b = document.createElement('div');
+    b.className = 'battle-banner';
+    b.textContent = text;
+    ui.appendChild(b);
+    setTimeout(() => b.remove(), 2600);
+}
+
 // 範囲ダメージ（side の敵だけに当たる）
 function areaDamage(x, y, r, dmg, side, depth = 0) {
     const foe = side === 'left' ? 'right' : 'left';
@@ -5596,6 +5682,7 @@ function layoutGameScreen() {
     const top = gameUI.querySelector('.top-bar');
     const bottom = gameUI.querySelector('.bottom-bar');
     const availH = window.innerHeight - (top ? top.offsetHeight : 0) - (bottom ? bottom.offsetHeight : 0) - 6;
+    if (bottom) gameUI.style.setProperty('--bbh', bottom.offsetHeight + 'px'); // 移動ボタンを下の欄の上に置くため
     const availW = window.innerWidth * 0.98;
     const w = Math.max(160, Math.floor(Math.min(availW, availH * 2)));
     canvas.style.width = w + 'px';
@@ -6414,8 +6501,11 @@ function endGame(winner) {
         ? gameState.players[winner].name
         : (winner === 'left' ? 'P1' : 'P2');
     statusMsg.innerText = `ゲーム終了！ 勝者: 【${winnerName}】！`;
+    const wasBot = gameState.isBotMatch;
+    hideUnitPreview(); // 以前はホームに戻っても詳しい表示が残っていた
     menuOverlay.classList.remove('hidden');
     gameUI.classList.add('hidden');
+    if (!gameState.isPractice) showResultScreen(winner, wasOnline, wasBot);
     gameState.isBotMatch = false;
     gameState.isPractice = false;
     const dpsPanel = document.getElementById('dps-panel');
@@ -6425,6 +6515,45 @@ function endGame(winner) {
     if (wasOnline) {
         updateElo(winner === gameState.playerSide ? 32 : -32);
     }
+}
+
+// 🏁 結果画面: 勝ち負け・試合時間・与えた／受けたダメージ・置いたユニット・レートの変化
+function showResultScreen(winner, wasOnline, wasBot) {
+    const box = document.getElementById('result-screen');
+    if (!box || (winner !== 'left' && winner !== 'right')) return;
+    const me = gameState.playerSide, foe = me === 'left' ? 'right' : 'left';
+    const P = gameState.players;
+    const win = winner === me;
+    const sec = Math.floor((gameState.matchFrames || 0) / CONFIG.FPS);
+    const dealt = Math.max(0, Math.round((P[foe].maxHp || 2000) - Math.max(0, P[foe].hp)));
+    const taken = Math.max(0, Math.round((P[me].maxHp || 2000) - Math.max(0, P[me].hp)));
+    document.getElementById('result-title').textContent = win ? '🏆 勝利！' : '敗北…';
+    box.classList.toggle('result-win', win);
+    box.classList.toggle('result-lose', !win);
+    const vs = wasBot ? `VS ${CPU_BOT_NAMES[gameState.cpuDifficulty] || 'CPU'}` : `VS ${P[foe].name || '相手'}`;
+    const rows = [
+        ['対戦相手', vs.replace('VS ', '')],
+        ['試合時間', `${Math.floor(sec / 60)}分${String(sec % 60).padStart(2, '0')}秒` + (sec >= SUDDEN_DEATH_FRAMES / CONFIG.FPS ? '（サドンデス）' : '')],
+        ['与えたダメージ', dealt.toLocaleString()],
+        ['受けたダメージ', taken.toLocaleString()],
+        ['置いたユニット', `${(gameState.stats && gameState.stats.placed) || 0}体`]
+    ];
+    if (wasOnline) rows.push(['レート', win ? '+32' : '-32']);
+    const list = document.getElementById('result-stats');
+    list.innerHTML = '';
+    rows.forEach(([k, v]) => {
+        const r = document.createElement('div');
+        r.className = 'result-row';
+        const a = document.createElement('span'); a.textContent = k;
+        const b = document.createElement('b'); b.textContent = v;
+        r.append(a, b);
+        list.appendChild(r);
+    });
+    const again = document.getElementById('btn-result-again');
+    again.textContent = wasBot ? '🔁 もう一度（同じ難易度）' : '🔁 もう一度さがす';
+    again.onclick = () => { box.classList.add('hidden'); if (wasBot) startBotMatch(); else startMatchmaking(); };
+    document.getElementById('btn-result-home').onclick = () => box.classList.add('hidden');
+    box.classList.remove('hidden');
 }
 
 function updateElo(delta) {
@@ -6716,6 +6845,13 @@ function updateStatusBars() {
     setIfChanged('p1-hp-text', 'text', `${p1.name} HP: ${Math.floor(p1.hp).toLocaleString()} / ${maxHp1.toLocaleString()}`);
     setIfChanged('p2-hp-text', 'text', `${p2.name} HP: ${Math.floor(p2.hp).toLocaleString()} / ${maxHp2.toLocaleString()}`);
     setIfChanged('mana-text', 'text', `Mana: ${Math.floor(myMana)}`);
+    // 試合時間（サドンデス中は倍率も）
+    if (gameState.isPlaying && !gameState.isPractice) {
+        const sec = Math.floor((gameState.matchFrames || 0) / CONFIG.FPS);
+        const mul = suddenDeathMul();
+        setIfChanged('match-clock', 'text', `⏱${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}` + (mul > 1 ? ` ⚡×${mul}` : ''));
+        setIfChanged('match-clock', 'color', mul > 1 ? '#ff6b6b' : '#9fd');
+    } else setIfChanged('match-clock', 'text', '');
 
     // 準備時間の表示
     if (gameState.prepTimer > 0) {
@@ -6787,6 +6923,7 @@ function exitPracticeMode() {
 }
 
 function leaveRoom() {
+    hideUnitPreview();
     if (gameState.isMatching) {
         cancelMatch();
     }
