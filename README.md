@@ -34,6 +34,26 @@ AIによって制作された、キメラ合成・デッキ編成・リアルタ
 ※ 無料プランのため、しばらく誰も遊ばないとサーバーが休止し、次に開いたときの起動に数十秒かかります。
 ※ 無料プランではサーバーが再起動すると `server/userdata.json`（レート・デッキなど）と `server/chat_history.json`（全体チャットの履歴）が消えることがあります。レートなどは各プレイヤーのブラウザにも保存されています。
 
+### 🇸🇬 サーバーをシンガポールに移す（オンライン対戦のラグをへらす）
+
+今のサーバーはアメリカ（オレゴン）にあり、日本からの往復に約0.1秒かかります（2026-11-21に測定）。日本から近いシンガポールに移すと、待ち時間が短くなる見込みです。Renderではサーバーの場所をあとから変えられないため、新しく作り直します。
+
+1. [Render.com](https://render.com/) にログインし、**「New +」→「Web Service」** を選ぶ。
+2. このリポジトリ（Inm-Legends）を選ぶ。
+3. 次のように入力する。
+   - **Name**: 好きな名前（例: `inamu-legends-sg`。これがURLになります）
+   - **Region**: **Singapore (Southeast Asia)**
+   - **Branch**: `main`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+   - **Instance Type**: **Free**
+4. **「Advanced」→「Add Environment Variable」** で、`NODE_ENV` = `production`、`HOST_NAME` = `いなむーレジェンズ公式サーバー` を足す。
+5. **「Create Web Service」** を押し、数分待つ。表示されたURL（例: `https://inamu-legends-sg.onrender.com`）で遊べるか確かめる。
+6. 新しいほうで問題がなければ、古いサービス（オレゴン）を **「Settings」→「Suspend」** で止めるか削除する。
+
+※ URLが変わるので、友だちには新しいURLを伝えてください。
+※ 新しいサーバーでは、サーバーに保存されていたレートなどは引き継がれません（無料プランでは、もともと再起動で消えることがあります）。各プレイヤーのブラウザに保存されている分は残ります。
+
 ---
 
 ## 💻 自分のパソコンで動かす（テスト用）

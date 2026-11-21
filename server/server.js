@@ -227,6 +227,11 @@ wss.on('connection', (ws) => {
         try {
             // 文字列として扱う（中継時もバイナリではなく文字で送り、受信側の変換の手間を省く）
             const text = message.toString();
+            // 軽量化: 対戦中の中継データ（1秒に15回ほど届く）は、中身を読まずにそのまま相手へ渡す
+            if (text.startsWith('{"type":"signal"')) {
+                relaySignal(ws, text, text.startsWith('{"type":"signal","action":"state"'));
+                return;
+            }
             const data = JSON.parse(text);
 
             // ♟ ☗ 将棋・チェス
@@ -316,19 +321,9 @@ wss.on('connection', (ws) => {
                     broadcastOnlinePlayers();
                     break;
 
-                case 'signal': {
-                    const currentRoom = rooms.get(ws.roomId);
-                    if (currentRoom) {
-                        const isState = data.action === 'state';
-                        currentRoom.players.forEach(p => {
-                            if (p === ws || p.readyState !== WebSocket.OPEN) return;
-                            // 相手側の受信が詰まっているときは盤面情報だけ間引く（召喚・試合終了などは必ず届ける）
-                            if (isState && p.bufferedAmount > MAX_RELAY_BUFFER) return;
-                            p.send(text);
-                        });
-                    }
+                case 'signal':
+                    relaySignal(ws, text, data.action === 'state');
                     break;
-                }
             }
         } catch (err) {
             console.error('Error handling message:', err);
@@ -343,6 +338,18 @@ wss.on('connection', (ws) => {
         broadcastOnlinePlayers();
     });
 });
+
+// 対戦の中継: 同じ部屋の相手に、届いた文字をそのまま送る
+function relaySignal(ws, text, isState) {
+    const currentRoom = rooms.get(ws.roomId);
+    if (!currentRoom) return;
+    currentRoom.players.forEach(p => {
+        if (p === ws || p.readyState !== WebSocket.OPEN) return;
+        // 相手側の受信が詰まっているときは盤面情報だけ間引く（召喚・試合終了などは必ず届ける）
+        if (isState && p.bufferedAmount > MAX_RELAY_BUFFER) return;
+        p.send(text);
+    });
+}
 
 // 相手側の送信待ちがこれ以上溜まっていたら、盤面情報(state)の中継を見送る
 const MAX_RELAY_BUFFER = 64 * 1024;

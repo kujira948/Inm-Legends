@@ -2798,6 +2798,8 @@ function attemptSummon(row, col) {
 
     if (gameState.players[side].mana >= unitType.cost) {
         if (gameState.stats) gameState.stats.placed++;
+        // オンラインの参加者: ホストの返事を待たずに、置いた場所にうすい影をすぐ出す
+        if (!isLocalAuthority()) LocalGhosts.add(col, row, gameState.selectedUnit);
         if (gameState.isPractice) {
             processSummon({ unitId: unitType.id, row, col, side });
             return;
@@ -3148,6 +3150,7 @@ function isCellOccupied(col, row) {
 }
 
 function processSummon(data) {
+    NetSync.urgent = true;
     const typeKey = Object.keys(UNIT_TYPES).find(k => UNIT_TYPES[k].id === data.unitId);
     const unitDef = UNIT_TYPES[typeKey];
     if (!unitDef) return;
@@ -3223,6 +3226,7 @@ function finalizeSummon(effect) {
 }
 
 function processFireCola(side) {
+    NetSync.urgent = true;
     // 設置済みのコーラを探して発射する
     gameState.units.forEach(u => {
         if (u.side === side && u.type === 'cola' && !u.fired) {
@@ -3320,6 +3324,7 @@ function startGame() {
     gameState.matchFrames = 0;        // 準備時間のあとの試合時間（フレーム）。サドンデスと結果画面に使う
     gameState.suddenLevel = 1;
     gameState.stats = { placed: 0, merges: 0 };
+    LocalGhosts.reset();
     hideUnitPreview();
     // 結果画面・はじめてガイドが開いたままなら閉じる（オンラインで相手が見つかったときなど。盤を押せなくなるのを防ぐ）
     ['result-screen', 'tutorial-modal'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
@@ -3412,6 +3417,7 @@ function attemptFireCola(autoAim = false) {
 }
 
 function processFireColaTargetAll(tx, ty, side) {
+    NetSync.urgent = true;
     if (gameState.prepTimer > 0) return; // 準備中は撃てない（以前はコーラだけ消えていた）
     gameState.units.forEach(u => {
         if (u.side === side && u.type === 'cola' && !u.fired) {
@@ -3577,9 +3583,11 @@ const NetSync = {
     },
 
     // ホスト: ゲームループから毎フレーム呼ぶ
+    urgent: false, // 置いた・合成した・投げたときは、次の順番を待たずにすぐ送る（ラグをへらす）
     trySend() {
         this.frame++;
-        if (this.frame % this.SEND_EVERY !== 0) return;
+        if (this.frame % this.SEND_EVERY !== 0 && !this.urgent) return;
+        this.urgent = false;
         if (socket.bufferedAmount > this.MAX_BUFFERED) return; // 回線が詰まっているときは見送る
         const keyframe = this.sendCount % this.KEYFRAME_EVERY === 0;
         socket.send(JSON.stringify({ type: 'signal', action: 'state', s: this.buildPacket(keyframe) }));
@@ -3592,7 +3600,9 @@ const NetSync = {
         const otherSide = gameState.playerSide === 'left' ? 'right' : 'left';
         const [ly, lhp, lm, ry, rhp, rm, lt, rt] = s.p;
         // 自分の位置は自分で動かしているので、相手の位置だけ反映
-        if (otherSide === 'left') P.left.y = ly; else P.right.y = ry;
+        // 相手の位置は「目標」として受け取り、毎フレーム少しずつ近づけて描く（15回/秒でもカクカクしない）
+        P[otherSide].netY = otherSide === 'left' ? ly : ry;
+        if (P[otherSide].y === undefined || Math.abs(P[otherSide].y - P[otherSide].netY) > 120) P[otherSide].y = P[otherSide].netY;
         P.left.hp = lhp; P.left.mana = lm; P.left.throwTimer = lt;
         P.right.hp = rhp; P.right.mana = rm; P.right.throwTimer = rt;
 
@@ -3639,6 +3649,30 @@ const NetSync = {
         gameState.summoningEffects = (s.e || []).map(ef => (
             ef.typeKey && UNIT_TYPES[ef.typeKey] ? { ...ef, unitDef: UNIT_TYPES[ef.typeKey] } : ef
         ));
+    }
+};
+
+// 👻 先回り表示: 参加者が置いたユニットを、ホストの返事が来るまでうすく見せる（通信の待ち時間を感じにくくする）
+const LocalGhosts = {
+    list: [],
+    add(col, row, key) { this.list.push({ col, row, key, t: performance.now() }); if (this.list.length > 20) this.list.shift(); },
+    reset() { this.list = []; },
+    draw(c) {
+        if (!this.list.length) return;
+        const now = performance.now();
+        this.list = this.list.filter(g => now - g.t < 2500 &&
+            !gameState.units.some(u => u.col === g.col && u.row === g.row && u.hp > 0) &&
+            !gameState.summoningEffects.some(e => e.col === g.col && e.row === g.row));
+        this.list.forEach(g => {
+            const x = g.col * CONFIG.TILE_SIZE + 16, y = g.row * CONFIG.TILE_SIZE + 16;
+            const spr = ASSETS[g.key];
+            c.save();
+            c.globalAlpha = 0.35 + 0.15 * Math.sin(now / 90);
+            if (spr) c.drawImage(spr, x - 16, y - 16);
+            c.strokeStyle = 'rgba(120, 220, 255, 0.8)'; c.lineWidth = 1.5;
+            c.strokeRect(x - 15, y - 15, 30, 30);
+            c.restore();
+        });
     }
 };
 
@@ -3694,6 +3728,11 @@ function gameLoop(timestamp = 0) {
 
 function update() {
     updatePlayerMovement();
+    // オンラインの参加者: 相手の本体を受け取った位置へなめらかに近づける
+    if (!isLocalAuthority()) {
+        const other = gameState.players[gameState.playerSide === 'left' ? 'right' : 'left'];
+        if (other.netY !== undefined) other.y += (other.netY - other.y) * 0.45;
+    }
 
     // 🤖 CPUの思考ルーチン実行（CPU対戦・練習場でかかしをCPUにしたとき）
     if (gameState.isBotMatch || Sandbox.cpuActive()) {
@@ -4264,6 +4303,7 @@ function spawnBullet(x, y, vx, vy, side, extra = {}) {
 }
 
 function processFireColaTarget(cx, cy, tx, ty, side) {
+    NetSync.urgent = true;
     if (gameState.prepTimer > 0) return; // 準備中は撃てない（以前はコーラだけ消えていた）
     const u = gameState.units.find(u => u.side === side && u.type === 'cola' && !u.fired && u.x === cx && u.y === cy);
     if (u) { u.fired = true; u.hp = -1; fireColaTarget(u, tx, ty); }
@@ -6032,6 +6072,7 @@ function applySecretInheritance(target, src, chimera, chimeraKey) {
 }
 
 function processExtraction(targetCol, targetRow, srcCol, srcRow, side) {
+    NetSync.urgent = true;
     const target = gameState.units.find(u => u.col === targetCol && u.row === targetRow && u.side === side && u.hp > 0);
     const src = gameState.units.find(u => u.col === srcCol && u.row === srcRow && u.side === side && u.hp > 0);
     if (!target || !src || target === src) return;
@@ -6468,6 +6509,8 @@ function isLocalAuthority() {
 }
 
 function attemptFireColaTarget(cola, tx, ty) {
+    // オンラインの参加者: 投げたコーラはホストの返事を待たずにすぐ消して見せる
+    if (!isLocalAuthority()) { cola.localFiredAt = performance.now(); }
     // 練習場・CPU戦・ホストは自分で発射する（以前はサーバーに送るだけで、CPU戦では何も起きなかった）
     if (isLocalAuthority()) processFireColaTarget(cola.x, cola.y, tx, ty, gameState.playerSide);
     if (gameState.isPractice || gameState.isBotMatch) return;
@@ -6618,7 +6661,9 @@ function draw() {
     drawPlayer('right', 'player_right');
 
     // ユニット描画
+    const nowMs = performance.now();
     gameState.units.forEach(u => {
+        if (u.localFiredAt && nowMs - u.localFiredAt < 2000) return; // 参加者が投げたコーラ（ホストの返事待ち）
         // キメラの場合はキメラスプライト、通常はtypeKeyのスプライトを使用
         const sprKey = (u.isSecretChimera && u.chimeraId) ? u.chimeraId : u.typeKey;
         const sprite = ASSETS[sprKey] || ASSETS[u.typeKey];
@@ -6796,6 +6841,9 @@ function draw() {
             ctx.restore();
         }
     });
+
+    // 👻 参加者が置いたユニットの影（ホストの返事待ち）
+    LocalGhosts.draw(ctx);
 
     // 🌟 隕石・種・結晶・ビーム
     SecretSkills.draw(ctx);
